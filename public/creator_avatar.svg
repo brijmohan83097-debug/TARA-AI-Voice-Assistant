@@ -1,0 +1,171 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient matching Tara Cyber Theme & Selfie Background -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a192f"/>
+      <stop offset="50%" stop-color="#112240"/>
+      <stop offset="100%" stop-color="#0d3b66"/>
+    </linearGradient>
+
+    <!-- Corrugated wall texture / Shutter lines in background -->
+    <pattern id="shutterPattern" width="40" height="20" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="10" x2="40" y2="10" stroke="#1d4e89" stroke-width="1.5" opacity="0.35"/>
+      <line x1="0" y1="20" x2="40" y2="20" stroke="#00b4d8" stroke-width="0.8" opacity="0.2"/>
+    </pattern>
+
+    <!-- Skin Tone Gradients -->
+    <linearGradient id="skinBase" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#e09d6e"/>
+      <stop offset="60%" stop-color="#c87f4f"/>
+      <stop offset="100%" stop-color="#a86235"/>
+    </linearGradient>
+
+    <linearGradient id="skinShadow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#965228" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#733c19" stop-opacity="0.9"/>
+    </linearGradient>
+
+    <!-- Hair Gradient with natural highlights -->
+    <linearGradient id="hairGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2a2424"/>
+      <stop offset="35%" stop-color="#161313"/>
+      <stop offset="70%" stop-color="#0d0b0b"/>
+      <stop offset="100%" stop-color="#201c1c"/>
+    </linearGradient>
+
+    <!-- Green and Navy Plaid Shirt Pattern -->
+    <linearGradient id="shirtBase" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1b4332"/>
+      <stop offset="50%" stop-color="#17382b"/>
+      <stop offset="100%" stop-color="#081c15"/>
+    </linearGradient>
+
+    <!-- Holographic Outer Glow -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Background Circle Canvas -->
+  <rect width="400" height="400" rx="200" fill="url(#bgGrad)"/>
+  <rect width="400" height="400" rx="200" fill="url(#shutterPattern)"/>
+
+  <!-- Subtle Cyber Ring Orbit in Background -->
+  <circle cx="200" cy="200" r="185" fill="none" stroke="#00f0ff" stroke-width="1.5" stroke-dasharray="8 6" opacity="0.4"/>
+  <circle cx="200" cy="200" r="195" fill="none" stroke="#00f0ff" stroke-width="0.8" opacity="0.25"/>
+
+  <!-- Plaid Button-Up Shirt (Green, Navy, and White Grid as in user photo) -->
+  <g id="body-shirt">
+    <!-- Base Torso -->
+    <path d="M70 400 L80 340 Q130 300 170 300 L230 300 Q270 300 320 340 L330 400 Z" fill="url(#shirtBase)"/>
+    
+    <!-- Navy and Dark Green Plaid Stripes -->
+    <path d="M100 325 L100 400 M140 310 L140 400 M180 305 L180 400 M220 305 L220 400 M260 310 L260 400 M300 325 L300 400" stroke="#0f261e" stroke-width="16" opacity="0.65"/>
+    <path d="M70 330 Q200 340 330 330 M70 365 Q200 375 330 365" stroke="#0f261e" stroke-width="14" opacity="0.65"/>
+    
+    <!-- White / Light Accent Lines on Plaid -->
+    <path d="M115 320 L115 400 M195 305 L195 400 M245 305 L245 400 M285 320 L285 400" stroke="#d8f3dc" stroke-width="2" opacity="0.75"/>
+    <path d="M75 345 Q200 355 325 345 M75 385 Q200 395 325 385" stroke="#d8f3dc" stroke-width="2" opacity="0.75"/>
+
+    <!-- Shirt Placket Center -->
+    <rect x="190" y="310" width="20" height="90" fill="#143427" stroke="#d8f3dc" stroke-width="1" opacity="0.9"/>
+    <!-- Button 1 -->
+    <circle cx="200" cy="335" r="3.5" fill="#f8f9fa" stroke="#495057" stroke-width="1"/>
+    <!-- Button 2 -->
+    <circle cx="200" cy="370" r="3.5" fill="#f8f9fa" stroke="#495057" stroke-width="1"/>
+
+    <!-- Shirt Collars -->
+    <path d="M165 300 L200 340 L185 295 Z" fill="#1b4332" stroke="#2d6a4f" stroke-width="2"/>
+    <path d="M235 300 L200 340 L215 295 Z" fill="#1b4332" stroke="#2d6a4f" stroke-width="2"/>
+  </g>
+
+  <!-- Neck -->
+  <g id="neck">
+    <path d="M172 260 L172 310 Q200 325 228 310 L228 260 Z" fill="url(#skinBase)"/>
+    <path d="M172 260 Q200 280 228 260 L228 275 Q200 295 172 275 Z" fill="url(#skinShadow)" opacity="0.6"/>
+  </g>
+
+  <!-- Head Base -->
+  <g id="head">
+    <!-- Ears -->
+    <ellipse cx="128" cy="195" rx="14" ry="24" fill="#c87f4f"/>
+    <ellipse cx="128" cy="195" rx="8" ry="15" fill="#965228" opacity="0.6"/>
+    <ellipse cx="272" cy="195" rx="14" ry="24" fill="#c87f4f"/>
+    <ellipse cx="272" cy="195" rx="8" ry="15" fill="#965228" opacity="0.6"/>
+
+    <!-- Face Shape (Jaw, Cheeks, Chin) -->
+    <path d="M136 160 Q132 220 155 255 Q180 282 200 284 Q220 282 245 255 Q268 220 264 160 Q200 135 136 160 Z" fill="url(#skinBase)"/>
+
+    <!-- Soft Cheek/Jaw Shading -->
+    <path d="M138 200 Q145 240 165 265 Q180 278 200 280 Q180 265 160 230 Q145 190 138 200 Z" fill="url(#skinShadow)" opacity="0.4"/>
+    <path d="M262 200 Q255 240 235 265 Q220 278 200 280 Q220 265 240 230 Q255 190 262 200 Z" fill="url(#skinShadow)" opacity="0.4"/>
+
+    <!-- Eyes and Eyebrows -->
+    <!-- Left Eyebrow -->
+    <path d="M152 170 Q168 162 186 168" stroke="#121010" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <!-- Right Eyebrow -->
+    <path d="M214 168 Q232 162 248 170" stroke="#121010" stroke-width="5" stroke-linecap="round" fill="none"/>
+
+    <!-- Left Eye -->
+    <ellipse cx="170" cy="182" rx="11" ry="7" fill="#ffffff"/>
+    <circle cx="171" cy="182" r="5.5" fill="#362312"/>
+    <circle cx="171" cy="182" r="2.8" fill="#110d0a"/>
+    <circle cx="169" cy="180" r="1.5" fill="#ffffff" opacity="0.9"/>
+    <path d="M158 181 Q170 174 182 181" stroke="#251a14" stroke-width="2.5" fill="none"/>
+    <path d="M160 184 Q170 189 180 184" stroke="#7d4323" stroke-width="1.5" fill="none"/>
+
+    <!-- Right Eye -->
+    <ellipse cx="230" cy="182" rx="11" ry="7" fill="#ffffff"/>
+    <circle cx="229" cy="182" r="5.5" fill="#362312"/>
+    <circle cx="229" cy="182" r="2.8" fill="#110d0a"/>
+    <circle cx="227" cy="180" r="1.5" fill="#ffffff" opacity="0.9"/>
+    <path d="M218 181 Q230 174 242 181" stroke="#251a14" stroke-width="2.5" fill="none"/>
+    <path d="M220 184 Q230 189 240 184" stroke="#7d4323" stroke-width="1.5" fill="none"/>
+
+    <!-- Nose -->
+    <path d="M198 174 Q202 195 204 210 Q207 218 200 220 Q193 218 196 210" stroke="#8d4922" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    <path d="M191 216 Q200 222 209 216" stroke="#683416" stroke-width="2.2" fill="none"/>
+
+    <!-- Mustache & Neat Trimmed Beard (Characteristic of Mr. Brijmohan Kumar) -->
+    <!-- Mustache -->
+    <path d="M182 228 Q193 226 200 231 Q207 226 218 228 Q223 234 214 240 Q200 236 186 240 Q177 234 182 228 Z" fill="#181414"/>
+    
+    <!-- Lips beneath mustache -->
+    <path d="M188 244 Q200 248 212 244" stroke="#9e4e2a" stroke-width="3" stroke-linecap="round" fill="none"/>
+
+    <!-- Trimmed Beard along Chin, Jawline & Sideburns -->
+    <path d="M136 188 L138 210 Q142 245 168 268 Q188 284 200 284 Q212 284 232 268 Q258 245 262 210 L264 188 
+             Q260 215 246 242 Q230 262 214 266 Q200 268 186 266 Q170 262 154 242 Q140 215 136 188 Z" fill="#141111"/>
+    <!-- Soul Patch -->
+    <path d="M196 250 Q200 252 204 250 L203 260 Q200 263 197 260 Z" fill="#181414"/>
+
+    <!-- Hair (Full, stylish, textured dark hair brushed up/back as in selfie) -->
+    <path d="M130 170 
+             Q126 135 140 108 
+             Q160 76 195 72 
+             Q235 68 262 96 
+             Q276 116 270 156 
+             Q265 142 258 135
+             Q240 120 200 124
+             Q160 122 142 144
+             Q135 156 130 170 Z" fill="url(#hairGrad)"/>
+
+    <!-- Natural Hair Volume Strands & Texture -->
+    <path d="M148 106 Q175 80 206 82 Q240 84 256 108" stroke="#352e2e" stroke-width="4" stroke-linecap="round" fill="none"/>
+    <path d="M165 92 Q196 74 228 78" stroke="#443c3c" stroke-width="3" stroke-linecap="round" fill="none"/>
+    <path d="M178 82 Q208 68 238 74" stroke="#251f1f" stroke-width="4" stroke-linecap="round" fill="none"/>
+    <!-- Left sideburn -->
+    <path d="M132 165 L136 190 L140 175 Z" fill="#161313"/>
+    <!-- Right sideburn -->
+    <path d="M268 165 L264 190 L260 175 Z" fill="#161313"/>
+  </g>
+
+  <!-- Creator Badge Overlay at Bottom Right -->
+  <g transform="translate(250, 310)">
+    <rect x="0" y="0" width="125" height="34" rx="17" fill="#051923" stroke="#00f0ff" stroke-width="2" filter="url(#glow)"/>
+    <!-- Small Star/Sparkle -->
+    <polygon points="18,12 21,17 26,17 22,20 24,25 18,22 13,25 15,20 11,17 16,17" fill="#fcd34d"/>
+    <text x="34" y="22" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="900" fill="#ffffff" letter-spacing="1">CREATOR</text>
+  </g>
+</svg>

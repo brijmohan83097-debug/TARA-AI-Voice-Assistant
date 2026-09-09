@@ -1,0 +1,6 @@
+{
+  "name": "Tara (Tara Voice Assistant)",
+  "description": "Full-featured AI voice assistant dashboard featuring Tara, real-time Gemini Flash conversational intelligence, Hindi & English speech synthesis, cognitive mind map, and quick skills cards.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
