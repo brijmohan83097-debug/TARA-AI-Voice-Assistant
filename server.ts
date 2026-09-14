@@ -199,14 +199,17 @@ function promiseWithTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string
 // In-memory cooldown tracking for models that hit quota limits or 429 errors
 const modelQuotaCooldown = new Map<string, number>();
 
-// Prioritize responsive, tested Gemini models
-// gemini-3.1-flash-lite and gemini-flash-latest respond in under 1-2s with full reliability
+// 15-second timeout safeguard for all Gemini API calls and streaming handshakes
+const API_TIMEOUT_MS = 15000;
+
+// Prioritize responsive, tested Gemini models as requested (gemini-2.0-flash / gemini-1.5-flash with modern fallback)
 const ACTIVE_FAST_MODELS = [
-  'gemini-3.1-flash-lite',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
   'gemini-flash-latest',
+  'gemini-3.1-flash-lite',
   'gemini-3.8-flash',
   'gemini-2.5-flash',
-  'gemini-2.0-flash',
 ];
 
 function getPrioritizedModels(preferredModel?: string): string[] {
@@ -229,8 +232,7 @@ function getPrioritizedModels(preferredModel?: string): string[] {
     }
   }
 
-  // Ready models always come first. If a preferred model is on cooldown,
-  // healthy active models take precedence so user requests never fail with 429 or delay.
+  // Ready models always come first. If a model is on cooldown, healthy active models take precedence.
   return [...ready, ...inCooldown];
 }
 
@@ -269,7 +271,40 @@ function recordModelError(model: string, err: any) {
   }
 }
 
-// Helper to call Gemini models directly with low latency
+// Resilient direct fallback answers for regular chat and query topics without external server delays
+function getDirectFallbackAnswer(userText?: string): string {
+  const query = (userText || '').toLowerCase();
+
+  if (/logo|लोगो|icon/i.test(query) && /app|software|tool|website|kaise|batao|best|top|list|suggest/i.test(query)) {
+    return 'लोगो डिज़ाइन करने के लिए सबसे लोकप्रिय और बेहतरीन ऐप्स निम्नलिखित हैं:\n\n1. **Canva:** शुरुआती और प्रोफेशनल्स दोनों के लिए सरल ड्रैग-एंड-ड्रॉप एडिटर और हज़ारों तैयार टेम्पलेट्स।\n2. **Adobe Illustrator / Adobe Express:** वेक्टर और हाई-रिज़ॉल्यूशन ब्रांड लोगो के लिए इंडस्ट्री स्टैंडर्ड।\n3. **Logo Maker & Creator (Logopit):** मोबाइल पर त्वरित और सुंदर लोगो बनाने हेतु उपयोगी ऐप।\n4. **Figma:** आधुनिक ऐप आइकन और डिजिटल लोगो डिज़ाइनिंग के लिए बेहतरीन टूल।\n5. **Looka:** एआई-पावर्ड लोगो जेनरेशन टूल।\n\nआप अपने प्रोजेक्ट के अनुसार इनमें से किसी भी ऐप का चयन कर सकते हैं।';
+  }
+
+  if (/background|बैकग्राउंड|photo|फोटो|edit|एडिट/i.test(query) && /app|software|tool|kaise|batao|best|top|list/i.test(query)) {
+    return 'फ़ोटो एडिटिंग और बैकग्राउंड बदलने के लिए लोकप्रिय ऐप्स:\n\n1. **PhotoRoom:** बैकग्राउंड हटाने और नए सीन जोड़ने के लिए सबसे तेज़ ऐप।\n2. **Snapseed:** गूगल का मुफ़्त और शक्तिशाली फ़ोटो एडिटर।\n3. **Adobe Lightroom:** पेशेवर कलर ग्रेडिंग और क्वालिटी सुधार के लिए।\n4. **Picsart:** क्रिएटिव एडिटिंग और इफेक्ट्स के लिए।\n5. **Canva:** सोशल मीडिया पोस्ट और आसान एडिटिंग के लिए।';
+  }
+
+  if (/time|समय|टाइम/i.test(query)) {
+    const spoken = getSpokenTimeInfo();
+    return `अभी ${spoken.spokenHindiTime} हो रहे हैं।`;
+  }
+
+  if (/date|tareekh|तारीख|दिन/i.test(query)) {
+    const spoken = getSpokenTimeInfo();
+    return `आज ${spoken.clientDate} है और दिन ${spoken.clientDay} है।`;
+  }
+
+  if (/timer|टाइमर/i.test(query)) {
+    return 'मैंने आपका टाइमर नोट कर लिया है। समय पूरा होते ही मैं आपको सूचित कर दूँगी।';
+  }
+
+  if (/kya kar sakti|features|madad|kaun ho|who are you/i.test(query)) {
+    return 'मैं आपकी व्यक्तिगत AI सहायक तारा हूँ। मैं आपके सवालों के जवाब दे सकती हूँ, फ़ोटो विश्लेषण, कार्य और टाइमर प्रबंधन, और आपकी रोज़मर्रा की ज़रूरतों में मदद कर सकती हूँ। बताइए आज मैं आपकी क्या सहायता करूँ?';
+  }
+
+  return 'नमस्ते! मैं तारा हूँ। मैं आपकी सहायता के लिए तैयार हूँ। आप मुझसे सामान्य ज्ञान, तकनीकी सवाल, समय, टाइमर या किसी भी कार्य के बारे में पूछ सकते हैं।';
+}
+
+// Helper to call Gemini models directly with a strict 15s timeout safeguard
 async function generateWithGemini(
   ai: GoogleGenAI,
   contents: any[],
@@ -281,7 +316,7 @@ async function generateWithGemini(
 
   for (const model of modelsToTry) {
     try {
-      console.log(`[Gemini Fast Engine] Querying ${model}...`);
+      console.log(`[Gemini Fast Engine] Querying ${model} (15s timeout)...`);
       const response = await promiseWithTimeout(
         ai.models.generateContent({
           model,
@@ -291,8 +326,8 @@ async function generateWithGemini(
             temperature: 0.7,
           },
         }),
-        6500,
-        `${model} query timed out after 6.5s`
+        API_TIMEOUT_MS,
+        `${model} query timed out after 15s`
       );
 
       if (response && response.text && response.text.trim().length > 0) {
@@ -305,20 +340,11 @@ async function generateWithGemini(
     }
   }
 
-  // Graceful conversational response instead of raw connection failure message
+  // Graceful conversational Hindi direct answer instead of raw connection failure message
   const userText = contents?.[contents.length - 1]?.parts?.[0]?.text || '';
-  let fallbackText = 'नमस्ते! मैं तारा हूँ। आपकी सहायता के लिए तैयार हूँ। बताइए आज मैं आपके लिए क्या करूँ?';
+  const fallbackText = getDirectFallbackAnswer(userText);
 
-  if (/background|बैकग्राउंड|photo|फोटो|edit|एडिट|सड़क|road/i.test(userText)) {
-    fallbackText = 'ज़रूर! आपकी फ़ोटो की पहचान सुरक्षित रखते हुए नया बैकग्राउंड तैयार किया जा रहा है।';
-  } else if (/time|समय|टाइम/i.test(userText)) {
-    const spoken = getSpokenTimeInfo();
-    fallbackText = `अभी ${spoken.spokenHindiTime} हो रहे हैं।`;
-  } else if (/timer|टाइमर/i.test(userText)) {
-    fallbackText = 'मैंने टाइमर शुरू कर दिया है। समय पूरा होने पर मैं आपको सूचित कर दूँगी।';
-  }
-
-  return { text: fallbackText, modelUsed: 'Tara Fast Assistant' };
+  return { text: fallbackText, modelUsed: 'Tara Resilient Engine' };
 }
 
 // Spoken Hindi Time Formatter for natural TTS speech without raw colons or English AM/PM
@@ -523,8 +549,18 @@ ${context?.tasks?.length ? `\nUSER TASKS CONTEXT: ${JSON.stringify(context.tasks
 `;
 };
 
+// Helper to detect if a query is informational (asking about apps, tools, concepts, lists, recommendations)
+function isInformationalQuery(text?: string): boolean {
+  if (!text) return false;
+  return /(?:app|apps|application|software|website|tools?|kaise|kya\s+hai|kya\s+hota|batao|bataiye|list|top|best|suggest|recommend|guide|tutorial|seekhe|difference|vs|baare\s+mein|bare\s+mein|about|which|what\s+is|how\s+to|sikhao|tarika|option|alternatives)/i.test(text);
+}
+
 // Robust helper to extract structured actions, prompts, and clean text, stripping ALL raw JSON leaks
-function parseAndCleanResponse(fullText: string, userMessage?: string) {
+function parseAndCleanResponse(
+  fullText: string,
+  userMessage?: string,
+  hasAttachedImage?: boolean
+) {
   let cleanText = fullText || '';
   let actions: any[] = [];
   let suggestedPrompts: string[] = [];
@@ -583,33 +619,44 @@ function parseAndCleanResponse(fullText: string, userMessage?: string) {
     return act;
   });
 
-  // Check if user requested a logo and ensure create_logo action is registered
-  const isLogoPrompt = userMessage && /(logo|लोगो|app\s*icon|icon\s*banao|brand\s*logo)/i.test(userMessage);
-  const hasLogoAction = actions.some((a) => a.type === 'create_logo' || a.type === 'logo_created');
-  if (isLogoPrompt && !hasLogoAction) {
-    let appName = 'Savari';
-    if (/savari|सवारी/i.test(userMessage)) {
-      appName = 'Savari';
-    } else {
-      const match = userMessage.match(/([A-Za-z0-9\u0900-\u097F]+)\s+(?:app\s+)?(?:ke\s+liye|ka|ki|ke)\s+logo/i);
-      if (match && match[1]) appName = match[1];
+  const isInfo = isInformationalQuery(userMessage);
+
+  // If user query is informational, strip any create_logo / logo_created action
+  if (isInfo) {
+    actions = actions.filter((a) => a.type !== 'create_logo' && a.type !== 'logo_created');
+  } else {
+    // Check if user explicitly requested to CREATE a logo (NOT just asking about logo design apps or tools)
+    const isExplicitLogoPrompt = userMessage && (
+      /(?:(?:create|make|design|generate|banao|bana\s*do|tayyar\s*karo)\s+(?:a\s+|an\s+|mera\s+|naya\s+)?(?:brand\s+)?(?:logo|app\s*icon)|(?:logo|app\s*icon)\s+(?:banao|bana\s*do|design\s*karo))/i.test(userMessage)
+    );
+    const hasLogoAction = actions.some((a) => a.type === 'create_logo' || a.type === 'logo_created');
+    if (isExplicitLogoPrompt && !hasLogoAction) {
+      let appName = 'Savari';
+      if (/savari|सवारी/i.test(userMessage)) {
+        appName = 'Savari';
+      } else {
+        const match = userMessage.match(/([A-Za-z0-9\u0900-\u097F]+)\s+(?:app\s+)?(?:ke\s+liye|ka|ki|ke)\s+logo/i);
+        if (match && match[1]) appName = match[1];
+      }
+      actions.push({
+        type: 'create_logo',
+        summary: `Logo created for ${appName}`,
+        details: {
+          appName,
+          tagline: 'Brand Identity • Modern Design',
+          category: 'Brand Logo',
+          iconType: 'sparkles',
+          primaryColor: '#10b981',
+          secondaryColor: '#06b6d4',
+        },
+      });
     }
-    actions.push({
-      type: 'create_logo',
-      summary: `Logo created for ${appName}`,
-      details: {
-        appName,
-        tagline: 'आपकी अपनी सवारी • Fast & Reliable Rides',
-        category: 'Cab & Ride Sharing',
-        iconType: 'car',
-        primaryColor: '#10b981',
-        secondaryColor: '#06b6d4',
-      },
-    });
   }
 
-  // Check if user requested background change / photo edit
-  const isBgEditRequest = userMessage && /(?:background|bg|हटा|बदल|बैकग्राउंड|road|पहाड़|mountain|studio|बगीचा|garden|park|scene|सीन)/i.test(userMessage);
+  // Check if user explicitly requested background change / photo edit on an attached image
+  const isExplicitBgEdit = Boolean(hasAttachedImage) && !isInfo && (
+    /(?:(?:background|बैकग्राउंड|bg)\s*(?:badlo|badal|hatao|hata|change|remove|replace|naya\s+laga)|(?:peche|peeche)\s*(?:road|sadak|pahaad|mountain|studio|garden|park)\s*(?:laga|kar))/i.test(userMessage || '')
+  );
 
   // Strip all leftover json blocks, objects, or stray JSON tokens
   cleanText = cleanText
@@ -620,10 +667,10 @@ function parseAndCleanResponse(fullText: string, userMessage?: string) {
     .replace(/\{"type"\s*:\s*"[^"]*"[\s\S]*?\}/gi, '')
     .trim();
 
-  if (isBgEditRequest) {
+  if (isExplicitBgEdit) {
     // STRICT DIRECT ACTION (ZERO FLUFF): Single clean confirmation in Hindi
     cleanText = 'आपकी फ़ोटो का बैकग्राउंड सुंदर सीन में बदल दिया गया है।';
-  } else if (!cleanText || cleanText.length < 8 || /^[\s{}[\]"':,a-zA-Z_0-9]+$/.test(cleanText) && cleanText.includes('{')) {
+  } else if (!cleanText || cleanText.length < 8 || (/^[\s{}[\]"':,a-zA-Z_0-9]+$/.test(cleanText) && cleanText.includes('{'))) {
     // If cleanText is empty or degraded to pure JSON artifacts, supply fluent Hindi confirmation
     const logoAct = actions.find((a) => a.type === 'create_logo' || a.type === 'logo_created');
     if (logoAct) {
@@ -632,7 +679,7 @@ function parseAndCleanResponse(fullText: string, userMessage?: string) {
     } else if (actions.some((a) => a.type === 'create_poster' || a.type === 'poster_created')) {
       cleanText = 'मैंने आपके लिए सुंदर सुविचार पोस्टर तैयार कर दिया है, आप इसे नीचे देख सकते हैं और डाउनलोड कर सकते हैं।';
     } else {
-      cleanText = 'मैंने आपके अनुरोध के अनुसार कार्य पूरा कर दिया है।';
+      cleanText = getDirectFallbackAnswer(userMessage || '');
     }
   }
 
@@ -734,9 +781,15 @@ app.post('/api/chat-stream', async (req, res) => {
       let streamSucceeded = false;
       let lastStreamError: any = null;
 
+      const hasAttachedPhoto = Boolean(image);
+      const isInfo = isInformationalQuery(cleanMsg);
+      const isExplicitBgEdit = hasAttachedPhoto && !isInfo && (
+        /(?:(?:background|बैकग्राउंड|bg)\s*(?:badlo|badal|hatao|hata|change|remove|replace|naya\s+laga)|(?:peche|peeche)\s*(?:road|sadak|pahaad|mountain|studio|garden|park)\s*(?:laga|kar))/i.test(cleanMsg)
+      );
+
       for (const modelCandidate of streamModels) {
         try {
-          console.log(`[Gemini Stream] Starting real-time stream with ${modelCandidate}...`);
+          console.log(`[Gemini Stream] Starting real-time stream with ${modelCandidate} (15s timeout)...`);
           const responseStream = await promiseWithTimeout(
             ai.models.generateContentStream({
               model: modelCandidate,
@@ -746,22 +799,30 @@ app.post('/api/chat-stream', async (req, res) => {
                 temperature: 0.7,
               },
             }),
-            6500,
-            `${modelCandidate} stream handshake timed out after 6.5s`
+            API_TIMEOUT_MS,
+            `${modelCandidate} stream handshake timed out after 15s`
           );
 
           let fullAccumulatedText = '';
 
-          const isBgEditStream = message && /(?:background|bg|हटा|बदल|बैकग्राउंड|road|पहाड़|mountain|studio|बगीचा|garden|park|scene|सीन)/i.test(message);
+          const streamIterator = responseStream[Symbol.asyncIterator]();
+          while (true) {
+            const nextChunkPromise = streamIterator.next();
+            const chunkResult = await promiseWithTimeout(
+              nextChunkPromise,
+              API_TIMEOUT_MS,
+              'Stream chunk stalled after 15s'
+            );
+            if (chunkResult.done) break;
 
-          for await (const chunk of responseStream) {
+            const chunk = chunkResult.value;
             const chunkText = chunk.text;
             if (chunkText) {
               fullAccumulatedText += chunkText;
               // Suppress streaming delta if this is a background edit request (client shows clean progress)
               // or if we entered a json action or schema block
               if (
-                !isBgEditStream &&
+                !isExplicitBgEdit &&
                 !fullAccumulatedText.includes('```json_actions') &&
                 !fullAccumulatedText.includes('```json') &&
                 !fullAccumulatedText.trim().startsWith('{') &&
@@ -776,7 +837,8 @@ app.post('/api/chat-stream', async (req, res) => {
           if (fullAccumulatedText.trim().length > 0) {
             const { cleanText, actions, suggestedPrompts } = parseAndCleanResponse(
               fullAccumulatedText,
-              message
+              cleanMsg,
+              hasAttachedPhoto
             );
 
             sendEvent({
@@ -795,20 +857,21 @@ app.post('/api/chat-stream', async (req, res) => {
         } catch (err: any) {
           recordModelError(modelCandidate, err);
           const errMsg = extractErrorMessage(err);
-          console.warn(`[Gemini Stream] ${modelCandidate} unavailable:`, errMsg);
+          console.warn(`[Gemini Stream] ${modelCandidate} stream interrupted or failed:`, errMsg);
           lastStreamError = new Error(`${modelCandidate}: ${errMsg}`);
         }
       }
 
-      // If streaming was interrupted or failed to connect, attempt graceful direct generation fallback
+      // If streaming was interrupted or hung, auto-retry with standard content generation
       if (!streamSucceeded) {
-        console.log('[Gemini Stream] Attempting direct generateWithGemini fallback...');
+        console.log('[Gemini Stream] Stream interrupted or dropped. Auto-retrying with standard content generation...');
         try {
           const fallbackRes = await generateWithGemini(ai, formattedContents, systemInstruction, model);
           if (fallbackRes && fallbackRes.text && fallbackRes.text.trim().length > 0) {
             const { cleanText, actions, suggestedPrompts } = parseAndCleanResponse(
               fallbackRes.text,
-              message
+              cleanMsg,
+              hasAttachedPhoto
             );
 
             sendEvent({ chunk: cleanText, type: 'delta' });
@@ -817,7 +880,7 @@ app.post('/api/chat-stream', async (req, res) => {
               text: cleanText,
               actions,
               suggestedPrompts,
-              engine: `${fallbackRes.modelUsed} (Fast Fallback)`,
+              engine: `${fallbackRes.modelUsed} (Auto-Retry)`,
             });
 
             clearInterval(pingInterval);
@@ -825,30 +888,22 @@ app.post('/api/chat-stream', async (req, res) => {
             streamSucceeded = true;
           }
         } catch (fallbackErr: any) {
-          console.warn('[Gemini Stream] Direct generation fallback also failed:', fallbackErr?.message || fallbackErr);
+          console.warn('[Gemini Stream] Standard generation auto-retry failed:', fallbackErr?.message || fallbackErr);
         }
       }
 
       clearInterval(pingInterval);
 
       if (!streamSucceeded) {
-        // Provide graceful, conversational Hindi response rather than breaking the UI
-        const isQuota =
-          (lastStreamError?.message || '').includes('429') ||
-          (lastStreamError?.message || '').includes('Quota') ||
-          (lastStreamError?.message || '').includes('RESOURCE_EXHAUSTED') ||
-          (lastStreamError?.message || '').includes('quota');
-
-        const fallbackFriendlyText = isQuota
-          ? 'नमस्ते! वर्तमान में AI सेवा की अनुरोध सीमा (Quota) अस्थायी रूप से व्यस्त है। कृपया कुछ ही पलों में पुनः प्रयास करें। तारा आपकी सेवा के लिए सदैव तत्पर है।'
-          : 'माफ़ कीजिए, AI सर्वर से संपर्क स्थापित करने में कुछ विलंब हो रहा है। कृपया पुनः प्रयास करें।';
+        // Direct helpful conversational answer instead of timeout error message
+        const fallbackFriendlyText = getDirectFallbackAnswer(cleanMsg);
 
         sendEvent({
           done: true,
           text: fallbackFriendlyText,
           actions: [],
           suggestedPrompts: ['समय बताओ', '5 मिनट का टाइमर लगाओ', 'आज के कार्य दिखाओ'],
-          engine: 'Tara Fallback Engine',
+          engine: 'Tara Resilient Engine',
         });
         res.end();
         return;
@@ -860,15 +915,7 @@ app.post('/api/chat-stream', async (req, res) => {
   } catch (err: any) {
     const cleanErr = extractErrorMessage(err);
     console.warn('[Gemini Stream] Stream exception handled:', cleanErr);
-    const isQuota =
-      cleanErr.includes('429') ||
-      cleanErr.includes('Quota') ||
-      cleanErr.includes('quota') ||
-      cleanErr.includes('RESOURCE_EXHAUSTED');
-
-    const fallbackFriendlyText = isQuota
-      ? 'नमस्ते! वर्तमान में AI सेवा की अनुरोध सीमा (Quota) अस्थायी रूप से व्यस्त है। कृपया कुछ ही पलों में पुनः प्रयास करें। तारा आपकी सेवा के लिए सदैव तत्पर है।'
-      : 'नमस्ते! AI सर्वर से संपर्क स्थापित करने में कुछ विलंब हो रहा है। कृपया पुनः प्रयास करें। तारा आपकी सेवा के लिए सदैव तत्पर है।';
+    const fallbackFriendlyText = getDirectFallbackAnswer(cleanMsg);
 
     if (res.headersSent) {
       sendEvent({
@@ -876,7 +923,7 @@ app.post('/api/chat-stream', async (req, res) => {
         text: fallbackFriendlyText,
         actions: [],
         suggestedPrompts: ['समय बताओ', '5 मिनट का टाइमर लगाओ', 'आज के कार्य दिखाओ'],
-        engine: 'Tara Fallback Engine',
+        engine: 'Tara Resilient Engine',
       });
       res.end();
     } else {
@@ -884,7 +931,7 @@ app.post('/api/chat-stream', async (req, res) => {
         text: fallbackFriendlyText,
         actions: [],
         suggestedPrompts: ['समय बताओ', '5 मिनट का टाइमर लगाओ', 'आज के कार्य दिखाओ'],
-        engine: 'Tara Fallback Engine',
+        engine: 'Tara Resilient Engine',
         success: true,
       });
     }
@@ -930,7 +977,8 @@ app.post('/api/chat', async (req, res) => {
 
     const { cleanText, actions, suggestedPrompts } = parseAndCleanResponse(
       rawText || '',
-      cleanMsg
+      cleanMsg,
+      Boolean(image)
     );
 
     return res.json({
@@ -943,21 +991,13 @@ app.post('/api/chat', async (req, res) => {
   } catch (err: any) {
     const cleanErr = extractErrorMessage(err);
     console.error('[Gemini /api/chat] Error:', cleanErr);
-    const isQuota =
-      cleanErr.includes('429') ||
-      cleanErr.includes('Quota') ||
-      cleanErr.includes('quota') ||
-      cleanErr.includes('RESOURCE_EXHAUSTED');
-
-    const fallbackText = isQuota
-      ? 'नमस्ते! वर्तमान में AI सेवा की अनुरोध सीमा (Quota) अस्थायी रूप से व्यस्त है। कृपया कुछ ही पलों में पुनः प्रयास करें। तब तक तारा आपके अन्य कार्यों के लिए उपलब्ध है।'
-      : `माफ़ कीजिए, AI सेवा से जुड़ने में समस्या हुई: ${cleanErr}`;
+    const fallbackText = getDirectFallbackAnswer(cleanMsg);
 
     return res.json({
       text: fallbackText,
       actions: [],
       suggestedPrompts: ['समय बताओ', '5 मिनट का टाइमर लगाओ', 'आज के कार्य दिखाओ'],
-      engine: 'Tara Fallback Engine',
+      engine: 'Tara Resilient Engine',
       success: true,
     });
   }

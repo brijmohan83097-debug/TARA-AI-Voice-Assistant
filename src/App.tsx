@@ -587,7 +587,9 @@ export default function App() {
 
                     if (parsed.type === 'delta' && parsed.chunk) {
                       accumulatedText += parsed.chunk;
-                      const isBgPrompt = /(?:background|bg|हटा|बदल|बैकग्राउंड|road|पहाड़|mountain|studio|बगीचा|garden|park|scene|सीन)/i.test(effectiveText);
+                      const isInfo = /(?:app|apps|application|software|website|tools?|kaise|kya\s+hai|kya\s+hota|batao|bataiye|list|top|best|suggest|recommend|guide|tutorial|seekhe|difference|vs|baare\s+mein|bare\s+mein|about|which|what\s+is|how\s+to|sikhao|tarika|option|alternatives)/i.test(effectiveText);
+                      const hasActiveAttachment = Boolean(activeMedia?.data || activeMedia?.previewUrl);
+                      const isBgPrompt = hasActiveAttachment && !isInfo && /(?:(?:background|बैकग्राउंड|bg)\s*(?:badlo|badal|hatao|hata|change|remove|replace)|(?:peche|peeche)\s*(?:road|sadak|pahaad|mountain|studio|garden|park)\s*(?:laga|kar))/i.test(effectiveText);
                       if (isBgPrompt) {
                         setChatMessages((prev) =>
                           prev.map((msg) =>
@@ -641,24 +643,25 @@ export default function App() {
           let processedResult: ProcessedPhotoResult | null = null;
           let logoResult: GeneratedLogoResult | null = null;
 
-          const hasLogoAction = Boolean(
+          const isInfo = /(?:app|apps|application|software|website|tools?|kaise|kya\s+hai|kya\s+hota|batao|bataiye|list|top|best|suggest|recommend|guide|tutorial|seekhe|difference|vs|baare\s+mein|bare\s+mein|about|which|what\s+is|how\s+to|sikhao|tarika|option|alternatives)/i.test(effectiveText);
+
+          const hasLogoAction = !isInfo && Boolean(
             finalData?.actions?.some((a: any) => a.type === 'create_logo')
           );
-          const isLogoRequest =
+          const isLogoRequest = !isInfo && (
             hasLogoAction ||
-            /(?:logo|लोगो|app\s*icon|icon\s*design|brand\s*logo|logo\s*ka\s*photo|logo\s*banao|logo\s*bana\s*do)/i.test(
+            /(?:(?:create|make|design|generate|banao|bana\s*do|tayyar\s*karo)\s+(?:a\s+|an\s+|mera\s+|naya\s+)?(?:brand\s+)?(?:logo|app\s*icon)|(?:logo|app\s*icon)\s+(?:banao|bana\s*do|design\s*karo))/i.test(
               effectiveText
-            );
-
-          const lastImageInChat = chatMessages.slice().reverse().find(m => m.imageUrl || m.resultImageUrl);
-          const previousImageUrl = lastImageInChat?.resultImageUrl || lastImageInChat?.imageUrl;
-          const photoSource = activeMedia || (cardData.imageUrl ? { previewUrl: cardData.imageUrl, data: cardData.imageUrl } : null) || (previousImageUrl ? { previewUrl: previousImageUrl, data: previousImageUrl } : null);
-          const hasAttachedPhoto = Boolean(photoSource?.data || photoSource?.previewUrl);
-          const isEditOrBgChange = hasAttachedPhoto && (
-            isImageEditRequest(effectiveText) ||
-            /edit|enhance|clear|filter|background|हटा|बदल|साफ|रोड|पेड़|road|tree|change|remove|replace|\bbg\b|पहाड़|mountain|studio|बगीचा|garden|park|scene|सीन/i.test(effectiveText)
+            )
           );
-          const isQuoteOnly = hasAttachedPhoto && !isEditOrBgChange && /quote|text|सुविचार|लिख|शायरी|thought/i.test(effectiveText);
+
+          const photoSource = activeMedia || (cardData.imageUrl ? { previewUrl: cardData.imageUrl, data: cardData.imageUrl } : null);
+          const hasAttachedPhoto = Boolean(photoSource?.data || photoSource?.previewUrl);
+          const isEditOrBgChange = hasAttachedPhoto && !isInfo && (
+            isImageEditRequest(effectiveText) ||
+            /(?:(?:background|बैकग्राउंड|bg)\s*(?:badlo|badal|hatao|hata|change|remove|replace)|(?:peche|peeche)\s*(?:road|sadak|pahaad|mountain|studio|garden|park)\s*(?:laga|kar))/i.test(effectiveText)
+          );
+          const isQuoteOnly = hasAttachedPhoto && !isEditOrBgChange && !isInfo && /quote|text|सुविचार|लिख|शायरी|thought/i.test(effectiveText);
 
           if (isLogoRequest) {
             try {
@@ -691,13 +694,7 @@ export default function App() {
             } catch (canvasErr) {
               console.warn('Canvas photo processor error:', canvasErr);
             }
-          } else if (hasAttachedPhoto && photoSource) {
-            try {
-              processedResult = await editRealImage(effectiveText, photoSource, finalText);
-            } catch (editErr) {
-              console.warn('Real image edit fallback error:', editErr);
-            }
-          } else if (isRealImageGenRequest(effectiveText)) {
+          } else if (!isInfo && isRealImageGenRequest(effectiveText)) {
             try {
               processedResult = await generateRealImage(effectiveText, finalText);
             } catch (genErr) {
@@ -828,24 +825,25 @@ export default function App() {
           let processedResult: ProcessedPhotoResult | null = null;
           let logoResult: GeneratedLogoResult | null = null;
 
-          const hasLogoAction = Boolean(
+          const isInfo = /(?:app|apps|application|software|website|tools?|kaise|kya\s+hai|kya\s+hota|batao|bataiye|list|top|best|suggest|recommend|guide|tutorial|seekhe|difference|vs|baare\s+mein|bare\s+mein|about|which|what\s+is|how\s+to|sikhao|tarika|option|alternatives)/i.test(effectiveText);
+
+          const hasLogoAction = !isInfo && Boolean(
             data?.actions?.some((a: any) => a.type === 'create_logo')
           );
-          const isLogoRequest =
+          const isLogoRequest = !isInfo && (
             hasLogoAction ||
-            /(?:logo|लोगो|app\s*icon|icon\s*design|brand\s*logo|logo\s*ka\s*photo|logo\s*banao|logo\s*bana\s*do)/i.test(
+            /(?:(?:create|make|design|generate|banao|bana\s*do|tayyar\s*karo)\s+(?:a\s+|an\s+|mera\s+|naya\s+)?(?:brand\s+)?(?:logo|app\s*icon)|(?:logo|app\s*icon)\s+(?:banao|bana\s*do|design\s*karo))/i.test(
               effectiveText
-            );
-
-          const lastImageInChat = chatMessages.slice().reverse().find(m => m.imageUrl || m.resultImageUrl);
-          const previousImageUrl = lastImageInChat?.resultImageUrl || lastImageInChat?.imageUrl;
-          const photoSource = activeMedia || (cardData.imageUrl ? { previewUrl: cardData.imageUrl, data: cardData.imageUrl } : null) || (previousImageUrl ? { previewUrl: previousImageUrl, data: previousImageUrl } : null);
-          const hasAttachedPhoto = Boolean(photoSource?.data || photoSource?.previewUrl);
-          const isEditOrBgChange = hasAttachedPhoto && (
-            isImageEditRequest(effectiveText) ||
-            /edit|enhance|clear|filter|background|हटा|बदल|साफ|रोड|पेड़|road|tree|change|remove|replace|\bbg\b|पहाड़|mountain|studio|बगीचा|garden|park|scene|सीन/i.test(effectiveText)
+            )
           );
-          const isQuoteOnly = hasAttachedPhoto && !isEditOrBgChange && /quote|text|सुविचार|लिख|शायरी|thought/i.test(effectiveText);
+
+          const photoSource = activeMedia || (cardData.imageUrl ? { previewUrl: cardData.imageUrl, data: cardData.imageUrl } : null);
+          const hasAttachedPhoto = Boolean(photoSource?.data || photoSource?.previewUrl);
+          const isEditOrBgChange = hasAttachedPhoto && !isInfo && (
+            isImageEditRequest(effectiveText) ||
+            /(?:(?:background|बैकग्राउंड|bg)\s*(?:badlo|badal|hatao|hata|change|remove|replace)|(?:peche|peeche)\s*(?:road|sadak|pahaad|mountain|studio|garden|park)\s*(?:laga|kar))/i.test(effectiveText)
+          );
+          const isQuoteOnly = hasAttachedPhoto && !isEditOrBgChange && !isInfo && /quote|text|सुविचार|लिख|शायरी|thought/i.test(effectiveText);
 
           if (isLogoRequest) {
             try {
@@ -878,13 +876,7 @@ export default function App() {
             } catch (canvasErr) {
               console.warn('Canvas photo processor error:', canvasErr);
             }
-          } else if (hasAttachedPhoto && photoSource) {
-            try {
-              processedResult = await editRealImage(effectiveText, photoSource, responseText);
-            } catch (editErr) {
-              console.warn('Real image edit fallback error:', editErr);
-            }
-          } else if (isRealImageGenRequest(effectiveText)) {
+          } else if (!isInfo && isRealImageGenRequest(effectiveText)) {
             try {
               processedResult = await generateRealImage(effectiveText, responseText);
             } catch (genErr) {
@@ -968,9 +960,14 @@ export default function App() {
         }
       } catch {}
 
-      let userFriendlyText = 'नमस्ते! AI सर्वर से संपर्क स्थापित करने में कुछ विलंब हो रहा है। कृपया कुछ ही पलों में पुनः प्रयास करें। तारा आपकी सेवा के लिए सदैव तत्पर है।';
+      let userFriendlyText = 'नमस्ते! मैं तारा हूँ। मैं आपकी सहायता के लिए तैयार हूँ। आप मुझसे सामान्य ज्ञान, तकनीकी सवाल, समय, टाइमर या किसी भी कार्य के बारे में पूछ सकते हैं।';
 
-      if (
+      if (/logo|लोगो|icon/i.test(effectiveText) && /app|software|tool|website|kaise|batao|best/i.test(effectiveText)) {
+        userFriendlyText = 'लोगो डिज़ाइन करने के लिए सबसे लोकप्रिय और बेहतरीन टूल्स:\n1. Canva: शुरुआती और सोशल मीडिया ब्रांड्स के लिए सबसे आसान और रेडीमेड टेम्पलेट्स।\n2. Adobe Illustrator: इंडस्ट्री-स्टैंडर्ड वेक्टर लोगो डिज़ाइन सॉफ्टवेयर।\n3. Figma: मॉडर्न UI/UX और स्केलेबल वेक्टर आइकन्स के लिए फ्री वेब टूल।\n4. Logo Maker Plus (Logopit): मोबाइल पर तुरंत प्रोफेशनल लोगो और ग्राफिक्स बनाने के लिए बेहतरीन ऐप।';
+      } else if (/time|समय|टाइम/i.test(effectiveText)) {
+        const now = new Date();
+        userFriendlyText = `अभी ${now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' })} बज रहे हैं।`;
+      } else if (
         exactError.includes('Quota') ||
         exactError.includes('RESOURCE_EXHAUSTED') ||
         exactError.includes('429') ||
