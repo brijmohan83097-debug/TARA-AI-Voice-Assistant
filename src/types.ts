@@ -146,3 +146,104 @@ export interface PosterCardData {
   brightness?: number;
   contrast?: number;
 }
+
+export interface FabricationServiceItem {
+  id: string;
+  name: string;
+  nameHi: string;
+  category: 'shed' | 'railing' | 'gate' | 'grill' | 'shutter' | 'stairs' | 'custom';
+  unit: string; // e.g. 'sq ft', 'running ft', 'kg', 'step'
+  rateMin: number;
+  rateMax?: number;
+  description: string;
+  material: string;
+  warranty?: string;
+  popular?: boolean;
+  isActive: boolean;
+  lastUpdated?: string;
+}
+
+export interface FabricationRatesConfig {
+  businessName: string;
+  businessNameHi: string;
+  ownerName: string;
+  tagline: string;
+  phone: string;
+  whatsapp: string;
+  address: string;
+  city: string;
+  services: FabricationServiceItem[];
+  lastModified: string;
+}
+
+export interface FabricationEstimate {
+  serviceId: string;
+  serviceName: string;
+  unit: string;
+  quantity: number;
+  rateMin: number;
+  rateMax: number;
+  totalCostMin: number;
+  totalCostMax: number;
+  materialDescription: string;
+}
+
+export type LeadStatus = 'hot' | 'site_visit' | 'quote_sent' | 'deal_closed' | 'cold';
+
+export interface HotLead {
+  id: string;
+  customerName: string;
+  phoneNumber: string;
+  serviceType: 'shed' | 'railing' | 'gate' | 'grill' | 'shutter' | 'stairs' | 'custom';
+  serviceName: string;
+  approxSize?: string; // e.g. "1200 sq ft" or "60 running ft"
+  priceRangeMin: number;
+  priceRangeMax: number;
+  customerQuery: string;
+  generatedHindiResponse: string;
+  siteAddress?: string;
+  status: LeadStatus;
+  createdAt: string;
+  notes?: string;
+  source?: 'whatsapp_inquiry' | 'direct_call' | 'website_form';
+  followUpDate?: string;
+}
+
+export type CallCategory = 'shed' | 'railing' | 'gate' | 'grill' | 'custom' | 'spam' | 'general';
+
+export interface IncomingCallSession {
+  id: string;
+  callerName: string;
+  callerNumber: string;
+  timestamp: string;
+  status: 'ringing' | 'active' | 'inquiry_in_progress' | 'completed' | 'spam_blocked';
+  category?: CallCategory;
+  isSpam: boolean;
+  spamReason?: string;
+  dialogueHistory: {
+    sender: 'customer' | 'tara';
+    text: string;
+    timestamp: string;
+  }[];
+  customerRequirement?: string;
+  estimatedValue?: number;
+  urgency: 'urgent' | 'high' | 'normal' | 'low';
+  summaryForBoss?: string;
+}
+
+export interface BossCallAlert {
+  id: string;
+  callId: string;
+  callerName: string;
+  callerNumber: string;
+  serviceCategory: string; // 'Gate' | 'Shed' | 'Railing' | 'Grill' etc.
+  urgency: 'urgent' | 'high' | 'normal';
+  summary: string;
+  customerDemand: string;
+  siteLocation?: string;
+  timestamp: string;
+  estimatedBudget?: string;
+  status: 'pending' | 'reviewed' | 'called_back' | 'dismissed';
+}
+
+

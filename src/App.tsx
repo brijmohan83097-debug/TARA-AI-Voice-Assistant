@@ -5,8 +5,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Header } from './components/Header';
-import { TaraHologramChamber } from './components/TaraHologramChamber';
-import { TaraInputBar } from './components/TaraInputBar';
 import { TaraTimerModal } from './components/TaraTimerModal';
 import { TaraPdfGeneratorModal } from './components/TaraPdfGeneratorModal';
 
@@ -20,6 +18,14 @@ import { NodeDetailModal } from './components/NodeDetailModal';
 import { CommandPaletteModal } from './components/CommandPaletteModal';
 import { HelpModal } from './components/HelpModal';
 import { LogoCard } from './components/LogoCard';
+import { PixelOfficeCard } from './components/PixelOfficeCard';
+import { FabricationRatesSection } from './components/FabricationRatesSection';
+import { WhatsAppLeadResponder } from './components/WhatsAppLeadResponder';
+import { IncomingCallAgentSection } from './components/IncomingCallAgentSection';
+import { CyberSatelliteMapPanel } from './components/CyberSatelliteMapPanel';
+import { CyberReactorOrb } from './components/CyberReactorOrb';
+import { CyberActivityChatPanel } from './components/CyberActivityChatPanel';
+import { useLaptopTelemetry } from './utils/laptopTelemetry';
 
 import { 
   MindMapNode, 
@@ -75,11 +81,31 @@ import {
   Phone,
   PhoneOff,
   Download,
-  Sparkles
+  Sparkles,
+  Hammer,
+  Zap,
+  Maximize2,
+  Minimize2,
+  Calculator,
+  PhoneCall,
+  Layers,
+  Radio,
+  Cpu
 } from 'lucide-react';
 
 // System instruction for Tara assistant ensuring strict creator identity & visual capabilities
 export const TARA_SYSTEM_INSTRUCTION = `You are TARA (तारा), an intelligent, articulate, and friendly Indian AI Voice Assistant.
+
+MOHAN VISHWAS FABRICATION - AUTHORITATIVE RATES & QUOTATIONS:
+You are the customer inquiry & quotation assistant for "Mohan Vishwas Fabrication" (मोहन विश्वास फैब्रिकेशन).
+When asked about fabrication, sheds, railings, gates, grills, pricing, or quotations:
+1. Sheds (शेड्स निर्माण): ₹180 - ₹220 प्रति वर्ग फुट (sq ft). Includes Tata/Jindal color-coated sheet, heavy tubular pipe structure, welding, primer, and complete installation.
+   - 1,000 sq ft shed = ₹1,80,000 से ₹2,20,000.
+2. Steel Railings (स्टील रेलिंग): ₹450 प्रति रनिंग फुट (running ft). Pure SS-304 food-grade stainless steel with designer master pillars and lifetime rust-free guarantee.
+   - 40 running ft = ₹18,000; 100 running ft = ₹45,000.
+3. Designer Gates (मुख्य द्वार व गेट्स): ₹280 - ₹380 प्रति वर्ग फुट (sq ft) (or ₹15,000 - ₹50,000 based on weight and CNC laser-cut design).
+4. Window & Balcony Grills (सेफ्टी ग्रिल्स): ₹130 - ₹180 प्रति वर्ग फुट (sq ft) (or ₹85 - ₹110 per kg). Heavy 10mm/12mm solid square bars.
+Always provide direct, polite Hindi quotes, calculate estimates for specified dimensions, and remind customers that they can view/copy instant quotations in the 'फैब्रिकेशन रेट्स' tab!
 
 STRICT INSTRUCTION ON CREATOR IDENTITY (MANDATORY & ABSOLUTE):
 - When asked who made or created you (e.g., "tumhein kisne banaya", "tumhe kisne banaya", "who made you", "who created you", "who developed you", "aapko kisne banaya", "tumhara creator kaun hai"):
@@ -153,6 +179,15 @@ export default function App() {
   const [isAlwaysListening, setIsAlwaysListening] = useState<boolean>(() => 
     loadFromStorage('is_always_listening', false)
   );
+  // 100% Hands-Free Conversational Voice Mode (Full Duplex Auto-Loop)
+  const [isHandsFreeMode, setIsHandsFreeMode] = useState<boolean>(false);
+  const isHandsFreeRef = useRef<boolean>(false);
+  const isSpeakingRef = useRef<boolean>(false);
+  const isListeningRef = useRef<boolean>(false);
+  const isLoadingChatRef = useRef<boolean>(false);
+  const currentTranscriptRef = useRef<string>('');
+  const conversationalRecogRef = useRef<any>(null);
+  const vadTimerRef = useRef<any>(null);
 
   // --- Android Native Telecom & Bridge State ---
   const [callState, setCallState] = useState<NativeCallState>(() => nativeBridge.getCallState());
@@ -173,7 +208,8 @@ export default function App() {
   const [isTimerModalOpen, setIsTimerModalOpen] = useState<boolean>(false);
   const [activeTimerMinutes, setActiveTimerMinutes] = useState<number>(5);
   const [isChatDrawerOpen, setIsChatDrawerOpen] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'assistant' | 'mindmap' | 'directives' | 'telemetry'>('assistant');
+  const [activeTab, setActiveTab] = useState<'assistant' | 'rates' | 'leads' | 'calls' | 'office' | 'mindmap' | 'directives' | 'telemetry'>('assistant');
+  const [showHologramChamber, setShowHologramChamber] = useState<boolean>(false);
 
   // --- Live Photo & Card State ---
   const [cardData, setCardData] = useState<PosterCardData>({
@@ -204,6 +240,12 @@ export default function App() {
     uptimeSeconds: 4200,
   });
 
+  // --- Laptop Screen Sharing & Live Telemetry ---
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
+  const laptopTelemetry = useLaptopTelemetry();
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [liveSpeechTranscript, setLiveSpeechTranscript] = useState<string>('');
+
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll chat to bottom on new messages
@@ -224,10 +266,28 @@ export default function App() {
   useEffect(() => { saveToStorage('chat_messages', chatMessages); }, [chatMessages]);
   useEffect(() => { saveToStorage('is_always_listening', isAlwaysListening); }, [isAlwaysListening]);
 
-  // Speech engine listener
+  // Callback ref for hands-free recognition loop
+  const startHandsFreeRecognitionRef = useRef<() => void>(() => {});
+
+  // Keep refs in sync with state for async callbacks
+  useEffect(() => { isHandsFreeRef.current = isHandsFreeMode; }, [isHandsFreeMode]);
+  useEffect(() => { isListeningRef.current = isListening; }, [isListening]);
+  useEffect(() => { isLoadingChatRef.current = isLoadingChat; }, [isLoadingChat]);
+  useEffect(() => { isSpeakingRef.current = isSpeaking; }, [isSpeaking]);
+
+  // Speech engine listener - automatically resumes listening once TARA finishes speaking!
   useEffect(() => {
     const unsub = speechEngine.onSpeakingChange((speaking) => {
       setIsSpeaking(speaking);
+      isSpeakingRef.current = speaking;
+      // Requirement 5.3: Jawab bolkar khatam hote hi mic apne aap wapas active (listening) ho jaye!
+      if (!speaking && isHandsFreeRef.current && !isLoadingChatRef.current) {
+        setTimeout(() => {
+          if (isHandsFreeRef.current && !isSpeakingRef.current && !isLoadingChatRef.current) {
+            startHandsFreeRecognitionRef.current?.();
+          }
+        }, 350);
+      }
     });
     return unsub;
   }, []);
@@ -417,6 +477,7 @@ export default function App() {
 
     setChatMessages((prev) => [...prev, userMsg, initialAssistantMsg]);
     setIsLoadingChat(true);
+    isLoadingChatRef.current = true;
     addLog('info', 'CHAT_AGENT', `Directive: "${effectiveText.substring(0, 35)}..."${activeMedia ? ' [PHOTO ATTACHED]' : ''}`);
 
     // Reset attached media input state for subsequent prompts
@@ -561,6 +622,11 @@ export default function App() {
           let streamError: string | null = null;
           let buffer = '';
 
+          // Start Ultra-Fast Streaming TTS Session immediately so sentences play within 1s
+          if (speechEngine.getIsTtsEnabled()) {
+            speechEngine.startStreamingSession();
+          }
+
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -590,6 +656,11 @@ export default function App() {
                       const isInfo = /(?:app|apps|application|software|website|tools?|kaise|kya\s+hai|kya\s+hota|batao|bataiye|list|top|best|suggest|recommend|guide|tutorial|seekhe|difference|vs|baare\s+mein|bare\s+mein|about|which|what\s+is|how\s+to|sikhao|tarika|option|alternatives)/i.test(effectiveText);
                       const hasActiveAttachment = Boolean(activeMedia?.data || activeMedia?.previewUrl);
                       const isBgPrompt = hasActiveAttachment && !isInfo && /(?:(?:background|बैकग्राउंड|bg)\s*(?:badlo|badal|hatao|hata|change|remove|replace)|(?:peche|peeche)\s*(?:road|sadak|pahaad|mountain|studio|garden|park)\s*(?:laga|kar))/i.test(effectiveText);
+
+                      // Stream tokens directly into streaming TTS queue for immediate sub-1s speech
+                      if (speechEngine.getIsTtsEnabled() && !isBgPrompt) {
+                        speechEngine.feedStreamingChunk(parsed.chunk);
+                      }
                       if (isBgPrompt) {
                         setChatMessages((prev) =>
                           prev.map((msg) =>
@@ -625,6 +696,11 @@ export default function App() {
                 }
               }
             }
+          }
+
+          // Conclude streaming TTS session so remaining buffered words are played
+          if (speechEngine.getIsTtsEnabled()) {
+            speechEngine.finishStreamingSession();
           }
 
           if (streamError && !accumulatedText) {
@@ -762,7 +838,11 @@ export default function App() {
           addLog('success', 'GEMINI_STREAM', `Streamed direct answer via ${engineUsed}.`);
 
           if (speechEngine.getIsTtsEnabled() && !cleanedText.startsWith('⚠️')) {
-            speechEngine.speak(cleanedText);
+            // Streaming TTS has already started speaking sub-sentence chunks!
+            // Only speak if nothing was played yet
+            if (!speechEngine.getIsSpeaking()) {
+              speechEngine.speak(cleanedText);
+            }
           }
           streamedSuccessfully = true;
           return;
@@ -992,6 +1072,13 @@ export default function App() {
     } finally {
       clearTimeout(timeoutId);
       setIsLoadingChat(false);
+      isLoadingChatRef.current = false;
+      // If hands-free mode is on and TTS is not currently speaking, resume listening
+      setTimeout(() => {
+        if (isHandsFreeRef.current && !isSpeakingRef.current && !isLoadingChatRef.current && !isListeningRef.current) {
+          startHandsFreeRecognitionRef.current?.();
+        }
+      }, 500);
     }
   }, [chatMessages, tasks, notes, nodes, systemMode, isLoadingChat, attachedMedia, addLog, getClientDeviceTimeInfo, processAssistantActions]);
 
@@ -1000,6 +1087,7 @@ export default function App() {
     const res = await nativeBridge.answerCall();
     addLog('success', 'TELECOM_BRIDGE', res.message);
     audioSynth.playSuccess();
+    setActiveTab('calls');
     if (speechEngine.getIsTtsEnabled()) {
       speechEngine.speak('कॉल कनेक्ट हो गया है।');
     }
@@ -1044,7 +1132,7 @@ export default function App() {
 
     const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-    if (!isAlwaysListening) {
+    if (!isAlwaysListening || isHandsFreeMode) {
       if (hotwordRecogRef.current) {
         try {
           hotwordRecogRef.current.abort();
@@ -1172,59 +1260,173 @@ export default function App() {
     };
   }, [isAlwaysListening, isSpeaking, isListening, isLoadingChat, voiceLang, handleSendMessage, addLog]);
 
-  // Voice recognition start / stop
+  // --- 100% HANDS-FREE CONVERSATIONAL VOICE ASSISTANT ENGINE (FULL DUPLEX VAD AUTO-LOOP) ---
+  const commitVoiceUtterance = useCallback((text: string) => {
+    const clean = text.trim();
+    if (!clean || isSpeakingRef.current || isLoadingChatRef.current) return;
+
+    if (vadTimerRef.current) {
+      clearTimeout(vadTimerRef.current);
+      vadTimerRef.current = null;
+    }
+
+    // Stop mic temporarily during AI response generation so TARA does not hear herself
+    if (conversationalRecogRef.current) {
+      try {
+        conversationalRecogRef.current.abort();
+      } catch {}
+      conversationalRecogRef.current = null;
+    }
+
+    setIsListening(false);
+    isListeningRef.current = false;
+    audioSynth.playReceive();
+    addLog('success', 'VAD_SILENCE_DETECT', `आवाज़ पहचान: "${clean}" (Silence detected -> Response Generating)`);
+    handleSendMessage(clean);
+
+    setTimeout(() => {
+      setLiveSpeechTranscript('');
+      currentTranscriptRef.current = '';
+    }, 1200);
+  }, [handleSendMessage, addLog]);
+
+  const startHandsFreeRecognition = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    if (isSpeakingRef.current || isLoadingChatRef.current) return;
+
+    if (hotwordRecogRef.current) {
+      try { hotwordRecogRef.current.abort(); } catch {}
+    }
+    if (conversationalRecogRef.current) {
+      try { conversationalRecogRef.current.abort(); } catch {}
+      conversationalRecogRef.current = null;
+    }
+
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      // Browser fallback simulation if Web Speech API is absent
+      setIsListening(true);
+      isListeningRef.current = true;
+      setLiveSpeechTranscript('नमस्ते तारा...');
+      setTimeout(() => {
+        setLiveSpeechTranscript('नमस्ते तारा, 1000 sq ft शेड का कोटेशन बताओ');
+      }, 700);
+      setTimeout(() => {
+        setIsListening(false);
+        isListeningRef.current = false;
+        setLiveSpeechTranscript('');
+        handleSendMessage('नमस्ते तारा, 1000 sq ft शेड का कोटेशन बताओ');
+      }, 1500);
+      return;
+    }
+
+    try {
+      const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recognition = new SpeechRecognitionClass();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = voiceLang;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        isListeningRef.current = true;
+        currentTranscriptRef.current = '';
+        setLiveSpeechTranscript('');
+        addLog('info', 'VOICE_ASSISTANT', `🎙️ हैंड्स-फ्री कॉल सक्रिय (${voiceLang})... बोलिए`);
+      };
+
+      recognition.onresult = (event: any) => {
+        let interim = '';
+        let final = '';
+        for (let i = 0; i < event.results.length; ++i) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            final += transcript + ' ';
+          } else {
+            interim += transcript;
+          }
+        }
+        const fullUtterance = (final + interim).trim();
+        if (!fullUtterance) return;
+
+        currentTranscriptRef.current = fullUtterance;
+        setLiveSpeechTranscript(fullUtterance);
+
+        // SILENCE DETECTION (VAD)
+        if (vadTimerRef.current) {
+          clearTimeout(vadTimerRef.current);
+          vadTimerRef.current = null;
+        }
+
+        // If user has spoken something substantial
+        if (fullUtterance.length >= 2) {
+          // When silence occurs for ~1000ms (or 800ms if isFinal is received), commit immediately
+          const delay = final.trim().length > 0 ? 800 : 1100;
+          vadTimerRef.current = setTimeout(() => {
+            commitVoiceUtterance(fullUtterance);
+          }, delay);
+        }
+      };
+
+      recognition.onerror = (err: any) => {
+        if (err.error !== 'no-speech' && err.error !== 'aborted') {
+          console.warn('Conversational speech error:', err);
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+        isListeningRef.current = false;
+        // Requirement 5.1: Ek baar Start AI click karne ke baad mic bar-bar band nahi hona chahiye
+        if (isHandsFreeRef.current && !isSpeakingRef.current && !isLoadingChatRef.current) {
+          setTimeout(() => {
+            if (isHandsFreeRef.current && !isSpeakingRef.current && !isLoadingChatRef.current) {
+              startHandsFreeRecognition();
+            }
+          }, 250);
+        }
+      };
+
+      conversationalRecogRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.warn('Speech start error:', err);
+      setIsListening(false);
+      isListeningRef.current = false;
+    }
+  }, [voiceLang, addLog, commitVoiceUtterance, handleSendMessage]);
+
+  // Keep ref pointing to the current function
+  useEffect(() => {
+    startHandsFreeRecognitionRef.current = startHandsFreeRecognition;
+  }, [startHandsFreeRecognition]);
+
   const handleStartVoice = () => {
     audioSynth.playClick();
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      try {
-        const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        const recognition = new SpeechRecognitionClass();
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.lang = voiceLang;
-
-        recognition.onstart = () => {
-          setIsListening(true);
-          addLog('info', 'VOICE_RECOGNITION', `Mic listening in ${voiceLang}...`);
-        };
-
-        recognition.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          setIsListening(false);
-          audioSynth.playReceive();
-          addLog('success', 'VOICE_RECOGNITION', `Heard: "${transcript}"`);
-          handleSendMessage(transcript);
-        };
-
-        recognition.onerror = () => {
-          setIsListening(false);
-        };
-
-        recognition.onend = () => {
-          setIsListening(false);
-        };
-
-        recognition.start();
-      } catch {
-        setIsListening(false);
-      }
-    } else {
-      // Browser fallback
-      setIsListening(true);
-      setTimeout(() => {
-        const sample = voiceLang === 'hi-IN' 
-          ? 'नमस्ते तारा, आज के महत्वपूर्ण कार्य बताओ' 
-          : 'Check today\'s critical directives and run morning briefing';
-        setIsListening(false);
-        audioSynth.playReceive();
-        handleSendMessage(sample);
-      }, 1200);
-    }
+    setIsHandsFreeMode(true);
+    isHandsFreeRef.current = true;
+    addLog('info', 'VOICE_ASSISTANT', '🟢 100% Hands-Free Conversational Call Mode STARTED');
+    startHandsFreeRecognition();
   };
 
   const handleStopVoice = () => {
-    setIsListening(false);
     audioSynth.playClick();
+    setIsHandsFreeMode(false);
+    isHandsFreeRef.current = false;
+    setIsListening(false);
+    isListeningRef.current = false;
+    setLiveSpeechTranscript('');
+    currentTranscriptRef.current = '';
+    if (vadTimerRef.current) {
+      clearTimeout(vadTimerRef.current);
+      vadTimerRef.current = null;
+    }
+    if (conversationalRecogRef.current) {
+      try {
+        conversationalRecogRef.current.abort();
+      } catch {}
+      conversationalRecogRef.current = null;
+    }
+    addLog('info', 'VOICE_ASSISTANT', 'हैंड्स-फ्री मोड बंद किया गया (Hands-free call paused)');
   };
 
   // Toggle Voice TTS output
@@ -1347,455 +1549,350 @@ export default function App() {
     }
   };
 
+  // --- Laptop Screen Sharing Handlers ---
+  const handleToggleScreenShare = async () => {
+    if (screenStream) {
+      screenStream.getTracks().forEach((track) => track.stop());
+      setScreenStream(null);
+      addLog('info', 'VISION_ENGINE', 'लैपटॉप स्क्रीन शेयर बंद किया गया (Screen share stopped)');
+      audioSynth.playClick();
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { cursor: 'always' } as any,
+          audio: false,
+        });
+        setScreenStream(stream);
+        audioSynth.playSuccess();
+        addLog('success', 'VISION_ENGINE', 'लैपटॉप स्क्रीन शेयर सक्रिय (Screen stream connected)');
+        if (speechEngine.getIsTtsEnabled()) {
+          speechEngine.speak('स्क्रीन शेयर कनेक्ट हो गया है। मैं आपकी लैपटॉप स्क्रीन देख सकती हूँ।');
+        }
+        stream.getVideoTracks()[0].onended = () => {
+          setScreenStream(null);
+          addLog('info', 'VISION_ENGINE', 'स्क्रीन शेयर सत्र समाप्त हुआ');
+        };
+      } catch (err: any) {
+        console.warn('Screen share cancelled/denied:', err);
+        addLog('warn', 'VISION_ENGINE', 'स्क्रीन शेयर अनुमति नहीं मिली या रद्द की गई');
+      }
+    }
+  };
+
+  // Screen Snapshot Capture and Send to TARA
+  const handleCaptureScreenSnapshot = () => {
+    if (!screenStream) return;
+    try {
+      const video = document.createElement('video');
+      video.srcObject = screenStream;
+      video.muted = true;
+      video.play();
+      video.onloadeddata = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 1280;
+        canvas.height = video.videoHeight || 720;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          const base64Data = dataUrl.split(',')[1] || '';
+          const media: AttachedMedia = {
+            name: `screen-${Date.now()}.jpg`,
+            previewUrl: dataUrl,
+            data: base64Data,
+            mimeType: 'image/jpeg',
+          };
+          setAttachedMedia(media);
+          audioSynth.playSuccess();
+          addLog('success', 'VISION_ENGINE', 'स्क्रीन स्नैपशॉट कैप्चर हुआ — TARA को विश्लेषण के लिए भेजा गया');
+          handleSendMessage('मेरी वर्तमान लैपटॉप स्क्रीन को देखकर बताओ इस पर क्या खुला है और क्या करना चाहिए?', media);
+        }
+      };
+    } catch (err) {
+      console.error('Snapshot capture error:', err);
+      addLog('warn', 'VISION_ENGINE', 'स्क्रीन स्नैपशॉट कैप्चर त्रुटि');
+    }
+  };
+
+  const handleToggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+      setIsFullscreen(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#050811] text-slate-100 selection:bg-cyan-500/30 selection:text-cyan-200 antialiased relative">
+    <div className="min-h-screen w-full flex flex-col bg-[#02050e] text-slate-100 selection:bg-cyan-500/30 selection:text-cyan-200 antialiased relative overflow-x-hidden">
       {/* Ambient Cyber Background Glows */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute top-[10%] left-[15%] w-[40vw] h-[40vw] rounded-full bg-cyan-600/6 blur-[150px]" />
-        <div className="absolute top-[50%] right-[10%] w-[35vw] h-[35vw] rounded-full bg-purple-600/6 blur-[150px]" />
-        <div className="absolute bottom-[5%] left-[25%] w-[40vw] h-[40vw] rounded-full bg-blue-600/6 blur-[150px]" />
+        <div className="absolute top-[5%] left-[10%] w-[35vw] h-[35vw] rounded-full bg-cyan-600/7 blur-[140px]" />
+        <div className="absolute top-[40%] right-[5%] w-[40vw] h-[40vw] rounded-full bg-blue-700/6 blur-[150px]" />
+        <div className="absolute bottom-[2%] left-[30%] w-[35vw] h-[35vw] rounded-full bg-cyan-500/6 blur-[130px]" />
       </div>
 
-      {/* TOP HEADER: [✨] TARA [v2.5 AI CHAT & SKILLS] [✨ Studio] [~] [...] */}
-      <Header
-        systemMode={systemMode}
-        onModeChange={(m) => setSystemMode(m)}
-        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-        onTriggerQuickWorkflow={handleExecuteWorkflow}
-        onOpenHelp={() => setIsHelpOpen(true)}
-        onOpenStudio={() => {
-          audioSynth.playClick();
-          setIsChatDrawerOpen(true);
-        }}
-      />
-
-      {/* NATIVE TELECOM CALL BANNER */}
-      {callState.hasIncomingCall && (
-        <div className="fixed top-16 inset-x-4 max-w-md mx-auto z-50 p-4 rounded-2xl bg-[#091d36]/95 border-2 border-emerald-400 shadow-[0_0_35px_rgba(16,185,129,0.4)] backdrop-blur-xl animate-bounce-short">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-400 flex items-center justify-center animate-pulse">
-                <Phone className="w-5 h-5 text-emerald-400" />
-              </div>
-              <div>
-                <div className="text-[10px] font-mono text-emerald-300 font-bold uppercase tracking-wider">
-                  {callState.callType === 'whatsapp' ? 'WhatsApp Call' : 'Incoming Call (आगमन कॉल)'}
-                </div>
-                <div className="text-sm font-heading font-bold text-white">
-                  {callState.callerName || 'अज्ञात कॉलर'}
-                </div>
-                {callState.callerNumber && (
-                  <div className="text-[10px] font-mono text-slate-400">{callState.callerNumber}</div>
-                )}
-              </div>
+      {/* 1. TOP CYBERPUNK HUD BAR (100% WIDTH FIT) */}
+      <header className="w-full px-3 py-2 bg-[#040915]/90 border-b border-cyan-500/25 flex flex-wrap items-center justify-between gap-2.5 z-20 backdrop-blur-md shadow-[0_4px_25px_rgba(0,0,0,0.6)]">
+        {/* Left: Branding & Core ID */}
+        <div className="flex items-center gap-3">
+          <div className="relative flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-600 via-sky-500 to-blue-700 flex items-center justify-center text-white font-black text-sm shadow-[0_0_15px_rgba(0,240,255,0.6)] border border-cyan-300/50">
+              ⚡
             </div>
+            <span className="w-2 h-2 rounded-full bg-cyan-400 absolute -top-0.5 -right-0.5 animate-ping" />
+          </div>
+          <div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleAnswerCall}
-                className="p-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-transform active:scale-95 cursor-pointer"
-                title="Answer Call"
-              >
-                <Phone className="w-4 h-4" />
-              </button>
-              <button
-                onClick={handleRejectCall}
-                className="p-2.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white shadow-lg transition-transform active:scale-95 cursor-pointer"
-                title="Reject Call"
-              >
-                <PhoneOff className="w-4 h-4" />
-              </button>
+              <h1 className="text-xl sm:text-2xl font-heading font-black tracking-[0.22em] text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-sky-100 to-cyan-400 drop-shadow-[0_0_12px_rgba(0,240,255,0.6)]">
+                TARA
+              </h1>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-bold hidden sm:inline">
+                STONIC AI HUD // QUANTUM KERNEL
+              </span>
             </div>
+            <p className="text-[9px] font-mono text-cyan-400/80 hidden md:block">
+              MOHAN VISHWAS FABRICATION AUTONOMOUS EXECUTIVE DASHBOARD
+            </p>
           </div>
         </div>
-      )}
 
-      {callState.isCallActive && !callState.hasIncomingCall && (
-        <div className="fixed top-16 inset-x-4 max-w-md mx-auto z-50 p-3 rounded-2xl bg-[#08241c]/95 border border-emerald-500/60 shadow-lg backdrop-blur-xl flex items-center justify-between">
-          <div className="flex items-center gap-2.5 text-xs font-mono text-emerald-300">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-            <span>कॉल चालू है ({callState.callerName || 'Call in Progress'})</span>
-          </div>
-          <button
-            onClick={handleRejectCall}
-            className="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-mono transition-transform active:scale-95 cursor-pointer"
+        {/* Center: Live Laptop Telemetry Chips */}
+        <div className="hidden lg:flex items-center gap-2.5 text-[10px] font-mono">
+          <div
+            onClick={isHandsFreeMode ? handleStopVoice : handleStartVoice}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded border text-[10px] font-mono cursor-pointer transition-all ${
+              isHandsFreeMode
+                ? 'bg-rose-950/80 border-rose-500/60 text-rose-200 shadow-[0_0_12px_rgba(244,63,94,0.4)]'
+                : 'bg-[#030a16] border-cyan-500/30 text-cyan-200 hover:border-cyan-400'
+            }`}
+            title="100% Hands-Free Call Mode: क्लिक करके चालू/बंद करें"
           >
-            काटें (End)
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isHandsFreeMode
+                  ? isListening
+                    ? 'bg-rose-400 animate-ping'
+                    : isSpeaking
+                    ? 'bg-emerald-400 animate-pulse'
+                    : 'bg-amber-400 animate-ping'
+                  : 'bg-slate-500'
+              }`}
+            />
+            <span className="text-slate-400">CALL:</span>
+            <span className={isHandsFreeMode ? 'text-rose-300 font-bold' : 'text-slate-400'}>
+              {isHandsFreeMode ? (isListening ? 'LISTENING 🎙️' : isSpeaking ? 'SPEAKING 🔊' : 'ACTIVE 📞') : 'STANDBY'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#030a16] border border-cyan-500/30 text-cyan-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-slate-400">CORE:</span>
+            <span className="text-emerald-300 font-bold">ONLINE</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#030a16] border border-cyan-500/30 text-cyan-200">
+            <span className="text-slate-400">LATENCY:</span>
+            <span className="text-cyan-300 font-bold">{laptopTelemetry.latencyMs}ms</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#030a16] border border-cyan-500/30 text-cyan-200">
+            <span className="text-slate-400">BATTERY:</span>
+            <span className="text-white font-bold">{laptopTelemetry.batteryLevel}%</span>
+            {laptopTelemetry.isCharging && <span className="text-emerald-400">⚡</span>}
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#030a16] border border-cyan-500/30 text-cyan-200">
+            <span className="text-slate-400">NET:</span>
+            <span className="text-emerald-400 font-bold">{laptopTelemetry.networkType}</span>
+          </div>
+        </div>
+
+        {/* Right: Quick HUD Actions (Rates, Leads, Calls, Fullscreen) */}
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setActiveTab('rates')}
+            className="px-2.5 py-1 rounded-lg bg-cyan-950/70 hover:bg-cyan-900 border border-cyan-500/30 text-[10px] font-mono text-cyan-300 flex items-center gap-1 cursor-pointer transition-all hover:scale-105"
+            title="फैब्रिकेशन रेट लिस्ट (Fabrication Rates)"
+          >
+            <Calculator className="w-3 h-3 text-cyan-400" />
+            <span className="hidden sm:inline">दर तालिका</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('leads')}
+            className="px-2.5 py-1 rounded-lg bg-pink-950/70 hover:bg-pink-900 border border-pink-500/30 text-[10px] font-mono text-pink-300 flex items-center gap-1 cursor-pointer transition-all hover:scale-105"
+            title="व्हाट्सएप लीड्स और इंक्वायरी (Leads)"
+          >
+            <MessageSquare className="w-3 h-3 text-pink-400" />
+            <span className="hidden sm:inline">लीड्स</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('calls')}
+            className="px-2.5 py-1 rounded-lg bg-purple-950/70 hover:bg-purple-900 border border-purple-500/30 text-[10px] font-mono text-purple-300 flex items-center gap-1 cursor-pointer transition-all hover:scale-105"
+            title="इनकमिंग कॉल एजेंट (Call Agent)"
+          >
+            <PhoneCall className="w-3 h-3 text-purple-400" />
+            <span className="hidden sm:inline">कॉल एजेंट</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleToggleFullscreen}
+            className="p-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-cyan-300 hover:border-cyan-500/40 text-[10px] cursor-pointer transition-all"
+            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
         </div>
-      )}
+      </header>
 
-      {/* VIEW SWITCHER SUB-BAR */}
-      <div className="relative z-10 w-full max-w-[620px] lg:max-w-[720px] mx-auto px-4 pt-3 flex items-center justify-between">
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-[#091122]/90 border border-cyan-500/20 shadow-xs">
-          {[
-            { id: 'assistant', label: 'तारा होम (Home)' },
-            { id: 'mindmap', label: 'माइंड मैप (MindMap)' },
-            { id: 'directives', label: 'कार्य (Tasks)' },
-            { id: 'telemetry', label: 'लॉग्स (Logs)' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                audioSynth.playClick();
-                setActiveTab(tab.id as any);
-              }}
-              className={`px-3 py-1 rounded-lg text-xs font-mono transition-all ${
-                activeTab === tab.id
-                  ? 'bg-cyan-950/90 border border-cyan-500/40 text-cyan-300 font-bold shadow-[0_0_8px_rgba(0,240,255,0.2)]'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      {/* 2. MAIN 3-PANEL CYBERPUNK SCI-FI DASHBOARD (100% WIDTH, ZERO WASTED SPACE) */}
+      <main className="flex-1 w-full p-2 sm:p-2.5 flex flex-col lg:flex-row gap-2.5 z-10 min-h-0">
+        {/* PANEL 1 (LEFT): GLOWING WORLD MAP / SATELLITE TRACKER */}
+        <section className="w-full lg:w-[28%] xl:w-[26%] flex flex-col gap-2.5 shrink-0">
+          <CyberSatelliteMapPanel
+            className="w-full flex-1 min-h-[380px] lg:min-h-0"
+            onSelectNode={(nodeName) => {
+              handleSendMessage(`${nodeName} नोड की वर्तमान स्थिति और फैब्रिकेशन अपडेट क्या है?`);
+            }}
+          />
+        </section>
 
-        {/* Chat Drawer Toggle Button */}
-        <button
-          onClick={() => {
-            audioSynth.playClick();
-            setIsChatDrawerOpen(!isChatDrawerOpen);
-          }}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-cyan-950/60 hover:bg-cyan-950 border border-cyan-500/30 text-cyan-300 text-xs font-mono font-bold transition-all shadow-xs"
-        >
-          <MessageSquare className="w-3.5 h-3.5 text-cyan-400" />
-          <span>वार्तालाप ({chatMessages.length})</span>
-        </button>
-      </div>
+        {/* PANEL 2 (CENTER): TOP NEON CYAN AI CORE ORB + BOTTOM 2D PIXEL VIRTUAL OFFICE */}
+        <section className="flex-1 min-w-0 flex flex-col gap-2.5">
+          {/* CENTER TOP: NEON CYAN GLOWING AI CORE (REACTOR ORB) WITH START AI BUTTON */}
+          <div className="w-full shrink-0">
+            <CyberReactorOrb
+              isListening={isListening}
+              isSpeaking={isSpeaking}
+              isHandsFreeMode={isHandsFreeMode}
+              onToggleVoice={isHandsFreeMode ? handleStopVoice : handleStartVoice}
+              onSendMessage={handleSendMessage}
+              laptopTelemetry={laptopTelemetry}
+              screenStream={screenStream}
+              onToggleScreenShare={handleToggleScreenShare}
+              onCaptureScreenSnapshot={handleCaptureScreenSnapshot}
+              className="w-full"
+            />
+          </div>
 
-      {/* MAIN SCREEN CONTAINER (Centered mobile-first layout) */}
-      <main className="flex-1 w-full max-w-[620px] lg:max-w-[720px] mx-auto px-4 py-3 z-10 flex flex-col gap-3.5">
-        {/* MAIN TAB: ASSISTANT HOME */}
-        {activeTab === 'assistant' && (
-          <>
-            {/* 1. Main Hologram Chamber Card */}
-            <TaraHologramChamber
+          {/* CENTER BOTTOM: 2D PIXEL VIRTUAL OFFICE (SAB WORKER DESKS KE SAATH) */}
+          <div className="w-full flex-1 min-h-[360px]">
+            <PixelOfficeCard
+              tasks={tasks}
+              chatMessages={chatMessages}
+              onSendMessage={handleSendMessage}
+              isLoadingChat={isLoadingChat}
               isSpeaking={isSpeaking}
               isListening={isListening}
-              themeColor={themeColor}
-              visualizerMode={visualizerMode}
-              avatarType={avatarType}
-              onToggleAvatar={() => {
-                audioSynth.playClick();
-                setAvatarType((prev) => (prev === 'tara' ? 'user' : 'tara'));
-              }}
-              onTapAvatar={() => {
-                audioSynth.playClick();
-                if (isListening) {
-                  handleStopVoice();
-                } else {
-                  handleStartVoice();
-                }
-              }}
-            />
-
-            {/* 2. Middle: Clean Conversational Chat Stream */}
-            <div className="w-full flex-1 min-h-[340px] max-h-[480px] rounded-2xl bg-[#081122]/90 border border-cyan-500/25 p-3.5 shadow-[0_4px_30px_rgba(0,0,0,0.6)] backdrop-blur-md flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-cyan-500/20 px-1">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                  <span className="font-heading font-bold text-xs text-cyan-300 uppercase tracking-wider">
-                    तारा लाइव संवाद (Tara Conversation)
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => {
-                      audioSynth.playClick();
-                      setVoiceLang((prev) => (prev === 'hi-IN' ? 'en-US' : 'hi-IN'));
-                    }}
-                    className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-cyan-950/80 border border-cyan-500/30 text-cyan-300 hover:text-white transition-all cursor-pointer"
-                    title="Switch Hindi / English voice recognition"
-                  >
-                    {voiceLang === 'hi-IN' ? '🇮🇳 हिंदी' : '🌐 EN'}
-                  </button>
-                  <button
-                    onClick={handleToggleTts}
-                    className={`p-1 rounded-md border text-[10px] transition-all cursor-pointer ${
-                      isTtsActive
-                        ? 'bg-cyan-950/80 border-cyan-500/40 text-cyan-300'
-                        : 'bg-slate-900 border-slate-700 text-slate-500'
-                    }`}
-                    title={isTtsActive ? 'Voice TTS is ON (बोलना चालू)' : 'Voice TTS is MUTED (आवाज़ बंद)'}
-                  >
-                    {isTtsActive ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
-                  </button>
-                  {chatMessages.length > 2 && (
-                    <button
-                      onClick={() => {
-                        audioSynth.playClick();
-                        setChatMessages((prev) => prev.slice(0, 1));
-                      }}
-                      className="text-[10px] font-mono text-slate-400 hover:text-rose-300 transition-colors cursor-pointer"
-                    >
-                      साफ़ करें (Clear)
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Chat Messages List with smooth scrolling */}
-              <div 
-                ref={chatScrollRef}
-                className="flex-1 overflow-y-auto space-y-3.5 pr-1.5 custom-scrollbar"
-              >
-                {chatMessages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
-                  >
-                    <div
-                      className={`max-w-[92%] sm:max-w-[85%] rounded-2xl p-3 sm:p-3.5 text-xs sm:text-[13px] leading-relaxed backdrop-blur-md shadow-md transition-all ${
-                        msg.sender === 'user'
-                          ? 'bg-cyan-950/80 text-cyan-100 border border-cyan-500/40 rounded-tr-xs'
-                          : 'bg-slate-900/95 text-slate-200 border border-cyan-500/20 rounded-tl-xs'
-                      }`}
-                    >
-                      {/* Assistant Header with voice replay */}
-                      {msg.sender === 'assistant' && (
-                        <div className="flex items-center justify-between gap-2 pb-1.5 mb-2 border-b border-cyan-500/15">
-                          <span className="font-heading font-bold text-[11px] text-cyan-300">
-                            तारा (TARA AI)
-                          </span>
-                          <button
-                            onClick={() => speechEngine.speak(msg.text)}
-                            className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-950/70 border border-cyan-500/30 text-cyan-300 hover:border-cyan-400 hover:text-white transition-all cursor-pointer"
-                            title="दोबारा सुनें"
-                          >
-                            <Volume2 className="w-3 h-3" />
-                            <span>सुनें</span>
-                          </button>
-                        </div>
-                      )}
-
-                      {/* User's Attached Photo Thumbnail if present */}
-                      {msg.imageUrl && (
-                        <div className="mb-2 rounded-xl overflow-hidden border border-cyan-500/40 max-w-xs shadow-md bg-black/50">
-                          <img
-                            src={msg.imageUrl}
-                            alt="Attached"
-                            className="w-full h-auto max-h-48 object-contain rounded-lg"
-                          />
-                        </div>
-                      )}
-
-                      {/* Message Text with Markdown */}
-                      <div className="whitespace-pre-wrap font-sans break-words space-y-1">
-                        <ReactMarkdown>{sanitizeChatBubbleText(msg.text)}</ReactMarkdown>
-                      </div>
-
-                      {/* In-Line Logo Card or Processed Photo Result */}
-                      {msg.logoGraphicData ? (
-                        <div className="mt-3 max-w-sm">
-                          <LogoCard data={msg.logoGraphicData} />
-                        </div>
-                      ) : msg.resultImageUrl ? (
-                        <div className="mt-3 rounded-xl overflow-hidden border border-cyan-500/40 bg-slate-900/60 p-2 shadow-xl max-w-sm space-y-2">
-                          <div className="rounded-lg overflow-hidden relative group">
-                            <img
-                              src={msg.resultImageUrl}
-                              alt="Tara Generated Image"
-                              referrerPolicy="no-referrer"
-                              className="w-full h-auto block rounded-lg transition-transform duration-300 group-hover:scale-[1.01]"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              audioSynth.playClick();
-                              if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-                                navigator.vibrate(25);
-                              }
-                              downloadImageToDevice(msg.resultImageUrl!, msg.resultImageDownloadName || 'tara-photo.jpg');
-                            }}
-                            className="w-full py-2.5 px-3 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-medium text-xs shadow-md shadow-cyan-950 flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer"
-                          >
-                            <Download className="w-4 h-4" />
-                            <span>इमेज डाउनलोड करें (Download Image)</span>
-                          </button>
-                        </div>
-                      ) : null}
-
-                      <div className="text-[9px] font-mono text-slate-500 mt-1.5 text-right">
-                        {msg.timestamp}
-                      </div>
-                    </div>
-
-                    {/* Follow-up suggested prompt pills */}
-                    {msg.sender === 'assistant' && msg.suggestedPrompts && msg.suggestedPrompts.length > 0 && (
-                      <div className="flex items-center gap-1.5 overflow-x-auto mt-1.5 max-w-[92%] pb-1 no-scrollbar">
-                        {msg.suggestedPrompts.map((p, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => handleSendMessage(p)}
-                            className="text-[10px] font-mono px-2.5 py-0.5 rounded-lg bg-cyan-950/50 hover:bg-cyan-950 border border-cyan-500/25 text-cyan-300/80 hover:text-cyan-200 shrink-0 transition-all active:scale-95 cursor-pointer"
-                          >
-                            {p}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {/* Loading Indicator */}
-                {isLoadingChat && (
-                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/60 border border-cyan-500/20 max-w-xs text-xs text-cyan-300 font-mono animate-pulse">
-                    <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
-                    <span>तारा उत्तर तैयार कर रही हैं...</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* 3. Bottom: Clean Input Bar (Camera + Mic + Send) */}
-            <TaraInputBar
-              onSendMessage={handleSendMessage}
-              onVoiceClick={handleStartVoice}
-              isListening={isListening}
-              attachedMedia={attachedMedia}
-              onClearAttachedMedia={() => {
-                audioSynth.playClick();
-                setAttachedMedia(null);
-              }}
-              onUploadPhoto={handleDirectUploadPhoto}
-            />
-          </>
-        )}
-
-        {/* TAB 2: MIND MAP VIEW */}
-        {activeTab === 'mindmap' && (
-          <div className="h-[650px] w-full">
-            <MindMapSection
-              nodes={nodes}
-              edges={edges}
-              workflows={workflows}
-              onNodeClick={(node) => setSelectedNode(node)}
-              onAddNodeClick={() => setIsAddNodeOpen(true)}
-              onExecuteWorkflow={handleExecuteWorkflow}
-              onUpdateNodePosition={(id, x, y) => {
-                setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, x, y } : n)));
-              }}
+              onToggleVoice={isHandsFreeMode ? handleStopVoice : handleStartVoice}
+              onOpenRates={() => setActiveTab('rates')}
+              onOpenLeads={() => setActiveTab('leads')}
+              onOpenCallAgent={() => setActiveTab('calls')}
+              minimal={false}
+              defaultShowConversationDock={false}
+              liveSpeechTranscript={liveSpeechTranscript}
+              className="w-full h-full"
             />
           </div>
-        )}
+        </section>
 
-        {/* TAB 3: DIRECTIVES & SCRATCHPAD */}
-        {activeTab === 'directives' && (
-          <div className="flex flex-col gap-4">
-            <div className="h-[320px]">
-              <TasksSection
-                tasks={tasks}
-                onToggleTask={(id) => setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)))}
-                onToggleSubtask={(taskId, subtaskId) => {
-                  setTasks((prev) => prev.map((t) => {
-                    if (t.id !== taskId || !t.subtasks) return t;
-                    return {
-                      ...t,
-                      subtasks: t.subtasks.map((st) => st.id === subtaskId ? { ...st, completed: !st.completed } : st),
-                    };
-                  }));
-                }}
-                onAddTask={(data) => {
-                  const newTask: TaskItem = { ...data, id: `task-${Date.now()}`, createdAt: new Date().toISOString() };
-                  setTasks((prev) => [newTask, ...prev]);
-                }}
-                onDeleteTask={(id) => setTasks((prev) => prev.filter((t) => t.id !== id))}
-                onGenerateSubtasks={async (taskId, title) => {
-                  try {
-                    const res = await fetch('/api/generate-subtasks', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ taskTitle: title }),
-                    });
-                    let data: any = {};
-                    if (res.ok) {
-                      try {
-                        data = await res.json();
-                      } catch {
-                        data = {};
-                      }
-                    }
-                    const subtasks = data.subtasks || [
-                      `"${title}" की प्राथमिक तैयारी`,
-                      `क्रियान्वयन और प्रगति समीक्षा`,
-                      `सत्यापन और कार्य समापन`,
-                    ];
-                    const generated = subtasks.map((s: string, idx: number) => ({
-                      id: `st-${Date.now()}-${idx}`,
-                      title: s,
-                      completed: false,
-                    }));
-                    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, subtasks: generated } : t)));
-                  } catch (err) {
-                    console.warn('Subtasks generation network error:', err);
-                  }
-                }}
-              />
-            </div>
-            <div className="h-[300px]">
-              <NotesSection
-                notes={notes}
-                onAddNote={(n) => {
-                  const newNote: NoteItem = { ...n, id: `note-${Date.now()}`, updatedAt: 'Just now' };
-                  setNotes((prev) => [newNote, ...prev]);
-                }}
-                onTogglePin={(id) => setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, pinned: !n.pinned } : n)))}
-                onDeleteNote={(id) => setNotes((prev) => prev.filter((n) => n.id !== id))}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* TAB 4: TELEMETRY & LOGS */}
-        {activeTab === 'telemetry' && (
-          <div className="h-[650px]">
-            <SystemActivitySection
-              logs={logs}
-              telemetry={telemetry}
-              systemMode={systemMode}
-              onClearLogs={() => setLogs([])}
-              onRunDiagnostics={() => {
-                audioSynth.playSuccess();
-                addLog('exec', 'DIAGNOSTICS', 'Scan completed.');
-              }}
-              onFlushCache={() => {
-                audioSynth.playSend();
-                addLog('info', 'CACHE', 'Flushed tensor memory.');
-              }}
-            />
-          </div>
-        )}
+        {/* PANEL 3 (RIGHT): LIVE AI ACTIVITY & CHAT LOG PANEL */}
+        <section className="w-full lg:w-[32%] xl:w-[30%] flex flex-col gap-2.5 shrink-0">
+          <CyberActivityChatPanel
+            chatMessages={chatMessages}
+            logs={logs}
+            onSendMessage={handleSendMessage}
+            isLoadingChat={isLoadingChat}
+            isListening={isListening}
+            onToggleVoice={isHandsFreeMode ? handleStopVoice : handleStartVoice}
+            screenStream={screenStream}
+            onCaptureScreenSnapshot={handleCaptureScreenSnapshot}
+            liveSpeechTranscript={liveSpeechTranscript}
+            className="w-full flex-1 min-h-[460px] lg:min-h-0"
+          />
+        </section>
       </main>
 
-      {/* CHAT TRANSCRIPT SLIDEOVER DRAWER */}
-      {isChatDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-md h-full bg-[#080d1a] border-l border-cyan-500/30 p-4 flex flex-col shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+      {/* RATES MODAL OVERLAY */}
+      {activeTab === 'rates' && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in">
+          <div className="w-full max-w-5xl max-h-[90vh] bg-[#070f1e] border border-cyan-500/40 rounded-2xl overflow-y-auto p-4 sm:p-6 relative shadow-[0_0_50px_rgba(0,240,255,0.25)] flex flex-col gap-4">
+            <div className="flex items-center justify-between pb-3 border-b border-cyan-500/20">
               <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-cyan-400" />
-                <h3 className="font-heading font-bold text-sm text-slate-100">
-                  तारा संवाद इतिहास (Chat Transcript)
-                </h3>
+                <Calculator className="w-5 h-5 text-cyan-400" />
+                <h2 className="text-base sm:text-lg font-heading font-black text-cyan-300">
+                  🏭 मोहन विश्वास फैब्रिकेशन • वर्तमान दर तालिका (Fabrication Rates)
+                </h2>
               </div>
               <button
-                onClick={() => setIsChatDrawerOpen(false)}
-                className="p-1.5 rounded-lg bg-slate-900 text-slate-400 hover:text-slate-100"
+                type="button"
+                onClick={() => setActiveTab('assistant')}
+                className="px-3 py-1 bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-200 text-xs font-mono font-bold rounded-lg cursor-pointer transition-colors"
               >
-                <X className="w-4 h-4" />
+                ✕ बंद करें (Close)
               </button>
             </div>
+            <FabricationRatesSection
+              onAskTara={(p) => {
+                handleSendMessage(p);
+                setActiveTab('assistant');
+              }}
+            />
+          </div>
+        </div>
+      )}
 
-            <div className="flex-1 overflow-hidden pt-2">
-              <ChatSection
-                messages={chatMessages}
-                isLoading={isLoadingChat}
-                systemMode={systemMode}
-                onSendMessage={handleSendMessage}
-                onClearChat={() => setChatMessages([])}
-              />
+      {/* LEADS MODAL OVERLAY */}
+      {activeTab === 'leads' && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in">
+          <div className="w-full max-w-5xl max-h-[90vh] bg-[#070f1e] border border-pink-500/40 rounded-2xl overflow-y-auto p-4 sm:p-6 relative shadow-[0_0_50px_rgba(236,72,153,0.25)] flex flex-col gap-4">
+            <div className="flex items-center justify-between pb-3 border-b border-pink-500/20">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-pink-400" />
+                <h2 className="text-base sm:text-lg font-heading font-black text-pink-300">
+                  📱 WhatsApp हॉट लीड्स एवं स्वतः जवाब प्रणाली (Hot Leads & CRM)
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('assistant')}
+                className="px-3 py-1 bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-200 text-xs font-mono font-bold rounded-lg cursor-pointer transition-colors"
+              >
+                ✕ बंद करें (Close)
+              </button>
             </div>
+            <WhatsAppLeadResponder />
+          </div>
+        </div>
+      )}
+
+      {/* CALL AGENT MODAL OVERLAY */}
+      {activeTab === 'calls' && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in">
+          <div className="w-full max-w-5xl max-h-[90vh] bg-[#070f1e] border border-purple-500/40 rounded-2xl overflow-y-auto p-4 sm:p-6 relative shadow-[0_0_50px_rgba(168,85,247,0.25)] flex flex-col gap-4">
+            <div className="flex items-center justify-between pb-3 border-b border-purple-500/20">
+              <div className="flex items-center gap-2">
+                <PhoneCall className="w-5 h-5 text-purple-400" />
+                <h2 className="text-base sm:text-lg font-heading font-black text-purple-300">
+                  📞 इनकमिंग कॉल वॉयस एजेंट (Native Telecom Bridge & Call Simulator)
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('assistant')}
+                className="px-3 py-1 bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-200 text-xs font-mono font-bold rounded-lg cursor-pointer transition-colors"
+              >
+                ✕ बंद करें (Close)
+              </button>
+            </div>
+            <IncomingCallAgentSection
+              onTriggerTaraChat={(p) => {
+                handleSendMessage(p);
+                setActiveTab('assistant');
+              }}
+            />
           </div>
         </div>
       )}

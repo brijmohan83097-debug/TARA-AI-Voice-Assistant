@@ -12,6 +12,12 @@ class SpeechEngine {
   private isSpeaking: boolean = false;
   private speakingListeners: Array<(isSpeaking: boolean) => void> = [];
 
+  // Streaming Sentence TTS Queue
+  private streamingBuffer: string = '';
+  private sentenceQueue: string[] = [];
+  private isStreamingActive: boolean = false;
+  private isCurrentUtterancePlaying: boolean = false;
+
   constructor() {
     if (typeof window !== 'undefined') {
       try {
@@ -112,6 +118,154 @@ class SpeechEngine {
       .trim();
   }
 
+  /**
+   * Start a new real-time streaming TTS session.
+   * Cancels prior speech and resets the incoming sentence queue.
+   */
+  public startStreamingSession(): void {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window) || !this.isTtsEnabled) {
+      return;
+    }
+    this.stopSpeaking();
+    this.streamingBuffer = '';
+    this.sentenceQueue = [];
+    this.isStreamingActive = true;
+    this.isCurrentUtterancePlaying = false;
+  }
+
+  /**
+   * Feed a new streaming delta token/chunk from the SSE endpoint.
+   * As soon as a sentence boundary (।, ., ?, !, \n) or short pause is detected,
+   * it queues the sentence immediately so TTS starts playing in under 1 second!
+   */
+  public feedStreamingChunk(chunk: string): void {
+    if (!this.isTtsEnabled || typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return;
+    }
+    if (!chunk) return;
+
+    // Filter out JSON code block fences or metadata tags
+    if (chunk.includes('```json') || chunk.includes('```json_actions') || chunk.includes('```json_prompts')) {
+      return;
+    }
+
+    this.streamingBuffer += chunk;
+
+    // Regex to detect sentence boundaries in Hindi (Devanagari purna viram ।) and English (. ? ! \n)
+    // Or if the buffer has >= 6 words followed by a comma (,) for early sub-sentence playback
+    const delimiterRegex = /([।?!;\n]|\.\s+|,\s+(?=\S))/;
+    let match = delimiterRegex.exec(this.streamingBuffer);
+
+    while (match) {
+      const splitIndex = match.index + match[0].length;
+      const sentenceCandidate = this.streamingBuffer.slice(0, splitIndex).trim();
+      this.streamingBuffer = this.streamingBuffer.slice(splitIndex);
+
+      const cleaned = this.cleanTextForSpeech(sentenceCandidate);
+      if (cleaned && cleaned.length >= 2) {
+        this.sentenceQueue.push(cleaned);
+        if (!this.isCurrentUtterancePlaying) {
+          this.playNextQueuedSentence();
+        }
+      }
+
+      match = delimiterRegex.exec(this.streamingBuffer);
+    }
+  }
+
+  /**
+   * Conclude the streaming session once SSE reader completes.
+   * Flushes any remaining words in the buffer to the queue.
+   */
+  public finishStreamingSession(): void {
+    if (!this.isTtsEnabled || typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return;
+    }
+    this.isStreamingActive = false;
+
+    if (this.streamingBuffer.trim()) {
+      const remainingClean = this.cleanTextForSpeech(this.streamingBuffer);
+      this.streamingBuffer = '';
+      if (remainingClean && remainingClean.length >= 2) {
+        this.sentenceQueue.push(remainingClean);
+        if (!this.isCurrentUtterancePlaying) {
+          this.playNextQueuedSentence();
+        }
+      }
+    }
+
+    if (this.sentenceQueue.length === 0 && !this.isCurrentUtterancePlaying) {
+      this.setSpeaking(false);
+    }
+  }
+
+  /**
+   * Plays the next queued sentence smoothly in sequence.
+   */
+  private playNextQueuedSentence(): void {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return;
+    }
+
+    if (this.sentenceQueue.length === 0) {
+      this.isCurrentUtterancePlaying = false;
+      if (!this.isStreamingActive) {
+        this.setSpeaking(false);
+      }
+      return;
+    }
+
+    const nextSentence = this.sentenceQueue.shift();
+    if (!nextSentence) {
+      this.playNextQueuedSentence();
+      return;
+    }
+
+    try {
+      const utterance = new SpeechSynthesisUtterance(nextSentence);
+      const isHindi = this.isHindiText(nextSentence);
+
+      if (isHindi) {
+        utterance.lang = 'hi-IN';
+        if (this.selectedHindiVoice) {
+          utterance.voice = this.selectedHindiVoice;
+        }
+        utterance.rate = 1.0; // Crisp, prompt pace
+        utterance.pitch = 1.05;
+      } else {
+        utterance.lang = 'en-US';
+        if (this.selectedEnglishVoice) {
+          utterance.voice = this.selectedEnglishVoice;
+        }
+        utterance.rate = 1.05;
+        utterance.pitch = 1.0;
+      }
+
+      utterance.onstart = () => {
+        this.isCurrentUtterancePlaying = true;
+        this.setSpeaking(true);
+      };
+
+      utterance.onend = () => {
+        this.isCurrentUtterancePlaying = false;
+        this.playNextQueuedSentence();
+      };
+
+      utterance.onerror = () => {
+        this.isCurrentUtterancePlaying = false;
+        this.playNextQueuedSentence();
+      };
+
+      this.isCurrentUtterancePlaying = true;
+      this.setSpeaking(true);
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.warn('Queue speak error:', err);
+      this.isCurrentUtterancePlaying = false;
+      this.playNextQueuedSentence();
+    }
+  }
+
   public speak(text: string, force: boolean = false): void {
     if ((!this.isTtsEnabled && !force) || typeof window === 'undefined' || !('speechSynthesis' in window)) {
       return;
@@ -121,8 +275,7 @@ class SpeechEngine {
     if (!clean) return;
 
     try {
-      // Cancel previous speech
-      window.speechSynthesis.cancel();
+      this.stopSpeaking();
 
       const utterance = new SpeechSynthesisUtterance(clean);
       const isHindi = this.isHindiText(text);
@@ -132,7 +285,7 @@ class SpeechEngine {
         if (this.selectedHindiVoice) {
           utterance.voice = this.selectedHindiVoice;
         }
-        utterance.rate = 0.95; // Slightly measured rate for crystal-clear Hindi pronunciation
+        utterance.rate = 0.98;
         utterance.pitch = 1.05;
       } else {
         utterance.lang = 'en-US';
@@ -152,7 +305,6 @@ class SpeechEngine {
       };
 
       utterance.onerror = () => {
-        // Speech interrupted or canceled is expected behavior
         this.setSpeaking(false);
       };
 
@@ -163,11 +315,21 @@ class SpeechEngine {
     }
   }
 
+  public speakHindi(text: string, force: boolean = false): void {
+    this.speak(text, force);
+  }
+
   public stopSpeaking(): void {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      this.setSpeaking(false);
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
     }
+    this.sentenceQueue = [];
+    this.streamingBuffer = '';
+    this.isStreamingActive = false;
+    this.isCurrentUtterancePlaying = false;
+    this.setSpeaking(false);
   }
 
   public toggleTts(): boolean {

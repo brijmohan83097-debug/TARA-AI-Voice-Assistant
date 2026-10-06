@@ -126,3 +126,118 @@
 .text-glow-purple {
   text-shadow: 0 0 12px rgba(168, 85, 247, 0.5);
 }
+
+/* Cyberpunk Audio Ripple Waves & Equalizer Animations */
+@keyframes cyber-wave-expand {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+}
+
+.animate-wave-ripple-1 {
+  animation: cyber-wave-expand 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+.animate-wave-ripple-2 {
+  animation: cyber-wave-expand 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+  animation-delay: 0.65s;
+}
+
+.animate-wave-ripple-3 {
+  animation: cyber-wave-expand 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+  animation-delay: 1.3s;
+}
+
+@keyframes audio-bar-bounce {
+  0%, 100% {
+    transform: scaleY(0.25);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.animate-audio-bar {
+  animation: audio-bar-bounce 0.8s ease-in-out infinite alternate;
+  transform-origin: bottom;
+}
+
+/* Futuristic Neon HUD Glow & Border */
+.neon-hud-border {
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  box-shadow: 0 0 20px -3px rgba(0, 240, 255, 0.2), inset 0 0 15px -5px rgba(0, 240, 255, 0.08);
+}
+
+.neon-hud-border-active {
+  border: 1px solid rgba(0, 240, 255, 0.6);
+  box-shadow: 0 0 30px -2px rgba(0, 240, 255, 0.4), inset 0 0 20px -3px rgba(0, 240, 255, 0.15);
+}
+
+@keyframes hud-data-scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(1000%);
+  }
+}
+
+.animate-hud-scan {
+  animation: hud-data-scan 4s linear infinite;
+}
+
+/* User Speaking: Receptive Acoustic Listening Waves */
+@keyframes listening-wave-ripple {
+  0% {
+    transform: scale(0.7);
+    opacity: 1;
+    border-color: rgba(244, 63, 94, 0.9);
+  }
+  50% {
+    opacity: 0.6;
+    border-color: rgba(0, 240, 255, 0.7);
+  }
+  100% {
+    transform: scale(1.85);
+    opacity: 0;
+    border-color: rgba(0, 240, 255, 0.1);
+  }
+}
+
+.animate-listen-wave {
+  animation: listening-wave-ripple 1.8s cubic-bezier(0.1, 0.9, 0.2, 1) infinite;
+}
+
+/* TARA Speaking: Energetic Rhythmic Core Pulse */
+@keyframes speaking-pulse-glow {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.6)) drop-shadow(0 0 35px rgba(0, 240, 255, 0.4));
+  }
+  25% {
+    transform: scale(1.12);
+    filter: drop-shadow(0 0 30px rgba(16, 185, 129, 0.9)) drop-shadow(0 0 50px rgba(0, 240, 255, 0.7));
+  }
+  50% {
+    transform: scale(1.03);
+    filter: drop-shadow(0 0 18px rgba(16, 185, 129, 0.6));
+  }
+  75% {
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 35px rgba(16, 185, 129, 1)) drop-shadow(0 0 60px rgba(0, 240, 255, 0.8));
+  }
+}
+
+.animate-speaking-pulse {
+  animation: speaking-pulse-glow 1.2s ease-in-out infinite;
+}
+
+

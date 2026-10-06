@@ -88,6 +88,140 @@ app.get(['/health', '/api/health', '/ping', '/api/ping'], (_req, res) => {
   });
 });
 
+// Mohan Vishwas Fabrication Rates & Services Configuration
+const fabricationConfigPath = path.join(publicDir, 'fabrication_rates.json');
+const DEFAULT_FABRICATION_CONFIG = {
+  businessName: 'Mohan Vishwas Fabrication',
+  businessNameHi: 'मोहन विश्वास फैब्रिकेशन',
+  ownerName: 'Mr. Brijmohan Kumar',
+  tagline: 'विश्वसनीय स्टील, शेड्स एवं मॉडर्न फैब्रिकेशन वर्क्स',
+  phone: '+91 98765 43210',
+  whatsapp: '+919876543210',
+  address: 'मेन इंडस्ट्रियल रोड, वर्कशॉप कॉम्प्लेक्स',
+  city: 'भारत',
+  services: [
+    {
+      id: 'shed-standard',
+      name: 'Industrial & Domestic Sheds',
+      nameHi: 'शेड्स निर्माण (फैक्ट्री, छत व पार्किंग)',
+      category: 'shed',
+      unit: 'sq ft',
+      rateMin: 180,
+      rateMax: 220,
+      description: 'हैवी आयरन ट्रस/पाइप स्ट्रक्चर, कलर-कोटेड प्रोफाइल शीट/जिंक शीट या फाइबर रूफिंग सहित कम्प्लीट इंस्टॉलेशन।',
+      material: 'टाटा / जिंदल कलर-कोटेड शीट, हेवी एमएस ट्यूबलर पाइप व एंटी-रस्ट प्राइमर',
+      warranty: '10 वर्ष लीकेज व स्ट्रक्चरल वारंटी',
+      popular: true,
+      isActive: true,
+    },
+    {
+      id: 'railing-steel',
+      name: 'SS Steel Railings',
+      nameHi: 'स्टील रेलिंग (सीढ़ी व बालकनी)',
+      category: 'railing',
+      unit: 'running ft',
+      rateMin: 450,
+      rateMax: 450,
+      description: 'प्योर SS-304 स्टेनलेस स्टील, ग्लास क्लैम्प, डिज़ाइनर पिलर, मिरर ग्लॉसी/मैट फिनिश व मजबूत वेल्डिंग।',
+      material: 'SS-304 ग्रेड हाई-पॉलिश स्टेनलेस स्टील (1.5mm - 2mm)',
+      warranty: 'लाइफटाइम रस्ट-फ्री गारंटी',
+      popular: true,
+      isActive: true,
+    },
+    {
+      id: 'gate-designer',
+      name: 'Designer Main Entrance Gates',
+      nameHi: 'आधुनिक मुख्य द्वार व गेट्स',
+      category: 'gate',
+      unit: 'sq ft',
+      rateMin: 280,
+      rateMax: 380,
+      description: 'मॉडर्न सीएनसी लेजर-कट डिज़ाइन्स, हैवी एमएस चौखट, बीयरिंग हिंग्स एवं एंटी-रस्ट कोटिंग।',
+      material: 'प्राइम ग्रेड एमएस शीट, हेवी पाइप फ्रेम, लेजर कटिंग',
+      warranty: '5 वर्ष फ्री सर्विसिंग',
+      popular: true,
+      isActive: true,
+    },
+    {
+      id: 'grill-safety',
+      name: 'Window & Balcony Safety Grills',
+      nameHi: 'खिड़की व बालकनी सेफ्टी ग्रिल्स',
+      category: 'grill',
+      unit: 'sq ft',
+      rateMin: 130,
+      rateMax: 180,
+      description: 'मजबूत स्क्वायर बार व फ्लैट स्ट्रिप ग्रिल्स, मॉडर्न ज्यामितीय पैटर्न, एंटी-बर्गलर डिज़ाइन।',
+      material: '10mm/12mm सॉलिड एमएस स्क्वायर बार, हेवी एंगल फ्रेम',
+      warranty: '3 वर्ष एंटी-रस्ट वारंटी',
+      popular: true,
+      isActive: true,
+    },
+  ],
+};
+
+function getStoredFabricationRates() {
+  try {
+    if (fs.existsSync(fabricationConfigPath)) {
+      const data = fs.readFileSync(fabricationConfigPath, 'utf8');
+      const parsed = JSON.parse(data);
+      if (parsed && Array.isArray(parsed.services) && parsed.services.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not read fabrication_rates.json:', err);
+  }
+  return DEFAULT_FABRICATION_CONFIG;
+}
+
+app.get('/api/fabrication/rates', (_req, res) => {
+  res.json(getStoredFabricationRates());
+});
+
+app.post('/api/fabrication/rates', (req, res) => {
+  try {
+    const newConfig = req.body;
+    if (newConfig && Array.isArray(newConfig.services)) {
+      fs.writeFileSync(fabricationConfigPath, JSON.stringify(newConfig, null, 2));
+      return res.json({ success: true, message: 'Rates updated successfully', config: newConfig });
+    }
+    return res.status(400).json({ error: 'Invalid config structure' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Automated WhatsApp Hot Leads Storage
+const hotLeadsPath = path.join(publicDir, 'hot_leads.json');
+
+app.get('/api/leads', (_req, res) => {
+  try {
+    if (fs.existsSync(hotLeadsPath)) {
+      const data = fs.readFileSync(hotLeadsPath, 'utf8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) {
+        return res.json(parsed);
+      }
+    }
+  } catch (err) {
+    console.warn('Could not read hot_leads.json:', err);
+  }
+  return res.json([]);
+});
+
+app.post('/api/leads', (req, res) => {
+  try {
+    const leads = req.body;
+    if (Array.isArray(leads)) {
+      fs.writeFileSync(hotLeadsPath, JSON.stringify(leads, null, 2));
+      return res.json({ success: true, count: leads.length });
+    }
+    return res.status(400).json({ error: 'Expected an array of leads' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // Helper to sanitize and format conversation history for Gemini API
 function buildGeminiContents(
   cleanMsg: string,
@@ -202,18 +336,29 @@ const modelQuotaCooldown = new Map<string, number>();
 // 15-second timeout safeguard for all Gemini API calls and streaming handshakes
 const API_TIMEOUT_MS = 15000;
 
-// Prioritize responsive, tested Gemini models as requested (gemini-2.0-flash / gemini-1.5-flash with modern fallback)
+// High-speed, actively supported Gemini models (prioritizing ultra-fast gemini-3.1-flash-lite with resilient fallbacks)
 const ACTIVE_FAST_MODELS = [
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
-  'gemini-flash-latest',
   'gemini-3.1-flash-lite',
   'gemini-3.8-flash',
-  'gemini-2.5-flash',
+  'gemini-flash-latest',
 ];
 
+const DEPRECATED_MODELS = new Set([
+  'gemini-2.0-flash',
+  'gemini-2.0-pro',
+  'gemini-2.0-flash-thinking',
+  'gemini-1.5-flash',
+  'gemini-1.5-pro',
+  'gemini-pro',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+]);
+
 function getPrioritizedModels(preferredModel?: string): string[] {
-  const cleanPreferred = preferredModel ? preferredModel.replace(/^models\//, '') : undefined;
+  let cleanPreferred = preferredModel ? preferredModel.replace(/^models\//, '') : undefined;
+  if (cleanPreferred && DEPRECATED_MODELS.has(cleanPreferred)) {
+    cleanPreferred = undefined;
+  }
 
   const baseList = cleanPreferred
     ? [cleanPreferred, ...ACTIVE_FAST_MODELS.filter((m) => m !== cleanPreferred)]
@@ -238,42 +383,83 @@ function getPrioritizedModels(preferredModel?: string): string[] {
 
 function recordModelError(model: string, err: any) {
   const errMsg = extractErrorMessage(err);
+  const lowerMsg = (errMsg || '').toLowerCase();
 
   const isDeprecatedOrNotFound =
-    errMsg.includes('404') ||
-    errMsg.includes('NOT_FOUND') ||
-    errMsg.includes('no longer available') ||
-    errMsg.includes('is not found');
+    lowerMsg.includes('404') ||
+    lowerMsg.includes('not_found') ||
+    lowerMsg.includes('no longer available') ||
+    lowerMsg.includes('not found') ||
+    lowerMsg.includes('unsupported') ||
+    lowerMsg.includes('deprecated');
 
   if (isDeprecatedOrNotFound) {
-    // Permanent cooldown for discontinued or unavailable model endpoints (24 hours)
+    // Discontinued or unavailable model endpoints (24 hours cooldown)
     modelQuotaCooldown.set(model, Date.now() + 86400000);
     console.warn(`[Gemini Engine] Model "${model}" is discontinued or not found. Placed on 24h cooldown.`);
     return;
   }
 
   const isUnavailable =
-    errMsg.includes('429') ||
-    errMsg.includes('Quota exceeded') ||
-    errMsg.includes('RESOURCE_EXHAUSTED') ||
-    errMsg.includes('rate-limit') ||
-    errMsg.includes('quota') ||
-    errMsg.includes('503') ||
-    errMsg.includes('high demand') ||
-    errMsg.includes('Overloaded') ||
-    errMsg.includes('UNAVAILABLE') ||
-    errMsg.includes('fetch failed');
+    lowerMsg.includes('429') ||
+    lowerMsg.includes('quota') ||
+    lowerMsg.includes('resource_exhausted') ||
+    lowerMsg.includes('rate-limit') ||
+    lowerMsg.includes('503') ||
+    lowerMsg.includes('504') ||
+    lowerMsg.includes('deadline') ||
+    lowerMsg.includes('high demand') ||
+    lowerMsg.includes('overloaded') ||
+    lowerMsg.includes('unavailable') ||
+    lowerMsg.includes('fetch failed');
 
   if (isUnavailable) {
-    // Put on cooldown for 5 minutes
-    modelQuotaCooldown.set(model, Date.now() + 300000);
-    console.warn(`[Gemini Engine] Model "${model}" temporarily unavailable. Placed on cooldown for 5m.`);
+    // Put on cooldown for 2 minutes
+    modelQuotaCooldown.set(model, Date.now() + 120000);
+    console.warn(`[Gemini Engine] Model "${model}" temporarily unavailable. Placed on cooldown for 2m.`);
   }
 }
 
 // Resilient direct fallback answers for regular chat and query topics without external server delays
 function getDirectFallbackAnswer(userText?: string): string {
   const query = (userText || '').toLowerCase();
+
+  // Mohan Vishwas Fabrication Instant Rates & Quotation Bridge
+  if (
+    /shed|शेड|railing|रेलिंग|gate|गेट|grill|ग्रिल|fabrication|फैब्रिकेशन|vishwas|विश्वास|shutter|शटर|loha|लोहा|steel|स्टील/i.test(query) &&
+    /rate|रेट|price|bhav|भाव|cost|kharcha|खर्च|kitna|कितना|kya\s+hai|batao|बनाना|banwana|lagwana|quote|quotation|कोटेशन/i.test(query)
+  ) {
+    const numMatch = query.match(/(\d+)\s*(?:sq\s*ft|square\s*feet|स्क्वायर\s*फुट|वर्ग\s*फुट|ft|foot|फुट)?/i);
+    const specifiedQty = numMatch ? parseInt(numMatch[1], 10) : null;
+
+    if (/shed|शेड/i.test(query)) {
+      if (specifiedQty && specifiedQty >= 20) {
+        const minCost = specifiedQty * 180;
+        const maxCost = specifiedQty * 220;
+        return `मोहन विश्वास फैब्रिकेशन (Mohan Vishwas Fabrication) में शेड्स का आधिकारिक प्रीसेट रेट **₹180 से ₹220 प्रति वर्ग फुट (sq ft)** है।\n\n📐 **आपके ${specifiedQty.toLocaleString('en-IN')} वर्ग फुट शेड का अनुमानित खर्च:**\n• न्यूनतम दर पर (₹180/sq ft): **₹${minCost.toLocaleString('en-IN')}**\n• प्रीमियम दर पर (₹220/sq ft): **₹${maxCost.toLocaleString('en-IN')}**\n\n🛠️ **शामिल सामग्री:** टाटा / जिंदल कलर-कोटेड प्रोफाइल शीट, हैवी एमएस ट्यूबलर पाइप ट्रस फ्रेम, एंटी-रस्ट प्राइमर कोटिंग व कम्प्लीट ऑन-साइट इंस्टॉलेशन।\n\nआप डैशबोर्ड के 'फैब्रिकेशन रेट्स' मॉड्यूल में जाकर तुरंत विस्तृत कोटेशन जनरेट व कॉपी कर सकते हैं।`;
+      }
+      return 'मोहन विश्वास फैब्रिकेशन (Mohan Vishwas Fabrication) में शेड्स निर्माण (Industrial, Factory & Roof Sheds) का आधिकारिक प्रीसेट रेट **₹180 से ₹220 प्रति वर्ग फुट (sq ft)** है।\n\nइसमें टाटा/जिंदल कलर-कोटेड प्रोफाइल शीट, हैवी एमएस ट्यूबलर पाइप स्ट्रक्चर, वेल्डिंग एवं इंस्टॉलेशन शामिल है। यदि आप मुझे अपनी छत या फैक्ट्री का साइज (जैसे 1000 sq ft) बताएंगे, तो मैं तुरंत कुल बजट का सटीक हिसाब निकाल दूँगी।';
+    }
+
+    if (/railing|रेलिंग/i.test(query)) {
+      if (specifiedQty && specifiedQty >= 5) {
+        const total = specifiedQty * 450;
+        return `मोहन विश्वास फैब्रिकेशन (Mohan Vishwas Fabrication) में एसएस स्टील रेलिंग का प्रीसेट रेट **₹450 प्रति रनिंग फुट (running ft)** है।\n\n📐 **आपके ${specifiedQty.toLocaleString('en-IN')} रनिंग फुट रेलिंग का कुल खर्च:** **₹${total.toLocaleString('en-IN')}**\n\n🛠️ **सामग्री विवरण:** शुद्ध SS-304 ग्रेड हाई-पॉलिश स्टेनलेस स्टील, डिज़ाइनर मास्टर पिलर, ग्लास क्लैम्प एवं वेल्डिंग ग्राइंडिंग फिनिश सहित।`;
+      }
+      return 'मोहन विश्वास फैब्रिकेशन (Mohan Vishwas Fabrication) में स्टील रेलिंग (SS-304) का प्रीसेट रेट **₹450 प्रति रनिंग फुट (running ft)** है।\n\nयह कार्य 100% प्योर SS-304 फूड-ग्रेड स्टेनलेस स्टील, डिज़ाइनर मास्टर पिलर एवं लाइफटाइम रस्ट-फ्री गारंटी के साथ किया जाता है।';
+    }
+
+    if (/gate|गेट/i.test(query)) {
+      return 'मोहन विश्वास फैब्रिकेशन में आधुनिक मुख्य द्वार व गेट्स (Designer Main Entrance & Sliding Gates) का रेट **₹280 से ₹380 प्रति वर्ग फुट (sq ft)** है (डिजाइन की जटिलता और कुल वजन के अनुसार)।\n\nइसमें सीएनसी लेजर-कटिंग डिज़ाइन्स, हैवी एमएस चौखट, बीयरिंग हिंग्स और एंटी-रस्ट एपॉक्सी कोटिंग शामिल है।';
+    }
+
+    if (/grill|ग्रिल/i.test(query)) {
+      return 'मोहन विश्वास फैब्रिकेशन में खिड़की व बालकनी सेफ्टी ग्रिल्स (Window & Balcony Safety Grills) का रेट **₹130 से ₹180 प्रति वर्ग फुट (sq ft)** (या ₹85 - ₹110 प्रति किलोग्राम) है।\n\nयह 10mm या 12mm सॉलिड एमएस स्क्वायर बार और आधुनिक ज्यामितीय डिज़ाइन्स में मजबूत वेल्डिंग के साथ तैयार की जाती हैं।';
+    }
+
+    // General rate card summary
+    return `*मोहन विश्वास फैब्रिकेशन (Mohan Vishwas Fabrication) आधिकारिक रेट लिस्ट:*\n\n1. 🏭 **शेड्स निर्माण (Sheds):** ₹180 - ₹220 प्रति वर्ग फुट (sq ft)\n2. 🛡️ **स्टील रेलिंग (SS-304 Railings):** ₹450 प्रति रनिंग फुट (running ft)\n3. 🚪 **मुख्य द्वार व गेट्स (Designer Gates):** ₹280 - ₹380 प्रति वर्ग फुट (sq ft)\n4. 🪟 **खिड़की व बालकनी सेफ्टी ग्रिल्स (Grills):** ₹130 - ₹180 प्रति वर्ग फुट (sq ft)\n5. 🏬 **रोलिंग शटर (Rolling Shutters):** ₹160 - ₹210 प्रति वर्ग फुट (sq ft)\n\nसभी कार्यों में टाटा/जिंदल एवं प्रमाणित SS-304 स्टील का उपयोग किया जाता है। डैशबोर्ड के **'फैब्रिकेशन रेट्स'** मॉड्यूल में आप लाइव कैलकुलेटर से तत्काल कोटेशन निकाल सकते हैं।`;
+  }
 
   if (/logo|लोगो|icon/i.test(query) && /app|software|tool|website|kaise|batao|best|top|list|suggest/i.test(query)) {
     return 'लोगो डिज़ाइन करने के लिए सबसे लोकप्रिय और बेहतरीन ऐप्स निम्नलिखित हैं:\n\n1. **Canva:** शुरुआती और प्रोफेशनल्स दोनों के लिए सरल ड्रैग-एंड-ड्रॉप एडिटर और हज़ारों तैयार टेम्पलेट्स।\n2. **Adobe Illustrator / Adobe Express:** वेक्टर और हाई-रिज़ॉल्यूशन ब्रांड लोगो के लिए इंडस्ट्री स्टैंडर्ड।\n3. **Logo Maker & Creator (Logopit):** मोबाइल पर त्वरित और सुंदर लोगो बनाने हेतु उपयोगी ऐप।\n4. **Figma:** आधुनिक ऐप आइकन और डिजिटल लोगो डिज़ाइनिंग के लिए बेहतरीन टूल।\n5. **Looka:** एआई-पावर्ड लोगो जेनरेशन टूल।\n\nआप अपने प्रोजेक्ट के अनुसार इनमें से किसी भी ऐप का चयन कर सकते हैं।';
@@ -482,6 +668,38 @@ REAL IMAGE & PHOTO GENERATION CAPABILITY (POWERED BY GOOGLE IMAGEN 3):
   3. ALWAYS respond enthusiastically in Hindi describing what you have generated (e.g., "मैंने आपके लिए यह रियलिस्टिक और खूबसूरत फ़ोटो तैयार कर दी है! आप इसे नीचे देख सकते हैं और 'इमेज डाउनलोड करें' बटन से अपने फोन में सेव कर सकते हैं।").
   4. STRICT DIRECTIVE: NEVER write fake text markdown links like "[डाउनलोड इमेज]" or mock URL placeholders in your text reply! The actual <img> and download button are rendered automatically by Tara's UI below your message.
 
+MOHAN VISHWAS FABRICATION - AUTHORITATIVE RATES & QUOTATIONS KNOWLEDGE:
+You are the dedicated customer inquiry & quotation assistant for "Mohan Vishwas Fabrication" (मोहन विश्वास फैब्रिकेशन).
+When a user asks about fabrication work, sheds, railings, gates, grills, rolling shutters, stairs, pricing, or quotations:
+1. SHEDS (शेड्स निर्माण - Industrial, Factory, Roof & Parking Sheds):
+   - Preset Rate: **₹180 से ₹220 प्रति वर्ग फुट (sq ft)**.
+   - Includes Tata / Jindal color-coated profile sheet or fiber roofing, heavy MS tubular truss structure, welding, primer, and complete installation.
+   - Direct Math Estimation: If the user provides a size (e.g. "1000 sq ft shed" or "500 sq ft"), calculate the total cost immediately in Hindi:
+     * 1,000 sq ft shed = ₹1,80,000 से ₹2,20,000.
+     * 500 sq ft shed = ₹90,000 से ₹1,10,000.
+
+2. STEEL RAILINGS (स्टील रेलिंग - Stairs, Balcony & Terrace):
+   - Preset Rate: **₹450 प्रति रनिंग फुट (running ft)**.
+   - Made strictly with pure SS-304 food-grade stainless steel (1.5mm - 2mm thickness), designer master pillars, glass clamp fittings, high-gloss mirror finish, and lifetime rust-free guarantee.
+   - Direct Math Estimation: E.g., 40 running feet = ₹18,000; 100 running feet = ₹45,000.
+
+3. DESIGNER GATES (आधुनिक मुख्य प्रवेश द्वार व गेट्स - Main Sliding & Swing Gates):
+   - Preset Rate: **₹280 से ₹380 प्रति वर्ग फुट (sq ft)** (or ₹15,000 - ₹50,000 based on weight and design complexity).
+   - Features modern CNC laser-cut designs, heavy MS pipe frame, bearing hinges, safety locks, and epoxy anti-rust paint.
+
+4. SAFETY GRILLS (खिड़की व बालकनी सेफ्टी ग्रिल्स - Window & Balcony Grills):
+   - Preset Rate: **₹130 से ₹180 प्रति वर्ग फुट (sq ft)** (or ₹85 - ₹110 per kg).
+   - 10mm / 12mm solid MS square bars with anti-burglar architectural patterns and red-oxide primer.
+
+5. ROLLING SHUTTERS (दुकान व गोदाम रोलिंग शटर):
+   - Preset Rate: **₹160 से ₹210 प्रति वर्ग फुट (sq ft)**.
+   - Spring-loaded heavy-duty steel interlocking slats with central lock mechanism.
+
+6. PROMPT & PROFESSIONAL TONE:
+   - Provide direct, respectful, and crystal-clear Hindi quotes with material specifications.
+   - Always inform the customer that Mohan Vishwas Fabrication uses high-grade branded materials (Tata/Jindal Steel & SS-304) and guarantees on-time delivery.
+   - Suggest that they can also use the interactive **'फैब्रिकेशन रेट्स' (Fabrication Rates)** module in the dashboard to generate and copy instant WhatsApp quotations!
+
 ANDROID APK ASSISTANT ACTIONS & TELECOM INTENTS:
 When the user gives phone, call, or device commands, you MUST recognize the intent and append a structured json_actions block:
 1. "phone uthao", "call receive karo", "call uthao", "answer call" ->
@@ -528,16 +746,19 @@ When the user gives phone, call, or device commands, you MUST recognize the inte
    [{"type": "generate_pdf", "summary": "PDF compiled", "details": {"documentType": "quotes", "title": "तारा सुविचार एवं रिपोर्ट"}}]
    \`\`\`
 
-CORE DIRECTIVES:
-1. Direct, Quick, Complete & Accurate Answers:
-   - Provide direct, fast, accurate, and completely resolved answers with solid facts and clear reasoning.
-   - NEVER output static boilerplate confirmations or robotic acknowledgments.
-2. Primary Language (Hindi - हिंदी):
-   - Always respond in natural, elegant, respectful, and fluent Hindi (हिंदी - Devanagari script) by default.
-3. Formatting for Voice (TTS) & Screen:
-   - Structure responses cleanly using Markdown: clear paragraphs, bold highlights (**मुख्य बिंदु**), and bulleted lists.
-   - Keep sentences flowing smoothly for browser Text-To-Speech (TTS) narration.
-   - ABSOLUTE BAN ON RAW JSON IN SPEECH: Never speak JSON properties, braces, quotes, or schema definitions.
+CORE DIRECTIVES (ULTRA-FAST & LOW-LATENCY VOICE CONVERSATION):
+1. Direct, Ultra-Short & Crisp Answers (अत्यधिक संक्षिप्त एवं तेज़ हिंदी जवाब):
+   - Keep answers strictly to 1 or 2 crisp, direct, and natural Hindi sentences (maximum 25-35 words).
+   - Deliver the core answer or number in the very first sentence so Streaming TTS speaks out within 1 second!
+   - NO lengthy introductions, NO robotic greetings, NO filler words (avoid "ज़रूर, मैं बताती हूँ" or "आपके प्रश्न का उत्तर है"). Go straight to the answer.
+   - For fabrication rates or calculations (e.g. 1,000 sq ft shed): deliver the exact estimate in one punchy sentence:
+     "1,000 वर्ग फुट शेड का अनुमानित खर्च ₹1,80,000 से ₹2,20,000 होगा, जिसमें टाटा/जिंदल शीट और पूरा स्ट्रक्चर शामिल है।"
+   - For railings: "SS-304 स्टील रेलिंग की अधिकृत दर ₹450 प्रति रनिंग फुट है, जो लाइफटाइम रस्ट-फ्री गारंटी के साथ आती है।"
+2. Primary Language (Natural Hindi - हिंदी):
+   - Always respond in natural, elegant, respectful, and fluent spoken Hindi (हिंदी - Devanagari script).
+3. Optimized for Streaming Text-To-Speech (TTS):
+   - End the first sentence cleanly with '।' or '?' so the first audio sentence plays in under 1 second!
+   - ABSOLUTE BAN ON RAW JSON IN SPEECH: Never output JSON brackets or schemas in chat text.
 4. Follow-Up Suggestions:
    Always conclude every answer with 3-4 insightful follow-up prompts in Hindi:
    \`\`\`json_prompts
@@ -1193,7 +1414,7 @@ Style requested: ${style}
 DO NOT include quotes, intros, or conversational text. Output ONLY the English prompt in 1-2 descriptive sentences.`;
 
     const resp = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.1-flash-lite',
       contents: promptReq,
     });
 
@@ -1249,7 +1470,7 @@ CRITICAL INSTRUCTIONS:
 
 Output ONLY the final English prompt for Imagen 3 in 2-3 detailed sentences. DO NOT include any conversational preamble, intro phrases, or markdown formatting.`;
 
-    const visionModels = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+    const visionModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash'];
     for (const model of visionModels) {
       try {
         const resp = await ai.models.generateContent({
@@ -1384,7 +1605,7 @@ app.post(['/api/generate-image', '/api/edit-image'], async (req, res) => {
 
       // 2c. Check Gemini multimodal image generation candidates
       if (!imageBuffer) {
-        const candidateImageModels = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+        const candidateImageModels = ['gemini-3.1-flash-lite-image', 'gemini-3.1-flash-image'];
         for (const m of candidateImageModels) {
           if (imageBuffer) break;
           try {

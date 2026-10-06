@@ -230,6 +230,28 @@ class AudioSynthesizer {
     } catch {}
   }
 
+  public playIncomingRingtone() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+    try {
+      const now = this.ctx.currentTime;
+      [440, 480].forEach((freq) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        gain.gain.setValueAtTime(0.04, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.42);
+      });
+    } catch {}
+  }
+
   private playBeep(freq: number, duration: number, type: OscillatorType = 'sine') {
     this.initContext();
     if (!this.ctx) return;
