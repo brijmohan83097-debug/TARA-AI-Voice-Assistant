@@ -48,28 +48,187 @@ class AudioSynthesizer {
   }
 
   public playClick() {
+    this.playSciFiClick();
+  }
+
+  /**
+   * Futuristic Sci-Fi tactile click with dual-harmonic resonance
+   */
+  public playSciFiClick() {
     if (this.isMuted) return;
     this.initContext();
     if (!this.ctx) return;
 
     try {
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.03);
+      const now = this.ctx.currentTime;
+      // High cyber chirp
+      const osc1 = this.ctx.createOscillator();
+      const gain1 = this.ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(1600, now);
+      osc1.frequency.exponentialRampToValueAtTime(950, now + 0.025);
 
-      gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.03);
+      gain1.gain.setValueAtTime(0.045, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
 
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      osc1.connect(gain1);
+      gain1.connect(this.ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.03);
 
-      osc.start();
-      osc.stop(this.ctx.currentTime + 0.035);
+      // Low resonance blip
+      const osc2 = this.ctx.createOscillator();
+      const gain2 = this.ctx.createGain();
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(800, now + 0.005);
+      osc2.frequency.exponentialRampToValueAtTime(400, now + 0.035);
+
+      gain2.gain.setValueAtTime(0.03, now + 0.005);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+
+      osc2.connect(gain2);
+      gain2.connect(this.ctx.destination);
+      osc2.start(now + 0.005);
+      osc2.stop(now + 0.04);
     } catch {
       // Audio context might fail in silent autoplay policies
     }
+  }
+
+  /**
+   * Futuristic Sci-Fi Order / Command acknowledgment audio feedback
+   */
+  public playSciFiCommand() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      const freqs = [1046.5, 1318.5, 1760.0]; // C6, E6, A6 high cyber chord
+      freqs.forEach((freq, idx) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.035);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.25, now + idx * 0.035 + 0.07);
+
+        gain.gain.setValueAtTime(0.045, now + idx * 0.035);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.035 + 0.1);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now + idx * 0.035);
+        osc.stop(now + idx * 0.035 + 0.11);
+      });
+    } catch {}
+  }
+
+  /**
+   * Futuristic volume increase sound effect
+   */
+  public playVolumeUp() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      [659.25, 880.0, 1174.66].forEach((freq, idx) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.04);
+        gain.gain.setValueAtTime(0.04, now + idx * 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.04 + 0.08);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now + idx * 0.04);
+        osc.stop(now + idx * 0.04 + 0.09);
+      });
+    } catch {}
+  }
+
+  /**
+   * Futuristic volume decrease sound effect
+   */
+  public playVolumeDown() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      [1174.66, 880.0, 659.25].forEach((freq, idx) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.04);
+        gain.gain.setValueAtTime(0.04, now + idx * 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.04 + 0.08);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now + idx * 0.04);
+        osc.stop(now + idx * 0.04 + 0.09);
+      });
+    } catch {}
+  }
+
+  /**
+   * Futuristic mute toggle sound effect
+   */
+  public playMute() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(480, now);
+      osc.frequency.exponentialRampToValueAtTime(180, now + 0.09);
+
+      gain.gain.setValueAtTime(0.04, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.11);
+    } catch {}
+  }
+
+  /**
+   * Futuristic Sci-Fi power-down / player close sound effect
+   */
+  public playPowerDown() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(980, now);
+      osc.frequency.exponentialRampToValueAtTime(120, now + 0.22);
+
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.23);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.24);
+    } catch {}
   }
 
   public playSend() {
@@ -249,6 +408,159 @@ class AudioSynthesizer {
         osc.start(now);
         osc.stop(now + 0.42);
       });
+    } catch {}
+  }
+
+  public playDialTone() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+    try {
+      const now = this.ctx.currentTime;
+      [350, 440].forEach((freq) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        gain.gain.setValueAtTime(0.035, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.52);
+      });
+    } catch {}
+  }
+
+  public playDtmf(key: string) {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+    try {
+      const dtmfFreqs: Record<string, [number, number]> = {
+        '1': [697, 1209], '2': [697, 1336], '3': [697, 1477],
+        '4': [770, 1209], '5': [770, 1336], '6': [770, 1477],
+        '7': [852, 1209], '8': [852, 1336], '9': [852, 1477],
+        '*': [941, 1209], '0': [941, 1336], '#': [941, 1477],
+        '+': [941, 1336],
+      };
+      const freqs = dtmfFreqs[key] || [770, 1336];
+      const now = this.ctx.currentTime;
+      freqs.forEach((f) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f, now);
+        gain.gain.setValueAtTime(0.04, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.09);
+      });
+    } catch {}
+  }
+
+  /**
+   * Harmonious sci-fi emotional resonance feedback
+   */
+  public playEmotionFeedback(emotion: 'calm_caring' | 'happy_excited' | 'empathy_support') {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+
+      if (emotion === 'happy_excited') {
+        // Sparkling upward triumphant arpeggio (C5 -> E5 -> G5 -> C6)
+        const notes = [523.25, 659.25, 783.99, 1046.5];
+        notes.forEach((freq, idx) => {
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+          gain.gain.setValueAtTime(0.045, now + idx * 0.07);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.16);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.07);
+          osc.stop(now + idx * 0.07 + 0.18);
+        });
+      } else if (emotion === 'empathy_support') {
+        // Warm, soothing dual harmonic bell (A4 & C#5 gently fading) with soft low pulse
+        const chords = [440, 554.37, 659.25];
+        chords.forEach((freq) => {
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now);
+          osc.frequency.exponentialRampToValueAtTime(freq * 0.98, now + 0.45);
+          gain.gain.setValueAtTime(0.035, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.48);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.5);
+        });
+      } else {
+        // Calm & Caring: Peaceful resonant dual chime
+        [523.25, 783.99].forEach((freq, idx) => {
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+          gain.gain.setValueAtTime(0.04, now + idx * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.28);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.08);
+          osc.stop(now + idx * 0.08 + 0.3);
+        });
+      }
+    } catch {}
+  }
+
+  /**
+   * Crisp camera mechanical-electronic shutter snap sound
+   */
+  public playCameraShutter() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      // High click
+      const osc1 = this.ctx.createOscillator();
+      const gain1 = this.ctx.createGain();
+      osc1.type = 'triangle';
+      osc1.frequency.setValueAtTime(1400, now);
+      osc1.frequency.exponentialRampToValueAtTime(300, now + 0.04);
+      gain1.gain.setValueAtTime(0.06, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+      osc1.connect(gain1);
+      gain1.connect(this.ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.045);
+
+      // Low mechanical body snap
+      const osc2 = this.ctx.createOscillator();
+      const gain2 = this.ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(220, now + 0.03);
+      osc2.frequency.exponentialRampToValueAtTime(80, now + 0.09);
+      gain2.gain.setValueAtTime(0.05, now + 0.03);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+      osc2.connect(gain2);
+      gain2.connect(this.ctx.destination);
+      osc2.start(now + 0.03);
+      osc2.stop(now + 0.095);
     } catch {}
   }
 

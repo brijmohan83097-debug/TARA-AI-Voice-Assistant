@@ -1,3 +1,19 @@
+export type TaraEmotion = 'calm_caring' | 'happy_excited' | 'empathy_support';
+
+export interface TaraEmotionConfig {
+  id: TaraEmotion;
+  label: string;
+  sublabel: string;
+  emoji: string;
+  accentColor: string;
+  glowColorHex: string;
+  gradientBg: string;
+  badgeClasses: string;
+  ringClasses: string;
+  description: string;
+  supportiveVoicePrefix: string;
+}
+
 export type SystemMode = 'NEURAL_FOCUS' | 'OVERCLOCK' | 'STEALTH' | 'DIAGNOSTIC';
 
 export interface AttachedMedia {
@@ -69,7 +85,10 @@ export interface ChatMessage {
       | 'poster_created'
       | 'create_logo'
       | 'generate_pdf'
-      | 'download_pdf';
+      | 'download_pdf'
+      | 'set_emotion'
+      | 'save_memory'
+      | 'delete_memory';
     summary: string;
     details?: any;
   }[];
@@ -245,5 +264,17 @@ export interface BossCallAlert {
   estimatedBudget?: string;
   status: 'pending' | 'reviewed' | 'called_back' | 'dismissed';
 }
+
+export type MemoryCategory = 'personal' | 'preference' | 'plan' | 'fact';
+
+export interface TaraMemoryItem {
+  id: string;
+  fact: string;
+  category: MemoryCategory;
+  timestamp: string;
+  source?: 'user_said' | 'auto_learned' | 'manual';
+  confidence?: number;
+}
+
 
 

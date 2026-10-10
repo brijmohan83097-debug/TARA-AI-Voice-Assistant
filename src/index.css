@@ -240,4 +240,65 @@
   animation: speaking-pulse-glow 1.2s ease-in-out infinite;
 }
 
+/* Holographic Radar Scanner Beam Sweep & Rotating Satellite Orbits */
+@keyframes radar-beam-sweep {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-radar-sweep {
+  transform-origin: 300px 160px;
+  animation: radar-beam-sweep 3.5s linear infinite;
+}
+
+/* Blinking Coordinates Link Animation */
+@keyframes coord-link-blink {
+  0%, 100% {
+    opacity: 0.95;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    opacity: 0.2;
+    stroke-dashoffset: 20;
+  }
+}
+
+.animate-coord-link {
+  animation: coord-link-blink 1.6s ease-in-out infinite;
+}
+
+@keyframes signal-ping-fast {
+  0% {
+    transform: scale(0.6);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.animate-signal-ping {
+  animation: signal-ping-fast 1.2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+
+@keyframes radar-ripple-ring {
+  0% {
+    r: 10;
+    opacity: 0.9;
+  }
+  100% {
+    r: 280;
+    opacity: 0;
+  }
+}
+
+.animate-radar-ripple {
+  animation: radar-ripple-ring 3s cubic-bezier(0.1, 0.6, 0.3, 1) infinite;
+}
+
 

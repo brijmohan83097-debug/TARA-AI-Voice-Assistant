@@ -1,4 +1,31 @@
-import { MindMapNode, MindMapEdge, TaskItem, NoteItem, WorkflowPipeline, SystemLog } from '../types';
+import { MindMapNode, MindMapEdge, TaskItem, NoteItem, WorkflowPipeline, SystemLog, TaraMemoryItem } from '../types';
+
+export const INITIAL_MEMORIES: TaraMemoryItem[] = [
+  {
+    id: 'mem-1',
+    fact: 'यूज़र के मुख्य निर्माता और प्रिय मार्गदर्शक मिस्टर बृजमोहन कुमार हैं।',
+    category: 'personal',
+    timestamp: '2026-10-08T09:00:00Z',
+    source: 'auto_learned',
+    confidence: 1.0,
+  },
+  {
+    id: 'mem-2',
+    fact: 'तारा को एक बहुत पढ़ी-लिखी, समझदार, होशियार और इंसानों की तरह सोचने वाली हमदर्द दोस्त की तरह बात करनी है।',
+    category: 'preference',
+    timestamp: '2026-10-08T09:05:00Z',
+    source: 'user_said',
+    confidence: 1.0,
+  },
+  {
+    id: 'mem-3',
+    fact: 'यूज़र को सीधी, तीव्र, सटीक और ज्ञानवर्धक बातचीत पसंद है—बिना किसी फालतू प्रस्तावना के तुरंत जवाब चाहिए।',
+    category: 'preference',
+    timestamp: '2026-10-08T09:10:00Z',
+    source: 'user_said',
+    confidence: 0.98,
+  },
+];
 
 export const INITIAL_NODES: MindMapNode[] = [
   {

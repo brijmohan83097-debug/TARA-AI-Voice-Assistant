@@ -18,20 +18,37 @@ import {
   Volume2, 
   Zap,
   Radio,
-  Flame
+  Flame,
+  Heart,
+  Smile,
+  ShieldAlert,
+  Upload,
+  Image as ImageIcon,
+  X,
+  Brain
 } from 'lucide-react';
 import { LaptopTelemetry } from '../utils/laptopTelemetry';
+import { audioSynth } from '../utils/audio';
+import { TaraEmotion } from '../types';
+import { TARA_EMOTION_CONFIGS } from '../utils/emotions';
 
 interface CyberReactorOrbProps {
   isListening: boolean;
   isSpeaking: boolean;
   isHandsFreeMode?: boolean;
+  currentEmotion?: TaraEmotion;
+  onSelectEmotion?: (emotion: TaraEmotion) => void;
   onToggleVoice: () => void;
   onSendMessage: (text: string, media?: any) => void;
   laptopTelemetry: LaptopTelemetry;
   screenStream: MediaStream | null;
   onToggleScreenShare: () => void;
   onCaptureScreenSnapshot: () => void;
+  onOpenCamera?: () => void;
+  onOpenUploadPhoto?: () => void;
+  onOpenMemoryVault?: () => void;
+  attachedPhoto?: { name: string; previewUrl: string } | null;
+  onClearAttachedPhoto?: () => void;
   className?: string;
 }
 
@@ -39,17 +56,25 @@ export const CyberReactorOrb: React.FC<CyberReactorOrbProps> = ({
   isListening,
   isSpeaking,
   isHandsFreeMode = false,
+  currentEmotion = 'calm_caring',
+  onSelectEmotion,
   onToggleVoice,
   onSendMessage,
   laptopTelemetry,
   screenStream,
   onToggleScreenShare,
   onCaptureScreenSnapshot,
+  onOpenCamera,
+  onOpenUploadPhoto,
+  onOpenMemoryVault,
+  attachedPhoto,
+  onClearAttachedPhoto,
   className = '',
 }) => {
   const [rotation, setRotation] = useState<number>(0);
   const [pulseScale, setPulseScale] = useState<number>(1);
   const isScreenSharing = screenStream !== null;
+  const emotionConfig = TARA_EMOTION_CONFIGS[currentEmotion] || TARA_EMOTION_CONFIGS.calm_caring;
 
   // Gyroscope rotation animation loop
   useEffect(() => {
@@ -90,18 +115,46 @@ export const CyberReactorOrb: React.FC<CyberReactorOrbProps> = ({
       <div className="absolute bottom-0 left-0 w-3.5 h-3.5 border-b-2 border-l-2 border-cyan-400 z-20 pointer-events-none shadow-[0_0_8px_#00f0ff]" />
       <div className="absolute bottom-0 right-0 w-3.5 h-3.5 border-b-2 border-r-2 border-cyan-400 z-20 pointer-events-none shadow-[0_0_8px_#00f0ff]" />
 
-      {/* 1. TOP TELEMETRY HUD BAR (Live Battery & Net Status) */}
+      {/* 1. TOP TELEMETRY HUD BAR (Live Battery & Net Status + Emotional State Badge) */}
       <div className="px-3 py-1.5 bg-[#060e1d] border-b border-cyan-500/25 flex flex-wrap items-center justify-between gap-2 z-10 shrink-0 text-[10px] font-mono">
-        {/* Core System Label */}
-        <div className="flex items-center gap-2">
-          <Zap className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-          <span className="font-bold text-cyan-300 tracking-wider">
-            [TARA QUANTUM AI CORE // ARC REACTOR]
-          </span>
+        {/* Core System Label & Emotional State Status Badge */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <Zap className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+            <span className="font-bold text-cyan-300 tracking-wider">
+              [TARA AI CORE]
+            </span>
+          </div>
+
+          {/* VISUAL EMOTION INDICATOR (MOOD GLOW STATUS BADGE) */}
+          <button
+            type="button"
+            onClick={() => {
+              audioSynth.playSciFiClick();
+              const nextEmotionMap: Record<TaraEmotion, TaraEmotion> = {
+                calm_caring: 'happy_excited',
+                happy_excited: 'empathy_support',
+                empathy_support: 'calm_caring',
+              };
+              const next = nextEmotionMap[currentEmotion];
+              onSelectEmotion?.(next);
+              audioSynth.playEmotionFeedback(next);
+            }}
+            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10px] font-mono font-bold cursor-pointer transition-all hover:scale-105 active:scale-95 shadow-md ${emotionConfig.badgeClasses}`}
+            title={`TARA का भावनात्मक भाव: ${emotionConfig.label} (${emotionConfig.sublabel})\n${emotionConfig.description}\nक्लिक करके मूड बदलें (Cycle Emotional State)`}
+          >
+            <Heart className="w-3 h-3 animate-pulse" />
+            <span className="text-slate-300">भाव:</span>
+            <span>{emotionConfig.emoji} {emotionConfig.label}</span>
+            <span 
+              className="w-1.5 h-1.5 rounded-full animate-ping ml-0.5" 
+              style={{ backgroundColor: emotionConfig.glowColorHex }} 
+            />
+          </button>
         </div>
 
         {/* Live Laptop Battery & Network Telemetry */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {/* Laptop Battery Live */}
           <div 
             className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#030914] border border-cyan-500/30 text-cyan-200"
@@ -130,17 +183,30 @@ export const CyberReactorOrb: React.FC<CyberReactorOrbProps> = ({
         </div>
       </div>
 
-      {/* 2. CENTER NEON CYAN GLOWING AI CORE (ARC REACTOR ORB) */}
+      {/* 2. CENTER NEON GLOWING AI CORE (ARC REACTOR ORB WITH EMOTION GLOW RING) */}
       <div className="relative flex-1 min-h-[170px] flex items-center justify-center overflow-hidden p-2">
-        {/* Ambient Plasma Glow behind Core */}
+        {/* Ambient Plasma Glow behind Core (Dynamically shaded by Emotion State) */}
         <div 
-          className="absolute w-48 h-48 rounded-full blur-[45px] pointer-events-none transition-all duration-500"
+          className="absolute w-52 h-52 rounded-full blur-[48px] pointer-events-none transition-all duration-700"
           style={{
             background: isListening 
               ? 'radial-gradient(circle, rgba(244, 63, 94, 0.55) 0%, rgba(225, 29, 72, 0.25) 50%, transparent 70%)'
               : isSpeaking 
               ? 'radial-gradient(circle, rgba(16, 185, 129, 0.55) 0%, rgba(5, 150, 105, 0.25) 50%, transparent 70%)'
-              : 'radial-gradient(circle, rgba(0, 240, 255, 0.45) 0%, rgba(2, 132, 199, 0.2) 50%, transparent 70%)',
+              : currentEmotion === 'happy_excited'
+              ? 'radial-gradient(circle, rgba(251, 191, 36, 0.55) 0%, rgba(245, 158, 11, 0.25) 50%, transparent 70%)'
+              : currentEmotion === 'empathy_support'
+              ? 'radial-gradient(circle, rgba(192, 132, 252, 0.55) 0%, rgba(236, 72, 153, 0.25) 50%, transparent 70%)'
+              : 'radial-gradient(circle, rgba(0, 240, 255, 0.45) 0%, rgba(16, 185, 129, 0.2) 50%, transparent 70%)',
+          }}
+        />
+
+        {/* VISUAL EMOTION GLOWING RING (Changes color with mood: Green/Blue, Gold/Yellow, Purple/Soft Pink) */}
+        <div 
+          className="absolute w-48 h-48 sm:w-52 sm:h-52 rounded-full pointer-events-none transition-all duration-700 animate-pulse"
+          style={{
+            border: `2px solid ${emotionConfig.glowColorHex}`,
+            boxShadow: `0 0 35px ${emotionConfig.glowColorHex}88, inset 0 0 20px ${emotionConfig.glowColorHex}44`,
           }}
         />
 
@@ -275,7 +341,10 @@ export const CyberReactorOrb: React.FC<CyberReactorOrbProps> = ({
           {/* Central Interactive "START AI" Reactor Core Button */}
           <button
             type="button"
-            onClick={onToggleVoice}
+            onClick={() => {
+              audioSynth.playSciFiClick();
+              onToggleVoice();
+            }}
             className={`relative z-10 w-24 h-24 rounded-full flex flex-col items-center justify-center transition-all duration-300 cursor-pointer shadow-2xl active:scale-95 group ${
               isSpeaking
                 ? 'bg-gradient-to-tr from-emerald-600 via-teal-500 to-cyan-400 border-2 border-emerald-300 shadow-[0_0_50px_rgba(16,185,129,0.95)] animate-speaking-pulse'
@@ -320,101 +389,220 @@ export const CyberReactorOrb: React.FC<CyberReactorOrbProps> = ({
         </div>
 
         {/* Live Core Status Readout (Overlay at Bottom Center of Orb Area) */}
-        <div className="absolute bottom-1 inset-x-0 flex items-center justify-center pointer-events-none">
-          <div className="px-3 py-0.5 rounded-full bg-[#030914]/95 border border-cyan-500/40 text-[9px] font-mono flex items-center gap-1.5 shadow-[0_0_15px_rgba(0,240,255,0.2)]">
+        <div className="absolute bottom-1 inset-x-0 flex items-center justify-center pointer-events-none px-2">
+          <div className="px-3 py-0.5 rounded-full bg-[#030914]/95 border border-cyan-500/40 text-[9px] font-mono flex items-center gap-1.5 shadow-[0_0_15px_rgba(0,240,255,0.2)] max-w-full truncate">
             <span
-              className={`w-1.5 h-1.5 rounded-full ${
+              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                 isListening
                   ? 'bg-rose-400 animate-ping'
                   : isSpeaking
                   ? 'bg-emerald-400 animate-pulse'
                   : isHandsFreeMode
                   ? 'bg-amber-400 animate-ping'
-                  : 'bg-cyan-400 animate-pulse'
+                  : 'animate-pulse'
               }`}
+              style={{
+                backgroundColor: !isListening && !isSpeaking && !isHandsFreeMode ? emotionConfig.glowColorHex : undefined,
+              }}
             />
-            <span className="text-cyan-200 font-medium">
+            <span className="text-cyan-200 font-medium truncate">
               {isHandsFreeMode && isListening
                 ? '📞 हैंड्स-फ्री कॉल: आप बोलिए (Silence VAD On)...'
                 : isSpeaking
-                ? '🔊 TARA बोल रही हैं (Audio Reply)...'
+                ? `🔊 TARA बोल रही हैं (${emotionConfig.emoji} ${emotionConfig.label})...`
                 : isHandsFreeMode
                 ? '⚡ TARA सोच रही हैं • बोलते ही माइक चालू रहेगा'
-                : 'TARA कोर तैयार है • "START AI" दबाएं (100% Hands-Free Call)'}
+                : `TARA • भाव: ${emotionConfig.emoji} ${emotionConfig.label} — "START AI" दबाएं`}
             </span>
           </div>
         </div>
       </div>
 
-      {/* 3. LAPTOP SCREEN SHARE & QUICK DIRECTIVE HUD CONTROLS */}
+      {/* 3. CAMERA, PHOTO ATTACHMENT & HUD CONTROLS */}
       <div className="p-2.5 bg-[#050c1b] border-t border-cyan-500/20 flex flex-wrap items-center justify-between gap-2 shrink-0">
-        {/* Screen Share Action Buttons */}
-        <div className="flex items-center gap-1.5">
+        {/* Camera, File Photo & Screen Share Action Buttons */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {/* Direct Live Camera Snapshot Button */}
+          {onOpenCamera && (
+            <button
+              type="button"
+              onClick={() => {
+                audioSynth.playSciFiClick();
+                onOpenCamera();
+              }}
+              className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-sky-600 hover:from-cyan-500 hover:to-sky-500 text-slate-950 font-bold font-mono text-[11px] flex items-center gap-1.5 cursor-pointer shadow-[0_0_15px_rgba(0,240,255,0.35)] transition-all hover:scale-105 active:scale-95"
+              title="कैमरा खोलकर लाइव फ़ोटो खींचें (Snap Photo with Live Camera)"
+            >
+              <Camera className="w-3.5 h-3.5 text-slate-950" />
+              <span>📸 कैमरा (फ़ोटो खींचो)</span>
+            </button>
+          )}
+
+          {/* Direct File Photo Upload Button */}
+          {onOpenUploadPhoto && (
+            <button
+              type="button"
+              onClick={() => {
+                audioSynth.playSciFiClick();
+                onOpenUploadPhoto();
+              }}
+              className="px-3 py-1.5 rounded-lg bg-cyan-950/90 hover:bg-cyan-900 border border-cyan-400/60 text-cyan-200 font-mono font-bold text-[11px] flex items-center gap-1.5 cursor-pointer transition-all hover:scale-105 active:scale-95 shadow-sm"
+              title="फ़ाइल या गैलरी से फ़ोटो जोड़ें (Upload Photo from Files)"
+            >
+              <Upload className="w-3.5 h-3.5 text-cyan-400" />
+              <span>📁 फ़ोटो जोड़ें (फ़ाइल)</span>
+            </button>
+          )}
+
+          {/* Cognitive Human Memory Vault Button */}
+          {onOpenMemoryVault && (
+            <button
+              type="button"
+              onClick={() => {
+                audioSynth.playSciFiClick();
+                onOpenMemoryVault();
+              }}
+              className="px-3 py-1.5 rounded-lg bg-purple-950/90 hover:bg-purple-900 border border-purple-400/60 text-purple-200 font-mono font-bold text-[11px] flex items-center gap-1.5 cursor-pointer transition-all hover:scale-105 active:scale-95 shadow-sm"
+              title="तारा की याददाश्त (Memory & Human Intellect Vault)"
+            >
+              <Brain className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
+              <span>🧠 याददाश्त (Memory)</span>
+            </button>
+          )}
+
+          {/* Attached Photo Preview Badge */}
+          {attachedPhoto && (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-950/90 border border-emerald-400/60 text-emerald-200 text-[10px] font-mono shadow-[0_0_10px_rgba(16,185,129,0.3)] animate-pulse">
+              <img
+                src={attachedPhoto.previewUrl}
+                alt="Attached Preview"
+                className="w-5 h-5 rounded object-cover border border-emerald-400/50"
+              />
+              <span className="max-w-[70px] truncate">{attachedPhoto.name}</span>
+              {onClearAttachedPhoto && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    audioSynth.playSciFiClick();
+                    onClearAttachedPhoto();
+                  }}
+                  className="hover:text-rose-400 cursor-pointer ml-0.5"
+                  title="फ़ोटो हटाएं"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Screen Share Action Button */}
           <button
             type="button"
-            onClick={onToggleScreenShare}
-            className={`px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm ${
+            onClick={() => {
+              audioSynth.playSciFiClick();
+              onToggleScreenShare();
+            }}
+            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm ${
               isScreenSharing
                 ? 'bg-rose-950/90 border border-rose-500/60 text-rose-200 hover:bg-rose-900 shadow-[0_0_12px_rgba(244,63,94,0.3)]'
-                : 'bg-cyan-950/80 border border-cyan-400/60 text-cyan-200 hover:bg-cyan-900 shadow-[0_0_12px_rgba(0,240,255,0.2)]'
+                : 'bg-slate-900/90 border border-slate-700 hover:border-cyan-500/50 text-slate-300 hover:text-cyan-200'
             }`}
           >
             {isScreenSharing ? (
               <>
                 <MonitorOff className="w-3.5 h-3.5 text-rose-400" />
-                <span>🛑 स्क्रीन शेयर बंद करें</span>
+                <span>🛑 स्क्रीन शेयर बंद</span>
               </>
             ) : (
               <>
-                <Monitor className="w-3.5 h-3.5 text-cyan-400" />
-                <span>🖥️ लैपटॉप स्क्रीन शेयर करें (देखें)</span>
+                <Monitor className="w-3.5 h-3.5 text-slate-400" />
+                <span>🖥️ स्क्रीन शेयर</span>
               </>
             )}
           </button>
 
-          {/* Quick Snapshot Vision Button if screen is shared */}
+          {/* Snapshot Vision Button if screen is shared */}
           {isScreenSharing && (
             <button
               type="button"
-              onClick={onCaptureScreenSnapshot}
+              onClick={() => {
+                audioSynth.playSciFiClick();
+                onCaptureScreenSnapshot();
+              }}
               className="px-2.5 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-400/60 text-emerald-200 text-[11px] font-mono font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm"
               title="Capture active screen frame and ask TARA to inspect it"
             >
               <Camera className="w-3.5 h-3.5 text-emerald-400" />
-              <span>स्क्रीन का विश्लेषण पूछें</span>
+              <span>स्क्रीन का विश्लेषण</span>
             </button>
           )}
         </div>
 
-        {/* Quick Voice Prompt Shortcuts */}
+        {/* Quick Voice Prompt Shortcuts (Human Intellect, Memory & Friend Conversation) */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
           <button
             type="button"
-            onClick={() => onSendMessage('1000 sq ft शेड का कोटेशन निकालो')}
+            onClick={() => {
+              audioSynth.playSciFiClick();
+              onSendMessage('तारा, तुम्हें मेरे बारे में क्या-क्या याद है? बताओ');
+            }}
+            className="px-2 py-1 rounded bg-[#030914] hover:bg-purple-950 border border-purple-500/40 text-[10px] font-mono text-purple-300 transition-colors whitespace-nowrap cursor-pointer shadow-sm"
+            title="Active Photographic Memory: Ask Tara what she remembers about you"
+          >
+            🧠 तुम्हें क्या याद है?
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              audioSynth.playSciFiClick();
+              onSendMessage('तारा, प्रकाश की गति क्या है और गुरुत्वाकर्षण कैसे काम करता है? फटाफट समझाओ');
+            }}
+            className="px-2 py-1 rounded bg-[#030914] hover:bg-cyan-950 border border-cyan-500/40 text-[10px] font-mono text-cyan-300 transition-colors whitespace-nowrap cursor-pointer shadow-sm"
+            title="High Intellect: Ask deep scientific and scholarly questions"
+          >
+            ⚡ होशियार जवाब (विज्ञान व ज्ञान)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              audioSynth.playSciFiClick();
+              onSendMessage('तारा, आज बहुत काम था और मैं बहुत थक गया हूँ');
+            }}
+            className="px-2 py-1 rounded bg-[#030914] hover:bg-purple-950 border border-purple-500/30 text-[10px] font-mono text-purple-300 transition-colors whitespace-nowrap cursor-pointer"
+            title="Emotional Intelligence: Test sympathy & comforting friend response"
+          >
+            💜 थकान व टेंशन (हमदर्द दोस्त)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              audioSynth.playSciFiClick();
+              onSendMessage('तारा, आज बहुत बड़ी खुशखबरी है, बहुत खुश हूँ!');
+            }}
+            className="px-2 py-1 rounded bg-[#030914] hover:bg-amber-950 border border-amber-500/30 text-[10px] font-mono text-amber-300 transition-colors whitespace-nowrap cursor-pointer"
+            title="Emotional Intelligence: Test celebratory happy response"
+          >
+            💛 खुशखबरी (जश्न व बधाई)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              audioSynth.playSciFiClick();
+              onSendMessage('तारा, मेरी फोटो देखकर बताओ कैसी लग रही है?');
+            }}
             className="px-2 py-1 rounded bg-[#030914] hover:bg-cyan-950 border border-cyan-500/25 text-[10px] font-mono text-cyan-300 transition-colors whitespace-nowrap cursor-pointer"
           >
-            🏭 शेड कोटेशन
+            📸 फोटो कैसी है?
           </button>
           <button
             type="button"
-            onClick={() => onSendMessage('60 running ft SS रेलिंग का रेट बताओ')}
-            className="px-2 py-1 rounded bg-[#030914] hover:bg-cyan-950 border border-cyan-500/25 text-[10px] font-mono text-cyan-300 transition-colors whitespace-nowrap cursor-pointer"
-          >
-            ✨ SS रेलिंग (₹450)
-          </button>
-          <button
-            type="button"
-            onClick={() => onSendMessage('नया ग्राहक राजेश शर्मा व साइट लोकेशन दर्ज करो')}
-            className="px-2 py-1 rounded bg-[#030914] hover:bg-pink-950 border border-pink-500/25 text-[10px] font-mono text-pink-300 transition-colors whitespace-nowrap cursor-pointer"
-          >
-            📍 ग्राहक व पता
-          </button>
-          <button
-            type="button"
-            onClick={() => onSendMessage('ग्राहक को WhatsApp कोटेशन ड्राफ्ट करो')}
+            onClick={() => {
+              audioSynth.playSciFiClick();
+              onSendMessage('तारा, एक बहुत सुंदर और प्रेरणादायक सुविचार सुनाओ');
+            }}
             className="px-2 py-1 rounded bg-[#030914] hover:bg-emerald-950 border border-emerald-500/25 text-[10px] font-mono text-emerald-300 transition-colors whitespace-nowrap cursor-pointer"
           >
-            📱 WhatsApp कोटेशन
+            🌸 प्यारा सुविचार
           </button>
         </div>
       </div>

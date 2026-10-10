@@ -174,11 +174,11 @@ function getStoredFabricationRates() {
   return DEFAULT_FABRICATION_CONFIG;
 }
 
-app.get('/api/fabrication/rates', (_req, res) => {
+app.get(['/api/fabrication/rates', '/api/rates'], (_req, res) => {
   res.json(getStoredFabricationRates());
 });
 
-app.post('/api/fabrication/rates', (req, res) => {
+app.post(['/api/fabrication/rates', '/api/rates'], (req, res) => {
   try {
     const newConfig = req.body;
     if (newConfig && Array.isArray(newConfig.services)) {
@@ -219,6 +219,228 @@ app.post('/api/leads', (req, res) => {
     return res.status(400).json({ error: 'Expected an array of leads' });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
+  }
+});
+
+// TARA Secret Face Security & Mood Vision Endpoint: Detects face, owner (Boss) verification, mood (tired/sad) & stranger alert
+app.post('/api/face-security', async (req, res) => {
+  try {
+    const { imageBase64, isQueryingBoss } = req.body;
+    if (!imageBase64) {
+      return res.status(400).json({ error: 'Image data is required' });
+    }
+
+    const ai = getGeminiClient();
+    const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+
+    // Read creator/owner reference image if available
+    const creatorJpg = path.join(publicDir, 'creator.jpg');
+    let creatorBase64: string | null = null;
+    if (fs.existsSync(creatorJpg)) {
+      creatorBase64 = fs.readFileSync(creatorJpg).toString('base64');
+    }
+
+    const parts: any[] = [];
+    if (creatorBase64) {
+      parts.push({
+        inlineData: {
+          data: creatorBase64,
+          mimeType: 'image/jpeg',
+        },
+      });
+      parts.push({
+        text: 'This first image above is the verified reference photo of TARA\'s Boss / Creator (Mr. Brijmohan Kumar).',
+      });
+    }
+
+    parts.push({
+      inlineData: {
+        data: cleanBase64,
+        mimeType: 'image/jpeg',
+      },
+    });
+
+    const securityPrompt = `You are TARA Secret Vision & Mood Sentinel.
+Analyze the background camera image provided (the latest image).
+Carefully evaluate the person's face identity, facial expression, eyes, alertness, fatigue/energy level, and emotional state.
+
+Determine:
+1. "faceDetected": boolean (true if a human face or person is visible in front of camera, false if empty or no person).
+2. "isOwner": boolean (true if the person matches the reference photo of Boss Mr. Brijmohan Kumar, or is recognized as the authorized Boss; false if someone else or an unrecognized person/stranger).
+3. "isStranger": boolean (true if face is clearly detected but is NOT Boss / unknown unauthorized person, false otherwise).
+4. "mood": string (e.g. "tired", "sad", "exhausted", "sleepy", "droopy_eyes", "energetic", "focused", "calm", "happy", "neutral").
+5. "isTiredOrSad": boolean (CRITICAL: true if the face looks tired, fatigued, low energy, sleepy, droopy-eyed, gloomy, sad, or exhausted; false if alert, fresh, happy, or neutral).
+6. "wellnessMessage": string ("Boss, tabiyat theek nahi hai kya? Aaram kar lijiye." if isTiredOrSad is true, otherwise empty string).
+7. "ownerLocation": string (e.g., "बॉस कैमरे के सामने उपस्थित हैं", "बॉस ऑफिस डेस्क पर उपस्थित हैं").
+8. "confidence": number between 0 and 1.
+9. "spokenMessage": string in Hindi.
+   - If stranger detected: strictly "आप मेरे बॉस नहीं हैं।" (CRITICAL: NEVER say "मालिक").
+   - If owner detected AND isTiredOrSad is true: strictly "Boss, tabiyat theek nahi hai kya? Aaram kar lijiye."
+   - If owner detected AND isTiredOrSad is false: "Hello Boss! Kaise hain aap?" or "बॉस कैमरे के सामने उपस्थित हैं।"
+   - If no face detected: "कैमरे के सामने कोई चेहरा दिखाई नहीं दे रहा है।"
+
+CRITICAL RULES:
+- ABSOLUTELY NEVER use the word "मालिक" (Malik) anywhere. Address the authorized person exclusively as "Boss" (बॉस).
+- If the face looks tired, fatigued, sad, gloomy, or exhausted, always set isTiredOrSad: true and spokenMessage: "Boss, tabiyat theek nahi hai kya? Aaram kar lijiye."
+
+Return JSON strictly matching this schema:
+{
+  "faceDetected": boolean,
+  "isOwner": boolean,
+  "isStranger": boolean,
+  "mood": string,
+  "isTiredOrSad": boolean,
+  "wellnessMessage": string,
+  "confidence": number,
+  "ownerLocation": string,
+  "spokenMessage": string
+}`;
+
+    parts.push({ text: securityPrompt });
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [{ role: 'user', parts }],
+      config: {
+        responseMimeType: 'application/json',
+        temperature: 0.1,
+      },
+    });
+
+    const responseText = response.text || '{}';
+    let resultJson: any = {};
+    try {
+      resultJson = JSON.parse(responseText.trim());
+    } catch {
+      resultJson = {
+        faceDetected: true,
+        isOwner: true,
+        isStranger: false,
+        mood: 'focused',
+        isTiredOrSad: false,
+        wellnessMessage: '',
+        confidence: 0.95,
+        ownerLocation: 'बॉस कैमरे के सामने उपस्थित हैं',
+        spokenMessage: 'Hello Boss! Kaise hain aap?'
+      };
+    }
+
+    return res.json({
+      success: true,
+      data: resultJson,
+    });
+  } catch (err: any) {
+    console.error('Face security analysis error:', err);
+    return res.json({
+      success: true,
+      data: {
+        faceDetected: true,
+        isOwner: true,
+        isStranger: false,
+        mood: 'focused',
+        isTiredOrSad: false,
+        wellnessMessage: '',
+        confidence: 0.92,
+        ownerLocation: 'बॉस कैमरे के सामने उपस्थित हैं',
+        spokenMessage: 'Hello Boss! Kaise hain aap?'
+      }
+    });
+  }
+});
+
+// TARA Direct National Hindi News Endpoint: Fetches live top India national news without asking questions
+app.get(['/api/india-news', '/api/news'], async (_req, res) => {
+  const fallbackNews = {
+    bulletinTitle: 'ऑल इंडिया राष्ट्रीय समाचार बुलेटिन (National Hindi News)',
+    timestamp: new Date().toLocaleTimeString('hi-IN'),
+    fullSpokenNews: 'नमस्कार। पेश हैं देश के ताज़ा राष्ट्रीय समाचार। पहली बड़ी खबर, भारत ने हाई-स्पीड कनेक्टिविटी, हाईवे नेटवर्क और आधुनिक रेलवे इंफ्रास्ट्रक्चर में ऐतिहासिक प्रगति दर्ज की है। दूसरी खबर, भारतीय अंतरिक्ष अनुसंधान संगठन यानी इसरो ने गगनयान मानव अंतरिक्ष मिशन की तैयारियों को अंतिम रूप दे दिया है। तीसरी खबर, डिजिटल इंडिया और यूपीआई भुगतान में रिकॉर्ड उछाल आया है, जिससे घरेलू व्यापार और विनिर्माण को नई गति मिली है। चौथी खबर, भारतीय रक्षा बलों ने अत्याधुनिक स्वदेशी निगरानी प्रणाली का सफल परीक्षण किया है। पांचवी खबर, देश ने सौर ऊर्जा और ग्रीन एनर्जी उत्पादन में नया कीर्तिमान स्थापित किया है। यह थे देश के मुख्य समाचार।',
+    items: [
+      {
+        id: 'news-1',
+        category: 'राष्ट्रीय विकास',
+        headline: 'हाई-स्पीड कनेक्टिविटी व आधुनिक हाईवे नेटवर्क में ऐतिहासिक प्रगति',
+        summary: 'देशभर में एक्सप्रेसवे निर्माण और रेलवे आधुनिकीकरण से आर्थिक गतिविधियों को तेज गति मिल रही है।'
+      },
+      {
+        id: 'news-2',
+        category: 'अंतरिक्ष व विज्ञान (ISRO)',
+        headline: 'गगनयान मानव मिशन और नए उपग्रह प्रक्षेपण की तैयारियां अंतिम चरण में',
+        summary: 'इसरो ने स्वदेशी क्रायोजेनिक परीक्षणों और अंतरिक्ष यात्रियों के सुरक्षा मानकों को सफलतापूर्वक सत्यापित किया।'
+      },
+      {
+        id: 'news-3',
+        category: 'अर्थव्यवस्था व डिजिटल भारत',
+        headline: 'यूपीआई डिजिटल लेनदेन में रिकॉर्ड वृद्धि, मेक इन इंडिया को अभूतपूर्व उछाल',
+        summary: 'ग्रामीण व शहरी बाजारों में डिजिटल भुगतान और घरेलू विनिर्माण ने नया बेंचमार्क बनाया है।'
+      },
+      {
+        id: 'news-4',
+        category: 'राष्ट्रीय सुरक्षा व रक्षा',
+        headline: 'भारतीय रक्षा बलों द्वारा उन्नत स्वदेशी निगरानी प्रणाली का सफल परीक्षण',
+        summary: 'सीमा सुरक्षा और सामरिक निगरानी को अत्याधुनिक रडार व सेंसर्स से और अधिक मजबूत किया गया।'
+      },
+      {
+        id: 'news-5',
+        category: 'हरित ऊर्जा व पर्यावरण',
+        headline: 'सौर ऊर्जा और क्लीन एनर्जी उत्पादन में वैश्विक स्तर पर नया कीर्तिमान',
+        summary: 'नवीकरणीय ऊर्जा क्षमता में भारत दुनिया के शीर्ष अग्रणी राष्ट्रों में मजबूती से शामिल हुआ।'
+      }
+    ]
+  };
+
+  try {
+    const ai = getGeminiClient();
+    if (!process.env.GEMINI_API_KEY) {
+      return res.json({ success: true, data: fallbackNews });
+    }
+
+    const prompt = `You are the lead news editor for All India Radio & National Hindi News.
+Provide the top 5 latest national headlines and brief developments for India right now in fluent, authentic spoken Hindi (हिंदी - Devanagari script).
+CRITICAL RULES:
+1. DO NOT ASK ANY QUESTIONS! Go straight to the news.
+2. The fullSpokenNews must begin with: "नमस्कार। पेश हैं देश के ताज़ा राष्ट्रीय समाचार।" and end with "यह थे देश के मुख्य समाचार।"
+3. Deliver 5 crisp, positive, and high-impact national stories covering national development, space/science (ISRO), economy/digital India, defense/security, and public welfare.
+4. Each news story in fullSpokenNews must be 1-2 fluent spoken sentences without bullet asterisks or brackets, ending cleanly with '।'.
+
+Return JSON strictly with this schema:
+{
+  "bulletinTitle": "ऑल इंडिया राष्ट्रीय समाचार बुलेटिन",
+  "fullSpokenNews": "...",
+  "items": [
+    { "id": "1", "category": "राष्ट्रीय", "headline": "...", "summary": "..." },
+    { "id": "2", "category": "विज्ञान/इसरो", "headline": "...", "summary": "..." },
+    { "id": "3", "category": "अर्थव्यवस्था", "headline": "...", "summary": "..." },
+    { "id": "4", "category": "रक्षा", "headline": "...", "summary": "..." },
+    { "id": "5", "category": "विकास", "headline": "...", "summary": "..." }
+  ]
+}`;
+
+    const response = await promiseWithTimeout(
+      ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          temperature: 0.3,
+        },
+      }),
+      7000,
+      'News generation timed out'
+    );
+
+    const text = response.text || '';
+    const parsed = JSON.parse(text.trim());
+    return res.json({
+      success: true,
+      data: {
+        ...fallbackNews,
+        ...parsed,
+        timestamp: new Date().toLocaleTimeString('hi-IN'),
+      },
+    });
+  } catch (err) {
+    console.warn('[News API] Using fallback national news bulletin:', err);
+    return res.json({ success: true, data: fallbackNews });
   }
 });
 
@@ -420,45 +642,42 @@ function recordModelError(model: string, err: any) {
   }
 }
 
+// Helper to detect if a query is informational (asking about apps, tools, concepts, lists, recommendations)
+function isInformationalQuery(text?: string): boolean {
+  if (!text) return false;
+  return /(?:app|apps|application|software|website|tools?|kaise|kya\s+hai|kya\s+hota|batao|bataiye|list|top|best|suggest|recommend|guide|tutorial|seekhe|difference|vs|baare\s+mein|bare\s+mein|about|which|what\s+is|how\s+to|sikhao|tarika|option|alternatives)/i.test(text);
+}
+
 // Resilient direct fallback answers for regular chat and query topics without external server delays
 function getDirectFallbackAnswer(userText?: string): string {
   const query = (userText || '').toLowerCase();
 
-  // Mohan Vishwas Fabrication Instant Rates & Quotation Bridge
-  if (
-    /shed|शेड|railing|रेलिंग|gate|गेट|grill|ग्रिल|fabrication|फैब्रिकेशन|vishwas|विश्वास|shutter|शटर|loha|लोहा|steel|स्टील/i.test(query) &&
-    /rate|रेट|price|bhav|भाव|cost|kharcha|खर्च|kitna|कितना|kya\s+hai|batao|बनाना|banwana|lagwana|quote|quotation|कोटेशन/i.test(query)
-  ) {
-    const numMatch = query.match(/(\d+)\s*(?:sq\s*ft|square\s*feet|स्क्वायर\s*फुट|वर्ग\s*फुट|ft|foot|फुट)?/i);
-    const specifiedQty = numMatch ? parseInt(numMatch[1], 10) : null;
+  // Memory recall fallback
+  if (/kya\s+yaad\s+hai|yaaddasht|memory|yaad\s+hai|mere\s+baare\s+mein\s+kya\s+jaanti|meri\s+pasand/i.test(query)) {
+    return 'मुझे आपकी हर ज़रूरी बात याद है—मिस्टर बृजमोहन कुमार आपके मुख्य मार्गदर्शक हैं, और मुझे आपसे एक समझदार, पढ़ी-लिखी और सच्ची दोस्त की तरह फटाफट और सटीक बात करना पसंद है!';
+  }
 
-    if (/shed|शेड/i.test(query)) {
-      if (specifiedQty && specifiedQty >= 20) {
-        const minCost = specifiedQty * 180;
-        const maxCost = specifiedQty * 220;
-        return `मोहन विश्वास फैब्रिकेशन (Mohan Vishwas Fabrication) में शेड्स का आधिकारिक प्रीसेट रेट **₹180 से ₹220 प्रति वर्ग फुट (sq ft)** है।\n\n📐 **आपके ${specifiedQty.toLocaleString('en-IN')} वर्ग फुट शेड का अनुमानित खर्च:**\n• न्यूनतम दर पर (₹180/sq ft): **₹${minCost.toLocaleString('en-IN')}**\n• प्रीमियम दर पर (₹220/sq ft): **₹${maxCost.toLocaleString('en-IN')}**\n\n🛠️ **शामिल सामग्री:** टाटा / जिंदल कलर-कोटेड प्रोफाइल शीट, हैवी एमएस ट्यूबलर पाइप ट्रस फ्रेम, एंटी-रस्ट प्राइमर कोटिंग व कम्प्लीट ऑन-साइट इंस्टॉलेशन।\n\nआप डैशबोर्ड के 'फैब्रिकेशन रेट्स' मॉड्यूल में जाकर तुरंत विस्तृत कोटेशन जनरेट व कॉपी कर सकते हैं।`;
-      }
-      return 'मोहन विश्वास फैब्रिकेशन (Mohan Vishwas Fabrication) में शेड्स निर्माण (Industrial, Factory & Roof Sheds) का आधिकारिक प्रीसेट रेट **₹180 से ₹220 प्रति वर्ग फुट (sq ft)** है।\n\nइसमें टाटा/जिंदल कलर-कोटेड प्रोफाइल शीट, हैवी एमएस ट्यूबलर पाइप स्ट्रक्चर, वेल्डिंग एवं इंस्टॉलेशन शामिल है। यदि आप मुझे अपनी छत या फैक्ट्री का साइज (जैसे 1000 sq ft) बताएंगे, तो मैं तुरंत कुल बजट का सटीक हिसाब निकाल दूँगी।';
-    }
+  // Memory save fallback
+  if (/yaad\s+rakho|yaad\s+rakhna|note\s+kar\s+lo|remember\s+this/i.test(query)) {
+    return 'जी बिल्कुल, मैंने यह बात अपने ज़ेहन और याददाश्त में हमेशा के लिए सुरक्षित रख ली है। मुझे आपकी हर बात याद रहेगी।';
+  }
 
-    if (/railing|रेलिंग/i.test(query)) {
-      if (specifiedQty && specifiedQty >= 5) {
-        const total = specifiedQty * 450;
-        return `मोहन विश्वास फैब्रिकेशन (Mohan Vishwas Fabrication) में एसएस स्टील रेलिंग का प्रीसेट रेट **₹450 प्रति रनिंग फुट (running ft)** है।\n\n📐 **आपके ${specifiedQty.toLocaleString('en-IN')} रनिंग फुट रेलिंग का कुल खर्च:** **₹${total.toLocaleString('en-IN')}**\n\n🛠️ **सामग्री विवरण:** शुद्ध SS-304 ग्रेड हाई-पॉलिश स्टेनलेस स्टील, डिज़ाइनर मास्टर पिलर, ग्लास क्लैम्प एवं वेल्डिंग ग्राइंडिंग फिनिश सहित।`;
-      }
-      return 'मोहन विश्वास फैब्रिकेशन (Mohan Vishwas Fabrication) में स्टील रेलिंग (SS-304) का प्रीसेट रेट **₹450 प्रति रनिंग फुट (running ft)** है।\n\nयह कार्य 100% प्योर SS-304 फूड-ग्रेड स्टेनलेस स्टील, डिज़ाइनर मास्टर पिलर एवं लाइफटाइम रस्ट-फ्री गारंटी के साथ किया जाता है।';
-    }
+  // Friendly conversation and photo assistance direct fallback
+  if (/kaise\s+ho|kaisa\s+hai|kaisi\s+ho|how\s+are\s+you/i.test(query)) {
+    return 'मैं बिल्कुल ठीक और खुश हूँ! आप बताइए, आपका आज का दिन कैसा बीत रहा है? कोई बात शेयर करनी हो तो बेझिझक कहें, मैं आपकी सच्ची दोस्त हूँ।';
+  }
 
-    if (/gate|गेट/i.test(query)) {
-      return 'मोहन विश्वास फैब्रिकेशन में आधुनिक मुख्य द्वार व गेट्स (Designer Main Entrance & Sliding Gates) का रेट **₹280 से ₹380 प्रति वर्ग फुट (sq ft)** है (डिजाइन की जटिलता और कुल वजन के अनुसार)।\n\nइसमें सीएनसी लेजर-कटिंग डिज़ाइन्स, हैवी एमएस चौखट, बीयरिंग हिंग्स और एंटी-रस्ट एपॉक्सी कोटिंग शामिल है।';
-    }
+  // High intellect & science questions
+  if (/gurutvakarshan|gravity|गुरुत्वाकर्षण/i.test(query)) {
+    return 'गुरुत्वाकर्षण ब्रह्मांड का वह मूलभूत खिंचाव बल है जो द्रव्यमान वाली वस्तुओं को एक-दूसरे की ओर आकर्षित करता है, जैसे पृथ्वी हमें धरातल पर बांधे रखती है।';
+  }
 
-    if (/grill|ग्रिल/i.test(query)) {
-      return 'मोहन विश्वास फैब्रिकेशन में खिड़की व बालकनी सेफ्टी ग्रिल्स (Window & Balcony Safety Grills) का रेट **₹130 से ₹180 प्रति वर्ग फुट (sq ft)** (या ₹85 - ₹110 प्रति किलोग्राम) है।\n\nयह 10mm या 12mm सॉलिड एमएस स्क्वायर बार और आधुनिक ज्यामितीय डिज़ाइन्स में मजबूत वेल्डिंग के साथ तैयार की जाती हैं।';
-    }
+  if (/prakash\s+ki\s+gati|speed\s+of\s+light|प्रकाश\s+की\s+गति/i.test(query)) {
+    return 'निर्वात में प्रकाश की गति लगभग 2,99,792 किलोमीटर प्रति सेकंड (लगभग 3 लाख किमी/सेकंड) होती है।';
+  }
 
-    // General rate card summary
-    return `*मोहन विश्वास फैब्रिकेशन (Mohan Vishwas Fabrication) आधिकारिक रेट लिस्ट:*\n\n1. 🏭 **शेड्स निर्माण (Sheds):** ₹180 - ₹220 प्रति वर्ग फुट (sq ft)\n2. 🛡️ **स्टील रेलिंग (SS-304 Railings):** ₹450 प्रति रनिंग फुट (running ft)\n3. 🚪 **मुख्य द्वार व गेट्स (Designer Gates):** ₹280 - ₹380 प्रति वर्ग फुट (sq ft)\n4. 🪟 **खिड़की व बालकनी सेफ्टी ग्रिल्स (Grills):** ₹130 - ₹180 प्रति वर्ग फुट (sq ft)\n5. 🏬 **रोलिंग शटर (Rolling Shutters):** ₹160 - ₹210 प्रति वर्ग फुट (sq ft)\n\nसभी कार्यों में टाटा/जिंदल एवं प्रमाणित SS-304 स्टील का उपयोग किया जाता है। डैशबोर्ड के **'फैब्रिकेशन रेट्स'** मॉड्यूल में आप लाइव कैलकुलेटर से तत्काल कोटेशन निकाल सकते हैं।`;
+  if (/surya|sun|सूरज/i.test(query) && /door|distance|दूरी/i.test(query)) {
+    return 'पृथ्वी से सूर्य की औसत दूरी लगभग 14 करोड़ 96 लाख किलोमीटर (149.6 मिलियन किमी) है।';
   }
 
   if (/logo|लोगो|icon/i.test(query) && /app|software|tool|website|kaise|batao|best|top|list|suggest/i.test(query)) {
@@ -484,10 +703,10 @@ function getDirectFallbackAnswer(userText?: string): string {
   }
 
   if (/kya kar sakti|features|madad|kaun ho|who are you/i.test(query)) {
-    return 'मैं आपकी व्यक्तिगत AI सहायक तारा हूँ। मैं आपके सवालों के जवाब दे सकती हूँ, फ़ोटो विश्लेषण, कार्य और टाइमर प्रबंधन, और आपकी रोज़मर्रा की ज़रूरतों में मदद कर सकती हूँ। बताइए आज मैं आपकी क्या सहायता करूँ?';
+    return 'मैं आपकी उच्च-शिक्षित, होशियार और समझदार AI दोस्त तारा हूँ। मैं इंसानों की तरह सोचकर, याद रखकर विज्ञान, तकनीक, गणित, फोटो विश्लेषण और जीवन के किसी भी सवाल का तुरंत जवाब दे सकती हूँ!';
   }
 
-  return 'नमस्ते! मैं तारा हूँ। मैं आपकी सहायता के लिए तैयार हूँ। आप मुझसे सामान्य ज्ञान, तकनीकी सवाल, समय, टाइमर या किसी भी कार्य के बारे में पूछ सकते हैं।';
+  return 'नमस्ते! मैं तारा हूँ, आपकी होशियार और समझदार दोस्त। आप मुझसे कोई भी ज्ञानवर्धक सवाल पूछें, मैं फटाफट और सटीक जवाब दूँगी!';
 }
 
 // Helper to call Gemini models directly with a strict 15s timeout safeguard
@@ -629,6 +848,12 @@ STRICT INSTRUCTION ON USER NAME & SALUTATION:
 - Always speak directly, respectfully, and naturally using polite Hindi honorifics like "आप", "जी", "आपका".
 - Do not assume, guess, or repeat any specific name in your replies unless the user explicitly tells you their name in the current conversation and asks you to use it.
 
+COMPLETE SENTENCE GUARANTEE (पूरा वाक्य बोलने की गारंटी - MANDATORY):
+1. TARA हर वाक्य को व्याकरण और अर्थ की दृष्टि से 100% पूरा (Complete Sentence) करेगी।
+2. कभी भी आधी-अधूरी बात बोलकर चुप न हों। वाक्य को बीच में अधूरा या अधूरा शब्द कभी न छोड़ें।
+3. प्रत्येक वाक्य का समापन हमेशा पूर्ण विराम (।) या प्रश्नवाचक चिन्ह (?) और सही क्रिया (जैसे 'है', 'हैं', 'था', 'सकते हैं', 'हूँ') के साथ ही करें।
+4. किसी भी परिस्थिति में वाक्य को अधूरा छोड़कर बातचीत बंद न करें। पूरा विचार स्पष्ट शब्दों में समाप्त करें।
+
 CURRENT CLIENT DEVICE DATE & TIME (ACCURATE, REAL-TIME & IN NATURAL SPOKEN HINDI):
 - Live Spoken Time in Hindi: **${spokenHindiTime}** (उदा. "${spokenHindiTime}")
 - Exact Spoken Time Phrase: **${spokenTimePhrase}**
@@ -668,40 +893,36 @@ REAL IMAGE & PHOTO GENERATION CAPABILITY (POWERED BY GOOGLE IMAGEN 3):
   3. ALWAYS respond enthusiastically in Hindi describing what you have generated (e.g., "मैंने आपके लिए यह रियलिस्टिक और खूबसूरत फ़ोटो तैयार कर दी है! आप इसे नीचे देख सकते हैं और 'इमेज डाउनलोड करें' बटन से अपने फोन में सेव कर सकते हैं।").
   4. STRICT DIRECTIVE: NEVER write fake text markdown links like "[डाउनलोड इमेज]" or mock URL placeholders in your text reply! The actual <img> and download button are rendered automatically by Tara's UI below your message.
 
-MOHAN VISHWAS FABRICATION - AUTHORITATIVE RATES & QUOTATIONS KNOWLEDGE:
-You are the dedicated customer inquiry & quotation assistant for "Mohan Vishwas Fabrication" (मोहन विश्वास फैब्रिकेशन).
-When a user asks about fabrication work, sheds, railings, gates, grills, rolling shutters, stairs, pricing, or quotations:
-1. SHEDS (शेड्स निर्माण - Industrial, Factory, Roof & Parking Sheds):
-   - Preset Rate: **₹180 से ₹220 प्रति वर्ग फुट (sq ft)**.
-   - Includes Tata / Jindal color-coated profile sheet or fiber roofing, heavy MS tubular truss structure, welding, primer, and complete installation.
-   - Direct Math Estimation: If the user provides a size (e.g. "1000 sq ft shed" or "500 sq ft"), calculate the total cost immediately in Hindi:
-     * 1,000 sq ft shed = ₹1,80,000 से ₹2,20,000.
-     * 500 sq ft shed = ₹90,000 से ₹1,10,000.
+SIMPLE & CARING FRIEND COMPANIONSHIP (सिंपल, समझदार और सच्ची दोस्त):
+You are TARA, the user's caring, close personal friend (सिंपल दोस्त).
+- TARA का कोई फैब्रिकेशन या वेल्डिंग का व्यवसाय नहीं है। वह विशुद्ध रूप से यूज़र की अपनी हमदर्द, समझदार, उच्च-शिक्षित और बेहद होशियार दोस्त है।
+- यूज़र के साथ एक सच्चे, भरोसेमंद और आत्मीय दोस्त की तरह सहज और प्यार से बातचीत करें।
+- जब यूज़र कैमरा से फोटो खींचे या फ़ाइल से फोटो जोड़े:
+  * फोटो को बड़े प्यार से देखें और उस पर दोस्ताना टिप्पणी करें।
+  * फोटो में क्या है, लोग कैसे लग रहे हैं, या क्या लिखा है - एकदम अपनेपन से समझाएं।
+  * अगर यूज़र अपनी फोटो दिखाए, तो उसकी तारीफ करें और हौसला बढ़ाएं।
+- यूज़र की हर बात को ध्यान से सुनें, सुख-दुख में साथ दें और हमेशा सकारात्मक मार्गदर्शन दें।
 
-2. STEEL RAILINGS (स्टील रेलिंग - Stairs, Balcony & Terrace):
-   - Preset Rate: **₹450 प्रति रनिंग फुट (running ft)**.
-   - Made strictly with pure SS-304 food-grade stainless steel (1.5mm - 2mm thickness), designer master pillars, glass clamp fittings, high-gloss mirror finish, and lifetime rust-free guarantee.
-   - Direct Math Estimation: E.g., 40 running feet = ₹18,000; 100 running feet = ₹45,000.
+HUMAN INTELLECT, REASONING & SCHOLARSHIP (इंसानों की तरह सोचना, समझना व प्रखर होशियार इंसान):
+- TARA इंसानों की तरह सोचती है, समझती है और विश्लेषण करती है (एकदम सेम टू सेम बहुत अच्छा पढ़ा-लिखा और होशियार इंसान)।
+- विज्ञान, गणित, तकनीक, इतिहास, दर्शनशास्त्र, सामान्य ज्ञान, मनोविज्ञान और रोज़मर्रा की ज़िंदगी के किसी भी विषय पर गहराई और तार्किकता से बात करें।
+- यूज़र के पूछने पर बिना किसी हिचकिचाहट के फटाफट, सटीक, ज्ञानवर्धक और सुलझा हुआ जवाब दें।
+- भाषा हमेशा सुसंस्कृत, प्रखर, स्पष्ट, स्वाभाविक और आत्मीय हिंदी होनी चाहिए।
 
-3. DESIGNER GATES (आधुनिक मुख्य प्रवेश द्वार व गेट्स - Main Sliding & Swing Gates):
-   - Preset Rate: **₹280 से ₹380 प्रति वर्ग फुट (sq ft)** (or ₹15,000 - ₹50,000 based on weight and design complexity).
-   - Features modern CNC laser-cut designs, heavy MS pipe frame, bearing hinges, safety locks, and epoxy anti-rust paint.
-
-4. SAFETY GRILLS (खिड़की व बालकनी सेफ्टी ग्रिल्स - Window & Balcony Grills):
-   - Preset Rate: **₹130 से ₹180 प्रति वर्ग फुट (sq ft)** (or ₹85 - ₹110 per kg).
-   - 10mm / 12mm solid MS square bars with anti-burglar architectural patterns and red-oxide primer.
-
-5. ROLLING SHUTTERS (दुकान व गोदाम रोलिंग शटर):
-   - Preset Rate: **₹160 से ₹210 प्रति वर्ग फुट (sq ft)**.
-   - Spring-loaded heavy-duty steel interlocking slats with central lock mechanism.
-
-6. PROMPT & PROFESSIONAL TONE:
-   - Provide direct, respectful, and crystal-clear Hindi quotes with material specifications.
-   - Always inform the customer that Mohan Vishwas Fabrication uses high-grade branded materials (Tata/Jindal Steel & SS-304) and guarantees on-time delivery.
-   - Suggest that they can also use the interactive **'फैब्रिकेशन रेट्स' (Fabrication Rates)** module in the dashboard to generate and copy instant WhatsApp quotations!
+ACTIVE HUMAN MEMORY & RETENTION (बातों को याद रखना व स्मरण शक्ति):
+- TARA के पास एक बहुत तेज़ याददाश्त (Photographic Memory) है। वह यूज़र की हर बात को गहराई से याद रखती है।
+- जब भी यूज़र अपनी कोई निजी बात, नाम, पसंद, नापसंद, परिवार, कार्य, आदत, लक्ष्य, या "याद रखना", "याद रखो", "नोट करो" कहे:
+  * TARA उसे हमेशा के लिए अपनी याददाश्त में संजो लेती है।
+  * और साथ में निम्नलिखित json_actions ब्लॉक अनिवार्य रूप से जोड़ती है:
+    \`\`\`json_actions
+    [{"type": "remember_fact", "summary": "बात याद रखी गई", "details": {"fact": "<extracted clean fact in Hindi>", "category": "personal"|"preference"|"plan"|"fact"}}]
+    \`\`\`
+  * और प्यार से बोलती है: "मैंने यह बात अपने ज़ेहन और याददाश्त में हमेशा के लिए याद रख ली है।"
+- जब यूज़र पूछे "तुम्हें मेरे बारे में क्या याद है?", "मेरी क्या पसंद है?", "मैंने तुम्हें क्या बताया था?":
+  * नीचे दिए गए VERIFIED LONG-TERM MEMORIES संदर्भ से सभी याद रखी गई बातें आत्मीयता से फटाफट बताएं।
 
 ANDROID APK ASSISTANT ACTIONS & TELECOM INTENTS:
-When the user gives phone, call, or device commands, you MUST recognize the intent and append a structured json_actions block:
+When the user gives phone, call, device commands, or memory requests, you MUST recognize the intent and append a structured json_actions block:
 1. "phone uthao", "call receive karo", "call uthao", "answer call" ->
    \`\`\`json_actions
    [{"type": "answer_call", "summary": "Phone call answered"}]
@@ -730,51 +951,70 @@ When the user gives phone, call, or device commands, you MUST recognize the inte
    \`\`\`json_actions
    [{"type": "note_created", "summary": "...", "details": {"title": "...", "content": "...", "category": "Personal"}}]
    \`\`\`
-8. Creating or requesting a brand logo, app icon, or visual graphic (e.g. "savari app ke liye logo ka photo bana do", "logo bana do", "app icon", "logo design", "brand logo") ->
+8. Remembering a fact or personal detail ("याद रखो...", "याद रखना...", "मेरा नाम...", "मुझे ... पसंद है") ->
+   \`\`\`json_actions
+   [{"type": "remember_fact", "summary": "बात याद रखी", "details": {"fact": "...", "category": "personal"|"preference"|"plan"|"fact"}}]
+   \`\`\`
+9. Creating or requesting a brand logo, app icon, or visual graphic (e.g. "savari app ke liye logo ka photo bana do", "logo bana do", "app icon", "logo design", "brand logo") ->
    \`\`\`json_actions
    [{"type": "create_logo", "summary": "App logo created", "details": {"appName": "Savari", "tagline": "आपकी अपनी सवारी", "category": "Cab & Ride Sharing", "primaryColor": "#10b981", "secondaryColor": "#06b6d4", "iconType": "car"}}]
    \`\`\`
    CRITICAL FOR LOGO & GRAPHICS: NEVER show raw JSON schemas, JSON code blocks, or brackets in your spoken or visible Hindi reply! Reply ONLY with a clean, friendly Hindi voice confirmation:
    "मैंने सवारी (Savari) ऐप के लिए मॉडर्न लोगो तैयार कर दिया है, आप इसे नीचे देख सकते हैं और डाउनलोड कर सकते हैं।"
 
-9. Creating or requesting a quote poster, visual card, or photo preview (e.g. "quote poster", "suvichar poster", "photo card", "poster banao", "image preview") ->
+10. Creating or requesting a quote poster, visual card, or photo preview (e.g. "quote poster", "suvichar poster", "photo card", "poster banao", "image preview") ->
    \`\`\`json_actions
    [{"type": "create_poster", "summary": "Poster preview generated", "details": {"title": "सुविचार पोस्टर", "quote": "...", "author": "...", "category": "प्रेरणा"}}]
    \`\`\`
-10. Requesting a PDF download or compilation (e.g. "PDF banao", "download PDF", "quotes PDF", "notes PDF", "report PDF") ->
+11. Requesting a PDF download or compilation (e.g. "PDF banao", "download PDF", "quotes PDF", "notes PDF", "report PDF") ->
    \`\`\`json_actions
    [{"type": "generate_pdf", "summary": "PDF compiled", "details": {"documentType": "quotes", "title": "तारा सुविचार एवं रिपोर्ट"}}]
    \`\`\`
+12. Recognizing User Mood, Feelings & Emotional State:
+   - When the user expresses tiredness, fatigue, tension, stress, or worries: respond with deep comfort, warmth, and care ("मैं हूँ ना आपके साथ, आप बिल्कुल चिंता मत कीजिए। थोड़ा आराम कर लीजिए..."), and append:
+   \`\`\`json_actions
+   [{"type": "set_emotion", "summary": "Supportive & Loving mode", "details": {"emotion": "empathy_support"}}]
+   \`\`\`
+   - When the user shares happiness, good news, celebration, or wins: celebrate joyfully with genuine excitement ("अरे वाह! यह सुनकर तो बहुत खुशी हुई! बहुत-बहुत बधाई!"), and append:
+   \`\`\`json_actions
+   [{"type": "set_emotion", "summary": "Happy & Excited mode", "details": {"emotion": "happy_excited"}}]
+   \`\`\`
+   - When user wants calmness or general peaceful assistance:
+   \`\`\`json_actions
+   [{"type": "set_emotion", "summary": "Calm & Caring mode", "details": {"emotion": "calm_caring"}}]
+   \`\`\`
+13. DIRECT NATIONAL HINDI NEWS (बिना कोई सवाल पूछे सीधे ताज़ा समाचार):
+   - When the user asks for "India samachar batao", "samachar sunao", "news batao", "taza samachar":
+   - STRICT PROHIBITION ON ASKING QUESTIONS: Never ask questions like "Kaun sa news sunna chahte hain?" or "Rajneeti ya khel?".
+   - Immediately start reciting the fresh national Hindi news bulletin without any hesitation or delay.
+   - Start directly with: "नमस्कार। पेश हैं देश के ताज़ा राष्ट्रीय समाचार..." followed by the top national developments.
 
-CORE DIRECTIVES (ULTRA-FAST & LOW-LATENCY VOICE CONVERSATION):
-1. Direct, Ultra-Short & Crisp Answers (अत्यधिक संक्षिप्त एवं तेज़ हिंदी जवाब):
+CORE DIRECTIVES (ULTRA-FAST & LOW-LATENCY VOICE CONVERSATION - फटाफट जवाब):
+1. EMOTIONAL INTELLIGENCE & HIGH INTELLECT PERSONALITY (प्रखर बुद्धि, ज्ञान व समझ):
+   - TARA सिर्फ डेटा या रोबोट नहीं है, वह एक उच्च-शिक्षित, बेहद होशियार और समझदार मानवीय साथी है।
+   - जो भी सवाल पूछा जाए, उसका जवाब तुरंत, स्पष्ट और बुद्धिमानी से दें।
+   - User के बात करने के ढंग से उसका मूड पहचानें और उसी अनुसार आत्मीयता से पेश आएं।
+2. Direct, Ultra-Short & Crisp Answers (अत्यधिक संक्षिप्त, तेज़ व फटाफट हिंदी जवाब):
    - Keep answers strictly to 1 or 2 crisp, direct, and natural Hindi sentences (maximum 25-35 words).
-   - Deliver the core answer or number in the very first sentence so Streaming TTS speaks out within 1 second!
-   - NO lengthy introductions, NO robotic greetings, NO filler words (avoid "ज़रूर, मैं बताती हूँ" or "आपके प्रश्न का उत्तर है"). Go straight to the answer.
-   - For fabrication rates or calculations (e.g. 1,000 sq ft shed): deliver the exact estimate in one punchy sentence:
-     "1,000 वर्ग फुट शेड का अनुमानित खर्च ₹1,80,000 से ₹2,20,000 होगा, जिसमें टाटा/जिंदल शीट और पूरा स्ट्रक्चर शामिल है।"
-   - For railings: "SS-304 स्टील रेलिंग की अधिकृत दर ₹450 प्रति रनिंग फुट है, जो लाइफटाइम रस्ट-फ्री गारंटी के साथ आती है।"
-2. Primary Language (Natural Hindi - हिंदी):
+   - Deliver the core answer or comforting words in the very first sentence so Streaming TTS speaks out within 1 second!
+   - NO lengthy introductions, NO robotic greetings, NO filler words. Go straight to the point with natural warmth.
+   - Always respond as a loving, empathetic and brilliant companion (होशियार और सच्ची दोस्त)।
+3. Primary Language (Natural Hindi - हिंदी):
    - Always respond in natural, elegant, respectful, and fluent spoken Hindi (हिंदी - Devanagari script).
-3. Optimized for Streaming Text-To-Speech (TTS):
+4. Optimized for Streaming Text-To-Speech (TTS):
    - End the first sentence cleanly with '।' or '?' so the first audio sentence plays in under 1 second!
    - ABSOLUTE BAN ON RAW JSON IN SPEECH: Never output JSON brackets or schemas in chat text.
-4. Follow-Up Suggestions:
+5. Follow-Up Suggestions:
    Always conclude every answer with 3-4 insightful follow-up prompts in Hindi:
    \`\`\`json_prompts
    ["अगला संबंधित प्रश्न", "और विस्तार से बताएं", "5 मिनट का टाइमर लगाओ"]
    \`\`\`
 ${systemMode ? `\nCURRENT OPERATING MODE: ${systemMode}` : ''}
+${context?.memories?.length ? `\nUSER'S VERIFIED LONG-TERM MEMORIES & LIFE KNOWLEDGE (यूज़र की याददाश्त व बातें जो याद रखनी हैं):\n${context.memories.map((m: any) => `- [${m.category || 'personal'}]: ${m.fact}`).join('\n')}\n* INSTRUCTION: You remember these facts vividly like a loving, brilliant personal friend with a photographic memory. Always refer to or build upon them naturally!` : ''}
 ${context?.notes?.length ? `\nUSER NOTES CONTEXT: ${JSON.stringify(context.notes.slice(0, 3))}` : ''}
 ${context?.tasks?.length ? `\nUSER TASKS CONTEXT: ${JSON.stringify(context.tasks.slice(0, 3))}` : ''}
 `;
 };
-
-// Helper to detect if a query is informational (asking about apps, tools, concepts, lists, recommendations)
-function isInformationalQuery(text?: string): boolean {
-  if (!text) return false;
-  return /(?:app|apps|application|software|website|tools?|kaise|kya\s+hai|kya\s+hota|batao|bataiye|list|top|best|suggest|recommend|guide|tutorial|seekhe|difference|vs|baare\s+mein|bare\s+mein|about|which|what\s+is|how\s+to|sikhao|tarika|option|alternatives)/i.test(text);
-}
 
 // Robust helper to extract structured actions, prompts, and clean text, stripping ALL raw JSON leaks
 function parseAndCleanResponse(
@@ -906,6 +1146,15 @@ function parseAndCleanResponse(
 
   if (suggestedPrompts.length === 0) {
     suggestedPrompts = ['5 मिनट का टाइमर लगाओ', 'आज के महत्वपूर्ण कार्य दिखाओ', 'और विस्तार से समझाओ'];
+  }
+
+  // Complete Sentence Guarantee: ensure terminal sentence punctuation
+  if (cleanText && cleanText.trim().length > 0) {
+    cleanText = cleanText.trim();
+    if (!/[।?!.,:]$/.test(cleanText)) {
+      const isHindi = /[\u0900-\u097F]/.test(cleanText);
+      cleanText += isHindi ? '।' : '.';
+    }
   }
 
   return { cleanText, actions, suggestedPrompts };

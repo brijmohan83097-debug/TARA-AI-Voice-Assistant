@@ -7,7 +7,8 @@ import React from 'react';
 import { 
   Sparkles, 
   Activity, 
-  Sliders
+  Sliders,
+  Brain
 } from 'lucide-react';
 import { SystemMode } from '../types';
 
@@ -18,6 +19,8 @@ interface HeaderProps {
   onTriggerQuickWorkflow: (wfId: string) => void;
   onOpenHelp: () => void;
   onOpenStudio?: () => void;
+  onOpenMemoryVault?: () => void;
+  memoriesCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -26,6 +29,8 @@ export const Header: React.FC<HeaderProps> = ({
   onTriggerQuickWorkflow,
   onOpenHelp,
   onOpenStudio,
+  onOpenMemoryVault,
+  memoriesCount = 0,
 }) => {
   return (
     <header className="sticky top-0 z-40 w-full bg-[#070b14]/90 backdrop-blur-md border-b border-cyan-500/20 px-4 py-2.5">
@@ -58,8 +63,23 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Right Actions matching screenshot: [✨ Studio] [~] [...] */}
+        {/* Right Actions matching screenshot: [🧠 याददाश्त] [✨ Studio] [~] [...] */}
         <div className="flex items-center gap-2">
+          {/* 🧠 Cognitive Memory Vault Button */}
+          {onOpenMemoryVault && (
+            <button
+              onClick={onOpenMemoryVault}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-950/70 hover:bg-purple-900/90 border border-purple-400/50 hover:border-purple-300 text-purple-200 hover:text-white font-mono text-xs font-bold transition-all shadow-[0_0_12px_rgba(168,85,247,0.25)] active:scale-95 cursor-pointer"
+              title="तारा की याददाश्त व मस्तिष्क (Cognitive Human Memory Vault)"
+            >
+              <Brain className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
+              <span className="hidden sm:inline">याददाश्त</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-purple-500/30 text-[10px] text-purple-200 border border-purple-400/40">
+                {memoriesCount}
+              </span>
+            </button>
+          )}
+
           {/* ✨ Studio Button */}
           <button
             onClick={onOpenStudio}
