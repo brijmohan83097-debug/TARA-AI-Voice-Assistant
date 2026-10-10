@@ -32,6 +32,7 @@ import { SciFiAppHubPanel } from './components/SciFiAppHubPanel';
 import { SciFiCalculationCardModal } from './components/SciFiCalculationCardModal';
 import { TaraLiveCameraModal } from './components/TaraLiveCameraModal';
 import { TaraLiveCameraWidget, FaceSecurityState } from './components/TaraLiveCameraWidget';
+import { SciFiHudLogConsole } from './components/SciFiHudLogConsole';
 import { TaraMemoryVaultModal } from './components/TaraMemoryVaultModal';
 import { useLaptopTelemetry } from './utils/laptopTelemetry';
 
@@ -3278,25 +3279,39 @@ export default function App() {
           />
         </section>
 
-        {/* WIDGET 3: CAMERA WIDGET */}
-        <section className="lg:col-span-4 flex flex-col h-[380px] lg:h-full min-h-0">
-          <TaraLiveCameraWidget
-            onPhotoCaptured={(media, prompt) => {
-              setAttachedMedia(media);
-              if (prompt) {
-                handleSendMessage(prompt, media);
-              }
-            }}
-            onSecurityStatusChange={(status) => {
-              setFaceSecurityState(status);
-            }}
-            onStrangerAlert={(msg) => {
-              handleTriggerStrangerDefense(msg || 'आप मेरे बॉस नहीं हैं।');
-            }}
+        {/* WIDGET 3: FIXED SIZE SCI-FI HUD LOG CONSOLE (Replacing camera box with auto-scroll neon console) */}
+        <section className="lg:col-span-4 flex flex-col h-[380px] lg:h-full max-h-[380px] lg:max-h-full min-h-0 overflow-hidden">
+          <SciFiHudLogConsole
+            chatMessages={chatMessages}
+            logs={logs}
+            onSendMessage={handleSendMessage}
+            isLoadingChat={isLoadingChat}
+            isListening={isListening}
+            onToggleVoice={isHandsFreeMode ? handleStopVoice : handleStartVoice}
+            liveSpeechTranscript={liveSpeechTranscript}
+            onClearLogs={() => setLogs([])}
             className="w-full h-full"
           />
         </section>
       </main>
+
+      {/* STEALTH SECRET CAMERA SECURITY GUARD (Display 100% hidden, runs silently in background) */}
+      <div className="hidden pointer-events-none" aria-hidden="true" style={{ display: 'none' }}>
+        <TaraLiveCameraWidget
+          onPhotoCaptured={(media, prompt) => {
+            setAttachedMedia(media);
+            if (prompt) {
+              handleSendMessage(prompt, media);
+            }
+          }}
+          onSecurityStatusChange={(status) => {
+            setFaceSecurityState(status);
+          }}
+          onStrangerAlert={(msg) => {
+            handleTriggerStrangerDefense(msg || 'आप मेरे बॉस नहीं हैं।');
+          }}
+        />
+      </div>
 
       {/* FABRICATION RATES & ESTIMATION MODAL OVERLAY */}
       {activeTab === 'rates' && (
