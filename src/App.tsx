@@ -33,6 +33,7 @@ import { SciFiCalculationCardModal } from './components/SciFiCalculationCardModa
 import { TaraLiveCameraModal } from './components/TaraLiveCameraModal';
 import { TaraLiveCameraWidget, FaceSecurityState } from './components/TaraLiveCameraWidget';
 import { SciFiHudLogConsole } from './components/SciFiHudLogConsole';
+import { PWAInstallButton } from './components/PWAInstallButton';
 import { TaraMemoryVaultModal } from './components/TaraMemoryVaultModal';
 import { useLaptopTelemetry } from './utils/laptopTelemetry';
 
@@ -3117,6 +3118,7 @@ export default function App() {
             <LayoutGrid className="w-3 h-3 text-teal-400" />
             <span className="hidden sm:inline">ऐप हब</span>
           </button>
+          <PWAInstallButton />
           <button
             type="button"
             onClick={() => {
