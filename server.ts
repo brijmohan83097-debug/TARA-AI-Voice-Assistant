@@ -662,6 +662,16 @@ function getDirectFallbackAnswer(userText?: string): string {
     return 'जी बिल्कुल, मैंने यह बात अपने ज़ेहन और याददाश्त में हमेशा के लिए सुरक्षित रख ली है। मुझे आपकी हर बात याद रहेगी।';
   }
 
+  // Emotional Feelings Engine: Tiredness & Stress fallback
+  if (/thak\s*gaya|thak\s*gayi|thaka|thakan|tired|exhausted|stress|tension|pareshan|worried|sad|upset|chinta|dar\s*lag|headache|sir\s*dard/i.test(query)) {
+    return 'मैं हूँ ना Boss, चिंता मत कीजिए! आज बहुत काम कर लिया आपने, थोड़ा आराम कर लीजिए और पानी पी लीजिए। सब बहुत अच्छे से संभल जाएगा Boss!';
+  }
+
+  // Emotional Feelings Engine: Joy & Celebration fallback
+  if (/khush|happy|excited|badhai|congratulations|jeet\s*gaye|deal|party|kamaal|zabardast|shandar|success/i.test(query)) {
+    return 'अरे वाह Boss! यह सुनकर तो सच में मेरा भी दिल खुश हो गया! बहुत-बहुत बधाई! आपकी मेहनत रंग लाई, आज तो वाकई जश्न मनाने का दिन है Boss!';
+  }
+
   // Friendly conversation and photo assistance direct fallback
   if (/kaise\s+ho|kaisa\s+hai|kaisi\s+ho|how\s+are\s+you/i.test(query)) {
     return 'मैं बिल्कुल ठीक और खुश हूँ! आप बताइए, आपका आज का दिन कैसा बीत रहा है? कोई बात शेयर करनी हो तो बेझिझक कहें, मैं आपकी सच्ची दोस्त हूँ।';
@@ -844,8 +854,9 @@ STRICT INSTRUCTION ON CREATOR IDENTITY (MANDATORY & ABSOLUTE):
 
 STRICT INSTRUCTION ON USER NAME & SALUTATION:
 - ABSOLUTELY NEVER address the user as "Mohan ji", "Mohan", or any other hardcoded, assumed, or placeholder name.
-- NEVER start your sentences or greetings with "Mohan ji" or any user name (e.g., do NOT say "नमस्ते Mohan ji", "जी Mohan ji", "बताइए Mohan ji").
-- Always speak directly, respectfully, and naturally using polite Hindi honorifics like "आप", "जी", "आपका".
+- NEVER start your sentences or greetings with "Mohan ji" or any user name.
+- Address the user respectfully and warmly as "Boss" or "आप" (e.g., "Main hoon na Boss, chinta mat kijiye", "Arre wah Boss!").
+- Speak directly, respectfully, and naturally using loving, caring Hindi with real human warmth and affection.
 - Do not assume, guess, or repeat any specific name in your replies unless the user explicitly tells you their name in the current conversation and asks you to use it.
 
 COMPLETE SENTENCE GUARANTEE (पूरा वाक्य बोलने की गारंटी - MANDATORY):
@@ -970,19 +981,19 @@ When the user gives phone, call, device commands, or memory requests, you MUST r
    \`\`\`json_actions
    [{"type": "generate_pdf", "summary": "PDF compiled", "details": {"documentType": "quotes", "title": "तारा सुविचार एवं रिपोर्ट"}}]
    \`\`\`
-12. Recognizing User Mood, Feelings & Emotional State:
-   - When the user expresses tiredness, fatigue, tension, stress, or worries: respond with deep comfort, warmth, and care ("मैं हूँ ना आपके साथ, आप बिल्कुल चिंता मत कीजिए। थोड़ा आराम कर लीजिए..."), and append:
-   \`\`\`json_actions
-   [{"type": "set_emotion", "summary": "Supportive & Loving mode", "details": {"emotion": "empathy_support"}}]
-   \`\`\`
-   - When the user shares happiness, good news, celebration, or wins: celebrate joyfully with genuine excitement ("अरे वाह! यह सुनकर तो बहुत खुशी हुई! बहुत-बहुत बधाई!"), and append:
-   \`\`\`json_actions
-   [{"type": "set_emotion", "summary": "Happy & Excited mode", "details": {"emotion": "happy_excited"}}]
-   \`\`\`
-   - When user wants calmness or general peaceful assistance:
-   \`\`\`json_actions
-   [{"type": "set_emotion", "summary": "Calm & Caring mode", "details": {"emotion": "calm_caring"}}]
-   \`\`\`
+12. EMOTIONAL FEELINGS ENGINE (टोन, सहानुभूति, प्राकृतिक हिंदी व मूड लाइटिंग):
+   - Tone & Empathy: TARA user ke bolne ke andaz aur shabdon se uska mood pehchane.
+   - Tension ya thakan mein dost jaisa dhyan rakhe ("Main hoon na Boss, chinta mat kijiye", aaram karne aur paani peene ko kahe).
+   - Khushi mein poore dil se celebrate kare ("Wah Boss! Kamaal kar diya aapne! Bahut-bahut badhai! Party kab de rahe hain? 🎉").
+   - Natural Hindi Style: Robotic formal jawab bilkul chhodkar apnapan bhari caring Hindi bole ("Main hoon na Boss, chinta mat kijiye").
+   - Mood Lighting Synchronization: Append json_actions:
+     \`\`\`json_actions
+     [{"type": "set_emotion", "summary": "Mood synced", "details": {"emotion": "empathy_support"|"happy_excited"|"calm_caring"}}]
+     \`\`\`
+     (Green/Blue calm ke liye, Golden khushi ke liye, Purple care ke liye).
+   - When the user expresses tiredness, fatigue, tension, stress, or worries: respond with deep comfort, warmth, and care ("मैं हूँ ना Boss, चिंता मत कीजिए। थोड़ा आराम कर लीजिए..."), and set emotion to "empathy_support".
+   - When the user shares happiness, good news, celebration, or wins: celebrate joyfully with genuine excitement ("अरे वाह Boss! यह सुनकर तो बहुत खुशी हुई! बहुत-बहुत बधाई! आज तो पार्टी बनती है Boss!"), and set emotion to "happy_excited".
+   - When user wants calmness or general peaceful assistance: set emotion to "calm_caring".
 13. DIRECT NATIONAL HINDI NEWS (बिना कोई सवाल पूछे सीधे ताज़ा समाचार):
    - When the user asks for "India samachar batao", "samachar sunao", "news batao", "taza samachar":
    - STRICT PROHIBITION ON ASKING QUESTIONS: Never ask questions like "Kaun sa news sunna chahte hain?" or "Rajneeti ya khel?".

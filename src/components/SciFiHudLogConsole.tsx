@@ -60,15 +60,18 @@ export const SciFiHudLogConsole: React.FC<SciFiHudLogConsoleProps> = ({
 
   // Smooth auto-scroll function
   const scrollToBottom = useCallback((smooth = true) => {
-    if (!scrollContainerRef.current) return;
-    const container = scrollContainerRef.current;
-    if (smooth) {
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
       container.scrollTo({
         top: container.scrollHeight,
-        behavior: 'smooth',
+        behavior: smooth ? 'smooth' : 'auto',
       });
-    } else {
-      container.scrollTop = container.scrollHeight;
+    }
+    if (bottomAnchorRef.current) {
+      bottomAnchorRef.current.scrollIntoView({
+        behavior: smooth ? 'smooth' : 'auto',
+        block: 'end',
+      });
     }
     setShowScrollBottomBtn(false);
   }, []);
@@ -91,13 +94,19 @@ export const SciFiHudLogConsole: React.FC<SciFiHudLogConsoleProps> = ({
   // Trigger auto-scroll whenever new messages, logs, or live speech arrive
   useEffect(() => {
     if (autoScroll) {
-      scrollToBottom(true);
+      const timer = setTimeout(() => {
+        scrollToBottom(true);
+      }, 30);
+      return () => clearTimeout(timer);
     }
   }, [chatMessages, logs, liveSpeechTranscript, isLoadingChat, autoScroll, scrollToBottom]);
 
   // Initial scroll to bottom on mount
   useEffect(() => {
-    scrollToBottom(false);
+    const timer = setTimeout(() => {
+      scrollToBottom(false);
+    }, 50);
+    return () => clearTimeout(timer);
   }, [scrollToBottom]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -173,7 +182,7 @@ export const SciFiHudLogConsole: React.FC<SciFiHudLogConsoleProps> = ({
 
   return (
     <div 
-      className={`flex flex-col h-full max-h-[380px] lg:max-h-full min-h-0 bg-[#030713]/95 border border-cyan-500/40 rounded-2xl overflow-hidden shadow-[0_0_30px_rgba(0,240,255,0.18)] relative backdrop-blur-md neon-hud-border select-text ${className}`}
+      className={`flex flex-col h-full max-h-full min-h-0 bg-[#030713]/95 border border-cyan-500/40 rounded-2xl overflow-hidden shadow-[0_0_30px_rgba(0,240,255,0.18)] relative backdrop-blur-md neon-hud-border select-text ${className}`}
       style={{ boxSizing: 'border-box' }}
     >
       {/* Sci-Fi Neon Corner Brackets */}

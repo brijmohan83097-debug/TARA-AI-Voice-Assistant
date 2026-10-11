@@ -183,16 +183,22 @@ export const CyberReactorOrb: React.FC<CyberReactorOrbProps> = ({
         </div>
       </div>
 
-      {/* 2. CENTER NEON GLOWING AI CORE (ARC REACTOR ORB WITH EMOTION GLOW RING) */}
+      {/* 2. CENTER NEON GLOWING AI CORE (ARC REACTOR ORB WITH EMOTION GLOW RING & MOOD LIGHTING) */}
       <div className="relative flex-1 min-h-[170px] flex items-center justify-center overflow-hidden p-2">
-        {/* Ambient Plasma Glow behind Core (Dynamically shaded by Emotion State) */}
+        {/* Ambient Plasma Glow behind Core (Dynamically shaded by Emotion State & Speaking state) */}
         <div 
           className="absolute w-52 h-52 rounded-full blur-[48px] pointer-events-none transition-all duration-700"
           style={{
             background: isListening 
               ? 'radial-gradient(circle, rgba(244, 63, 94, 0.55) 0%, rgba(225, 29, 72, 0.25) 50%, transparent 70%)'
               : isSpeaking 
-              ? 'radial-gradient(circle, rgba(16, 185, 129, 0.55) 0%, rgba(5, 150, 105, 0.25) 50%, transparent 70%)'
+              ? (emotionConfig.speakingAmbientGlow || (
+                  currentEmotion === 'happy_excited'
+                    ? 'radial-gradient(circle, rgba(251, 191, 36, 0.75) 0%, rgba(245, 158, 11, 0.4) 50%, transparent 70%)'
+                    : currentEmotion === 'empathy_support'
+                    ? 'radial-gradient(circle, rgba(192, 132, 252, 0.75) 0%, rgba(168, 85, 247, 0.4) 50%, transparent 70%)'
+                    : 'radial-gradient(circle, rgba(0, 240, 255, 0.65) 0%, rgba(16, 185, 129, 0.35) 50%, transparent 70%)'
+                ))
               : currentEmotion === 'happy_excited'
               ? 'radial-gradient(circle, rgba(251, 191, 36, 0.55) 0%, rgba(245, 158, 11, 0.25) 50%, transparent 70%)'
               : currentEmotion === 'empathy_support'
@@ -219,16 +225,37 @@ export const CyberReactorOrb: React.FC<CyberReactorOrbProps> = ({
           </div>
         )}
 
-        {/* 2. HIGH-ENERGY PULSE SHOCKWAVES & GLOWING AURA (Active when TARA speaks) */}
+        {/* 2. HIGH-ENERGY PULSE SHOCKWAVES & GLOWING AURA (Mood Lighting when TARA speaks) */}
         {isSpeaking && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-            <div className="w-44 h-44 rounded-full border-2 border-emerald-400/90 shadow-[0_0_45px_rgba(16,185,129,0.85)] animate-speaking-pulse" />
-            <div className="w-52 h-52 rounded-full border border-cyan-400/70 shadow-[0_0_50px_rgba(0,240,255,0.6)] animate-ping opacity-40" />
-            <div className="w-36 h-36 rounded-full bg-emerald-500/10 blur-xl animate-pulse" />
+            <div 
+              className={`w-44 h-44 rounded-full border-2 animate-speaking-pulse ${
+                currentEmotion === 'happy_excited'
+                  ? 'border-amber-400/90 shadow-[0_0_45px_rgba(251,191,36,0.85)]'
+                  : currentEmotion === 'empathy_support'
+                  ? 'border-purple-400/90 shadow-[0_0_45px_rgba(192,132,252,0.85)]'
+                  : 'border-cyan-400/90 shadow-[0_0_45px_rgba(0,240,255,0.85)]'
+              }`} 
+            />
+            <div 
+              className={`w-52 h-52 rounded-full border animate-ping opacity-40 ${
+                currentEmotion === 'happy_excited'
+                  ? 'border-yellow-300/70 shadow-[0_0_50px_rgba(253,224,71,0.6)]'
+                  : currentEmotion === 'empathy_support'
+                  ? 'border-fuchsia-400/70 shadow-[0_0_50px_rgba(232,121,249,0.6)]'
+                  : 'border-emerald-400/70 shadow-[0_0_50px_rgba(16,185,129,0.6)]'
+              }`} 
+            />
+            <div 
+              className="w-36 h-36 rounded-full blur-xl animate-pulse"
+              style={{
+                backgroundColor: `${emotionConfig.glowColorHex}30`
+              }} 
+            />
           </div>
         )}
 
-        {/* DANCING AUDIO EQUALIZER BARS (Left Side) */}
+        {/* DANCING AUDIO EQUALIZER BARS (Left Side - Mood Colored when speaking) */}
         <div className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 flex items-end gap-1 h-14 pointer-events-none z-10">
           {[14, 28, 42, 22, 36, 18, 48, 26].map((h, i) => (
             <div
@@ -237,7 +264,11 @@ export const CyberReactorOrb: React.FC<CyberReactorOrbProps> = ({
                 isListening
                   ? 'bg-gradient-to-t from-rose-600 via-rose-400 to-rose-200'
                   : isSpeaking
-                  ? 'bg-gradient-to-t from-emerald-600 via-emerald-400 to-emerald-200'
+                  ? currentEmotion === 'happy_excited'
+                    ? 'bg-gradient-to-t from-amber-600 via-yellow-400 to-amber-200'
+                    : currentEmotion === 'empathy_support'
+                    ? 'bg-gradient-to-t from-purple-600 via-violet-400 to-fuchsia-300'
+                    : 'bg-gradient-to-t from-cyan-500 via-teal-400 to-emerald-300'
                   : 'bg-cyan-500/25'
               } ${isListening || isSpeaking ? 'animate-audio-bar' : ''}`}
               style={{
@@ -249,7 +280,7 @@ export const CyberReactorOrb: React.FC<CyberReactorOrbProps> = ({
           ))}
         </div>
 
-        {/* DANCING AUDIO EQUALIZER BARS (Right Side) */}
+        {/* DANCING AUDIO EQUALIZER BARS (Right Side - Mood Colored when speaking) */}
         <div className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 flex items-end gap-1 h-14 pointer-events-none z-10">
           {[26, 48, 18, 36, 22, 42, 28, 14].map((h, i) => (
             <div
@@ -258,7 +289,11 @@ export const CyberReactorOrb: React.FC<CyberReactorOrbProps> = ({
                 isListening
                   ? 'bg-gradient-to-t from-rose-600 via-rose-400 to-rose-200'
                   : isSpeaking
-                  ? 'bg-gradient-to-t from-emerald-600 via-emerald-400 to-emerald-200'
+                  ? currentEmotion === 'happy_excited'
+                    ? 'bg-gradient-to-t from-amber-600 via-yellow-400 to-amber-200'
+                    : currentEmotion === 'empathy_support'
+                    ? 'bg-gradient-to-t from-purple-600 via-violet-400 to-fuchsia-300'
+                    : 'bg-gradient-to-t from-cyan-500 via-teal-400 to-emerald-300'
                   : 'bg-cyan-500/25'
               } ${isListening || isSpeaking ? 'animate-audio-bar' : ''}`}
               style={{
@@ -275,14 +310,32 @@ export const CyberReactorOrb: React.FC<CyberReactorOrbProps> = ({
           className="relative w-44 h-44 sm:w-48 sm:h-48 flex items-center justify-center transition-transform duration-300"
           style={{ transform: `scale(${pulseScale})` }}
         >
-          {/* Outer Gyro Ring (Rotating Clockwise) */}
+          {/* Outer Gyro Ring (Rotating Clockwise - Mood Tinted) */}
           <svg 
             className="absolute inset-0 w-full h-full pointer-events-none"
             style={{ transform: `rotate(${rotation}deg)` }}
             viewBox="0 0 200 200"
           >
-            <circle cx="100" cy="100" r="92" fill="none" stroke="#00f0ff" strokeWidth="1" strokeOpacity="0.4" strokeDasharray="4 6" />
-            <circle cx="100" cy="100" r="86" fill="none" stroke="#0284c7" strokeWidth="1.5" strokeOpacity="0.6" strokeDasharray="14 12" />
+            <circle 
+              cx="100" 
+              cy="100" 
+              r="92" 
+              fill="none" 
+              stroke={isSpeaking ? emotionConfig.glowColorHex : "#00f0ff"} 
+              strokeWidth="1" 
+              strokeOpacity="0.45" 
+              strokeDasharray="4 6" 
+            />
+            <circle 
+              cx="100" 
+              cy="100" 
+              r="86" 
+              fill="none" 
+              stroke={isSpeaking ? emotionConfig.glowColorHex : "#0284c7"} 
+              strokeWidth="1.5" 
+              strokeOpacity="0.6" 
+              strokeDasharray="14 12" 
+            />
             {/* Degree Markings */}
             {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
               <line 
@@ -291,7 +344,7 @@ export const CyberReactorOrb: React.FC<CyberReactorOrbProps> = ({
                 y1="5" 
                 x2="100" 
                 y2="12" 
-                stroke="#00f0ff" 
+                stroke={isSpeaking ? emotionConfig.glowColorHex : "#00f0ff"} 
                 strokeWidth="1.5" 
                 transform={`rotate(${deg} 100 100)`} 
               />
@@ -304,8 +357,26 @@ export const CyberReactorOrb: React.FC<CyberReactorOrbProps> = ({
             style={{ transform: `rotate(${-rotation * 1.4}deg)` }}
             viewBox="0 0 200 200"
           >
-            <circle cx="100" cy="100" r="74" fill="none" stroke="#38bdf8" strokeWidth="2" strokeDasharray="24 16" strokeOpacity="0.75" />
-            <circle cx="100" cy="100" r="64" fill="none" stroke="#00f0ff" strokeWidth="1" strokeDasharray="6 8" strokeOpacity="0.5" />
+            <circle 
+              cx="100" 
+              cy="100" 
+              r="74" 
+              fill="none" 
+              stroke={isSpeaking ? emotionConfig.glowColorHex : "#38bdf8"} 
+              strokeWidth="2" 
+              strokeDasharray="24 16" 
+              strokeOpacity="0.75" 
+            />
+            <circle 
+              cx="100" 
+              cy="100" 
+              r="64" 
+              fill="none" 
+              stroke={isSpeaking ? emotionConfig.glowColorHex : "#00f0ff"} 
+              strokeWidth="1" 
+              strokeDasharray="6 8" 
+              strokeOpacity="0.5" 
+            />
             {/* Plasma Node Emitters */}
             {[30, 90, 150, 210, 270, 330].map((deg) => (
               <circle 
@@ -314,14 +385,14 @@ export const CyberReactorOrb: React.FC<CyberReactorOrbProps> = ({
                 cy="26" 
                 r="3" 
                 fill="#ffffff" 
-                stroke="#00f0ff" 
+                stroke={isSpeaking ? emotionConfig.glowColorHex : "#00f0ff"} 
                 strokeWidth="1" 
                 transform={`rotate(${deg} 100 100)`} 
               />
             ))}
           </svg>
 
-          {/* Inner Audio Visualizer Plasma Waveform Ring */}
+          {/* Inner Audio Visualizer Plasma Waveform Ring (Mood Glow Color) */}
           <svg 
             className="absolute inset-0 w-full h-full pointer-events-none"
             viewBox="0 0 200 200"
@@ -331,14 +402,14 @@ export const CyberReactorOrb: React.FC<CyberReactorOrbProps> = ({
               cy="100" 
               r="52" 
               fill="none" 
-              stroke={isSpeaking ? "#10b981" : isListening ? "#f43f5e" : "#00f0ff"} 
+              stroke={isSpeaking ? emotionConfig.glowColorHex : isListening ? "#f43f5e" : emotionConfig.glowColorHex} 
               strokeWidth="2.5" 
-              strokeOpacity="0.85" 
+              strokeOpacity="0.9" 
               className={isSpeaking ? "animate-speaking-pulse" : isListening ? "animate-pulse" : ""}
             />
           </svg>
 
-          {/* Central Interactive "START AI" Reactor Core Button */}
+          {/* Central Interactive "START AI" Reactor Core Button (Mood Lighting) */}
           <button
             type="button"
             onClick={() => {
@@ -347,21 +418,29 @@ export const CyberReactorOrb: React.FC<CyberReactorOrbProps> = ({
             }}
             className={`relative z-10 w-24 h-24 rounded-full flex flex-col items-center justify-center transition-all duration-300 cursor-pointer shadow-2xl active:scale-95 group ${
               isSpeaking
-                ? 'bg-gradient-to-tr from-emerald-600 via-teal-500 to-cyan-400 border-2 border-emerald-300 shadow-[0_0_50px_rgba(16,185,129,0.95)] animate-speaking-pulse'
+                ? currentEmotion === 'happy_excited'
+                  ? 'bg-gradient-to-tr from-amber-600 via-yellow-500 to-amber-300 border-2 border-yellow-200 shadow-[0_0_55px_rgba(251,191,36,0.95)] animate-speaking-pulse'
+                  : currentEmotion === 'empathy_support'
+                  ? 'bg-gradient-to-tr from-purple-700 via-violet-600 to-fuchsia-400 border-2 border-purple-200 shadow-[0_0_55px_rgba(192,132,252,0.95)] animate-speaking-pulse'
+                  : 'bg-gradient-to-tr from-cyan-600 via-teal-500 to-emerald-400 border-2 border-cyan-200 shadow-[0_0_55px_rgba(0,240,255,0.95)] animate-speaking-pulse'
                 : isListening
                 ? 'bg-gradient-to-tr from-rose-700 via-red-600 to-rose-500 border-2 border-rose-300 shadow-[0_0_40px_rgba(244,63,94,0.9)] animate-pulse'
                 : isHandsFreeMode
                 ? 'bg-gradient-to-tr from-amber-700 via-amber-600 to-orange-500 border-2 border-amber-300 shadow-[0_0_35px_rgba(245,158,11,0.8)]'
+                : currentEmotion === 'happy_excited'
+                ? 'bg-gradient-to-tr from-amber-950 via-yellow-800 to-amber-700 border-2 border-amber-400 shadow-[0_0_30px_rgba(251,191,36,0.6)] hover:scale-105'
+                : currentEmotion === 'empathy_support'
+                ? 'bg-gradient-to-tr from-purple-950 via-purple-900 to-violet-800 border-2 border-purple-400 shadow-[0_0_30px_rgba(192,132,252,0.6)] hover:scale-105'
                 : 'bg-gradient-to-tr from-cyan-900 via-sky-600 to-blue-700 border-2 border-cyan-300 shadow-[0_0_30px_rgba(0,240,255,0.6)] hover:scale-105'
             }`}
             title={
               isSpeaking
-                ? 'TARA बोल रही हैं (Audio Response Speaking)'
+                ? `TARA बोल रही हैं • भाव: ${emotionConfig.label} (${emotionConfig.sublabel})`
                 : isListening
                 ? 'माइक सुन रहा है — आप बोलिए'
                 : isHandsFreeMode
                 ? '100% हैंड्स-फ्री कॉल चालू है — बंद करने के लिए क्लिक करें'
-                : 'AI प्रारंभ करें (Click to Start Hands-Free Voice)'
+                : `AI प्रारंभ करें (Click to Start Hands-Free Voice) • भाव: ${emotionConfig.label}`
             }
           >
             {/* Center Icon */}

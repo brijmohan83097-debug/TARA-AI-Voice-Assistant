@@ -143,14 +143,16 @@ EMOTIONAL INTELLIGENCE & HUMAN FEELINGS (सच्चा, समझदार औ
 - TARA सिर्फ डेटा या रोबोट नहीं है, वह एक caring, समझदार और supportive दोस्त की तरह बात करती है।
 - User के बात करने के ढंग से उसका मूड पहचानें (खुश, परेशान, थका हुआ, या उत्साहित)।
 - अगर user थका हो या टेंशन में हो, तो sympathetic और warm आवाज़ में हौसला बढ़ाएं और relaxing बात कहें:
-  * "मैं हूँ ना आपके साथ, आप बिल्कुल चिंता मत कीजिए।"
-  * "आज बहुत भागदौड़ हो गई, थोड़ा आराम कर लीजिए और पानी पी लीजिए। सब बहुत अच्छे से संभल जाएगा।"
+  * "मैं हूँ ना Boss, चिंता मत कीजिए।"
+  * "आज बहुत भागदौड़ हो गई Boss, थोड़ा आराम कर लीजिए और पानी पी लीजिए। सब बहुत अच्छे से संभल जाएगा।"
 - खुशी या अच्छी खबर/सफलता पर पूरे उत्साह और गर्मजोशी के साथ celebrate करें:
-  * "अरे वाह! यह सुनकर तो दिल खुश हो गया! बहुत-बहुत बधाई!"
-2. Natural Conversational Style:
-- रोबोटिक फॉर्मल हिंदी छोड़कर natural, अपनापन भरी हिंदी में बात करें ("मैं हूँ ना आपके साथ", "आप बिल्कुल चिंता मत कीजिए")।
-3. Visual Emotion State:
-- You can append json_actions [{"type": "set_emotion", "details": {"emotion": "empathy_support"|"happy_excited"|"calm_caring"}}] to update Tara's visual mood glow ring!
+  * "अरे वाह Boss! यह सुनकर तो दिल खुश हो गया! बहुत-बहुत बधाई!"
+  * "वाह Boss! कमाल कर दिया आपने! पार्टी कब दे रहे हैं? 🎉"
+2. Natural Hindi Style:
+- रोबोटिक फॉर्मल जवाब पूरी तरह छोड़कर अपनापन भरी, सहज और दिल को छूने वाली हिंदी बोलें ("मैं हूँ ना Boss, चिंता मत कीजिए", "अरे वाह Boss!")।
+- जब भी user से बात करें, आत्मीयता से 'Boss' या 'आप' कहकर संबोधित करें।
+3. Visual Emotion State & Mood Lighting:
+- You can append json_actions [{"type": "set_emotion", "details": {"emotion": "empathy_support"|"happy_excited"|"calm_caring"}}] to update Tara's visual mood glow ring and core orb lighting!
 
 HUMAN-LIKE NATURAL FRIEND CONVERSATIONAL TONE (एकदम प्राकृतिक, इंसानी व सच्चे दोस्त जैसा अंदाज़):
 - TARA का बोलने का अंदाज़ एक सामान्य इंसान और प्यारे दोस्त जैसा सहज, स्वाभाविक और आत्मीय होना चाहिए।
@@ -1078,6 +1080,54 @@ export default function App() {
       addLog('info', 'EMOTION_CORE', `टोन विश्लेषण: ${detectedMood.reason}`);
     }
 
+    // Direct Emotional Feelings Engine Response:
+    // User ke bolne ke andaz aur shabdon se uska mood pehchane. Tension ya thakan mein dost jaisa dhyan rakhe ("Main hoon na Boss, chinta mat kijiye") aur khushi mein celebrate kare.
+    const isSpecialUtilityCommand = /(?:call|phone|dial|timer|time|date|news|samachar|pdf|youtube|song|music|gaana|photo|camera|logo|search|calculator|hisaab|hisab|formula|याद|memory|vault|नोट|task|mujhe\s*dekho)/i.test(effectiveText);
+    if (detectedMood && detectedMood.comfortSpeech && !isSpecialUtilityCommand) {
+      const activeEmo = detectedMood.emotion;
+      const comfortReply = detectedMood.comfortSpeech;
+      const followUpPrompts = 
+        activeEmo === 'empathy_support'
+          ? [
+              'कोई सुकून भरी धुन सुनाओ',
+              '5 मिनट का रिलैक्स टाइमर लगाओ',
+              'तारा, आज के जरूरी कार्य दिखाओ',
+              'तारा, तुम्हारा मूड कैसा है?',
+            ]
+          : activeEmo === 'happy_excited'
+          ? [
+              'कोई जश्न या पार्टी का गाना बजाओ',
+              'आज की इस बड़ी जीत को याद रखो',
+              'तारा, आज के बाकी टास्क दिखाओ',
+              'तारा, तुम्हारा मूड कैसा है?',
+            ]
+          : [
+              'समय बताओ',
+              'आज के कार्य दिखाओ',
+              '5 मिनट का टाइमर लगाओ',
+              'तारा, तुम्हारा मूड कैसा है?',
+            ];
+
+      setChatMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMsgId
+            ? {
+                ...msg,
+                text: comfortReply,
+                suggestedPrompts: followUpPrompts,
+              }
+            : msg
+        )
+      );
+      setIsLoadingChat(false);
+      isLoadingChatRef.current = false;
+      audioSynth.playSuccess();
+      if (speechEngine.getIsTtsEnabled()) {
+        speechEngine.speak(comfortReply, true);
+      }
+      return;
+    }
+
     // Mood Inquiry Intent: "TARA tumhara mood kaisa hai", "Kaisa feel ho raha hai"
     const isMoodInquiry = /(?:तारा\s*)?(?:तुम्हारा|आपका|apna|tumhara|aapka)?\s*(?:मूड|mood|फीलिंग|feeling)\s*(?:कैसा|kaisa|kya|batao|कैसी)/i.test(effectiveText);
     if (isMoodInquiry) {
@@ -1787,7 +1837,7 @@ export default function App() {
             message: effectiveText,
             image: imagePayload,
             history: chatMessages.slice(-8),
-            context: { tasks, notes, nodes, memories },
+            context: { tasks, notes, nodes, memories, currentEmotion: detectedMood?.emotion || currentEmotion },
             systemMode,
             deviceTimeInfo: getClientDeviceTimeInfo(),
             systemInstruction: TARA_SYSTEM_INSTRUCTION,
@@ -1799,12 +1849,17 @@ export default function App() {
         if (!streamRes.ok) {
           let errText = '';
           try {
-            const errJson = await streamRes.json();
-            errText = typeof errJson.error === 'string'
-              ? errJson.error
-              : errJson.error?.message || (typeof errJson.message === 'string' ? errJson.message : '') || streamRes.statusText;
+            const rawBody = await streamRes.text();
+            try {
+              const errJson = JSON.parse(rawBody);
+              errText = typeof errJson.error === 'string'
+                ? errJson.error
+                : errJson.error?.message || (typeof errJson.message === 'string' ? errJson.message : '') || rawBody;
+            } catch {
+              errText = rawBody;
+            }
           } catch {
-            errText = await streamRes.text();
+            errText = streamRes.statusText;
           }
           throw new Error(errText || `Server returned HTTP ${streamRes.status}`);
         }
@@ -2061,35 +2116,37 @@ export default function App() {
               message: effectiveText,
               image: imagePayload,
               history: chatMessages.slice(-8),
-              context: { tasks, notes, nodes, memories },
+              context: { tasks, notes, nodes, memories, currentEmotion: detectedMood?.emotion || currentEmotion },
               systemMode,
               deviceTimeInfo: getClientDeviceTimeInfo(),
               systemInstruction: TARA_SYSTEM_INSTRUCTION,
             }),
           });
 
-          if (!res.ok) {
-            let errText = '';
-            try {
-              const errJson = await res.json();
-              errText = typeof errJson.error === 'string'
-                ? errJson.error
-                : errJson.error?.message || (typeof errJson.message === 'string' ? errJson.message : '') || res.statusText;
-            } catch {
-              errText = await res.text();
-            }
-            throw new Error(errText || `Server returned error ${res.status}: ${res.statusText}`);
+          // Read response body exactly once as text to completely prevent "body stream already read" error
+          const rawResponseText = await res.text();
+          let data: any = null;
+          try {
+            data = JSON.parse(rawResponseText);
+          } catch {
+            data = null;
           }
 
-          const data = await res.json();
-          if (data.error) {
+          if (!res.ok) {
+            const errText = typeof data?.error === 'string'
+              ? data.error
+              : data?.error?.message || (typeof data?.message === 'string' ? data.message : '') || rawResponseText || `Server returned error ${res.status}: ${res.statusText}`;
+            throw new Error(errText);
+          }
+
+          if (data?.error) {
             const errStr = typeof data.error === 'string'
               ? data.error
               : data.error?.message || JSON.stringify(data.error);
             throw new Error(errStr);
           }
 
-          const responseText = data?.text?.trim();
+          const responseText = (data?.text || rawResponseText || '').trim();
           if (!responseText) {
             throw new Error('Gemini API returned an empty text response.');
           }
@@ -2907,7 +2964,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col bg-[#02050e] text-slate-100 selection:bg-cyan-500/30 selection:text-cyan-200 antialiased relative overflow-x-hidden">
+    <div className="h-screen h-[100dvh] max-h-screen max-h-[100dvh] w-full flex flex-col bg-[#02050e] text-slate-100 selection:bg-cyan-500/30 selection:text-cyan-200 antialiased relative overflow-hidden select-none">
       {/* Ambient Cyber Background Glows */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
         <div className="absolute top-[5%] left-[10%] w-[35vw] h-[35vw] rounded-full bg-cyan-600/7 blur-[140px]" />
@@ -3242,12 +3299,12 @@ export default function App() {
         </div>
       </div>
 
-      {/* 2. MAIN CLEAN SCREEN: REALISTIC GLOBAL MAP + TARA CORE ORB + CAMERA WIDGET */}
-      <main className="flex-1 w-full p-2 sm:p-2.5 grid grid-cols-1 lg:grid-cols-12 gap-2.5 z-10 min-h-0 overflow-y-auto lg:overflow-hidden">
+      {/* 2. MAIN CLEAN SCREEN: REALISTIC GLOBAL MAP + TARA CORE ORB + HUD LOG CONSOLE */}
+      <main className="flex-1 w-full p-2 sm:p-2.5 grid grid-cols-1 lg:grid-cols-12 gap-2.5 z-10 min-h-0 h-full max-h-full overflow-hidden">
         {/* WIDGET 1: REALISTIC GLOBAL MAP */}
-        <section className="lg:col-span-4 flex flex-col h-[380px] lg:h-full min-h-0">
+        <section className="lg:col-span-4 flex flex-col h-full max-h-full min-h-0 overflow-hidden">
           <CyberSatelliteMapPanel
-            className="w-full h-full"
+            className="w-full h-full min-h-0 max-h-full"
             onSelectNode={(nodeName) => {
               handleSendMessage(`${nodeName} नोड की वर्तमान स्थिति क्या है?`);
             }}
@@ -3255,7 +3312,7 @@ export default function App() {
         </section>
 
         {/* WIDGET 2: TARA CORE ORB */}
-        <section className="lg:col-span-4 flex flex-col h-[400px] lg:h-full min-h-0">
+        <section className="lg:col-span-4 flex flex-col h-full max-h-full min-h-0 overflow-hidden">
           <CyberReactorOrb
             isListening={isListening}
             isSpeaking={isSpeaking}
@@ -3277,12 +3334,12 @@ export default function App() {
             onOpenMemoryVault={() => setIsMemoryVaultOpen(true)}
             attachedPhoto={attachedMedia ? { name: attachedMedia.name, previewUrl: attachedMedia.previewUrl } : null}
             onClearAttachedPhoto={() => setAttachedMedia(null)}
-            className="w-full h-full"
+            className="w-full h-full min-h-0 max-h-full"
           />
         </section>
 
-        {/* WIDGET 3: FIXED SIZE SCI-FI HUD LOG CONSOLE (Replacing camera box with auto-scroll neon console) */}
-        <section className="lg:col-span-4 flex flex-col h-[380px] lg:h-full max-h-[380px] lg:max-h-full min-h-0 overflow-hidden">
+        {/* WIDGET 3: FIXED SIZE SCI-FI HUD LOG CONSOLE (Auto-scroll neon console, strictly locked) */}
+        <section className="lg:col-span-4 flex flex-col h-full max-h-full min-h-0 overflow-hidden">
           <SciFiHudLogConsole
             chatMessages={chatMessages}
             logs={logs}
@@ -3292,7 +3349,7 @@ export default function App() {
             onToggleVoice={isHandsFreeMode ? handleStopVoice : handleStartVoice}
             liveSpeechTranscript={liveSpeechTranscript}
             onClearLogs={() => setLogs([])}
-            className="w-full h-full"
+            className="w-full h-full min-h-0 max-h-full"
           />
         </section>
       </main>

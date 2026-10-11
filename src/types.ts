@@ -12,6 +12,10 @@ export interface TaraEmotionConfig {
   ringClasses: string;
   description: string;
   supportiveVoicePrefix: string;
+  speakingButtonGradient?: string;
+  speakingAudioBars?: string;
+  speakingAmbientGlow?: string;
+  speakingShockwaveClass?: string;
 }
 
 export type SystemMode = 'NEURAL_FOCUS' | 'OVERCLOCK' | 'STEALTH' | 'DIAGNOSTIC';
