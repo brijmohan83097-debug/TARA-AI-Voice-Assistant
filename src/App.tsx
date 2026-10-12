@@ -231,10 +231,10 @@ export default function App() {
       {
         id: 'msg-init-1',
         sender: 'assistant',
-        text: `नमस्ते! मैं **तारा (Tara Voice Assistant)** हूँ।\n\n- **AI इंजन:** जेमिनी फ़्लैश (Gemini Flash Ultra-Fast Streaming Active)\n- **भाषा:** हिंदी (हिंदी आवाज़ सक्रिय) एवं अंग्रेज़ी\n- **विशेषताएं:** रीयल-टाइम वॉइस चैट, कार्य एवं डायरी प्रबंधन, 5-मिनट टाइमर, और मीडिया विश्लेषण।\n\nआप मुझसे कोई भी सवाल पूछ सकते हैं या नीचे दिए गए माइक बटन को दबाकर बात कर सकते हैं।`,
+        text: `Hello Boss! मैं आपकी **TARA (Tara Voice Assistant)** हूँ।\n\n- **AI इंजन:** Gemini 3.1 Flash Lite & 3.8 Flash Streaming Active\n- **भाषा:** हिंदी (हिंदी आवाज़ व भावनाएं सक्रिय) एवं अंग्रेज़ी\n- **विशेषताएं:** रीयल-टाइम वॉइस चैट, कार्य एवं डायरी प्रबंधन, 5-मिनट टाइमर, और मीडिया विश्लेषण।\n\nकहिए Boss, आज क्या हुक्म है? आप मुझसे कोई भी सवाल पूछ सकते हैं या माइक बटन दबाकर बात कर सकते हैं।`,
         timestamp: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
         suggestedPrompts: [
-          'नमस्ते तारा! आज का दिन कैसा है?',
+          'Hello Boss! आज का क्या प्लान है?',
           '5 मिनट का टाइमर लगाओ',
           'नया महत्वपूर्ण कार्य जोड़ो',
           'क्वांटम भौतिकी समझाओ',
@@ -1888,12 +1888,24 @@ export default function App() {
             buffer = lines.pop() || '';
 
             for (const line of lines) {
-              const trimmed = line.trim();
+              let trimmed = line.trim();
+              if (!trimmed) continue;
+              if (trimmed.startsWith(':')) {
+                const dataIdx = trimmed.indexOf('data: ');
+                if (dataIdx !== -1) {
+                  trimmed = trimmed.substring(dataIdx);
+                } else {
+                  continue; // SSE comment or ping
+                }
+              }
               if (trimmed.startsWith('data: ')) {
                 try {
                   const rawJson = trimmed.substring(6).trim();
                   if (rawJson) {
                     const parsed = JSON.parse(rawJson);
+                    if (parsed.type === 'ping' || parsed.type === 'connected') {
+                      continue;
+                    }
 
                     if (parsed.error) {
                       streamError = typeof parsed.error === 'string'
@@ -1944,6 +1956,33 @@ export default function App() {
                 } catch {
                   // Silently ignore chunk parse error
                 }
+              }
+            }
+          }
+
+          // Drain any trailing buffer leftover after stream close
+          if (buffer.trim()) {
+            const trailingLines = buffer.split('\n');
+            for (const tLine of trailingLines) {
+              let trimmed = tLine.trim();
+              if (trimmed.startsWith(':')) {
+                const dataIdx = trimmed.indexOf('data: ');
+                if (dataIdx !== -1) trimmed = trimmed.substring(dataIdx);
+                else continue;
+              }
+              if (trimmed.startsWith('data: ')) {
+                try {
+                  const rawJson = trimmed.substring(6).trim();
+                  if (rawJson) {
+                    const parsed = JSON.parse(rawJson);
+                    if (parsed.done) {
+                      finalData = parsed;
+                      if (parsed.text) accumulatedText = parsed.text;
+                    } else if (parsed.type === 'delta' && parsed.chunk) {
+                      accumulatedText += parsed.chunk;
+                    }
+                  }
+                } catch {}
               }
             }
           }
@@ -2105,7 +2144,7 @@ export default function App() {
       if (!streamedSuccessfully) {
         // 2. Direct JSON endpoint if stream was interrupted or had an issue
         const jsonAbortController = new AbortController();
-        const jsonTimeout = setTimeout(() => jsonAbortController.abort(), 30000);
+        const jsonTimeout = setTimeout(() => jsonAbortController.abort(), 45000);
 
         try {
           const res = await fetch('/api/chat', {
@@ -2292,7 +2331,8 @@ export default function App() {
         }
       } catch {}
 
-      let userFriendlyText = 'नमस्ते! मैं तारा हूँ। मैं आपकी सहायता के लिए तैयार हूँ। आप मुझसे सामान्य ज्ञान, तकनीकी सवाल, समय, टाइमर या किसी भी कार्य के बारे में पूछ सकते हैं।';
+      const promptSnippet = effectiveText.trim() ? `"${effectiveText.slice(0, 45)}"` : 'आपके सवाल';
+      let userFriendlyText = `जी Boss, मैंने ${promptSnippet} को नोट कर लिया है। कृपया एक क्षण रुकिए या पुनः पूछिए, मैं तुरंत विस्तार से जवाब दे रही हूँ!`;
 
       if (/logo|लोगो|icon/i.test(effectiveText) && /app|software|tool|website|kaise|batao|best/i.test(effectiveText)) {
         userFriendlyText = 'लोगो डिज़ाइन करने के लिए सबसे लोकप्रिय और बेहतरीन टूल्स:\n1. Canva: शुरुआती और सोशल मीडिया ब्रांड्स के लिए सबसे आसान और रेडीमेड टेम्पलेट्स।\n2. Adobe Illustrator: इंडस्ट्री-स्टैंडर्ड वेक्टर लोगो डिज़ाइन सॉफ्टवेयर।\n3. Figma: मॉडर्न UI/UX और स्केलेबल वेक्टर आइकन्स के लिए फ्री वेब टूल।\n4. Logo Maker Plus (Logopit): मोबाइल पर तुरंत प्रोफेशनल लोगो और ग्राफिक्स बनाने के लिए बेहतरीन ऐप।';
@@ -2305,7 +2345,7 @@ export default function App() {
         exactError.includes('429') ||
         exactError.includes('quota')
       ) {
-        userFriendlyText = 'नमस्ते! वर्तमान में AI सेवा की अनुरोध सीमा (Quota) अस्थायी रूप से व्यस्त है। कृपया कुछ पलों बाद पुनः प्रयास करें। तब तक तारा आपके अन्य कार्यों के लिए उपलब्ध है।';
+        userFriendlyText = 'Boss, AI सर्वर पर थोड़ा लोड है। कृपया कुछ ही पलों में पुनः पूछिए, मैं तुरंत आपके सवाल का उत्तर दे दूँगी!';
       }
 
       setChatMessages((prev) =>

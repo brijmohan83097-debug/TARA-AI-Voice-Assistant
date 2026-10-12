@@ -555,8 +555,8 @@ function promiseWithTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string
 // In-memory cooldown tracking for models that hit quota limits or 429 errors
 const modelQuotaCooldown = new Map<string, number>();
 
-// 15-second timeout safeguard for all Gemini API calls and streaming handshakes
-const API_TIMEOUT_MS = 15000;
+// 35-second timeout safeguard for all Gemini API calls and streaming handshakes
+const API_TIMEOUT_MS = 35000;
 
 // High-speed, actively supported Gemini models (prioritizing ultra-fast gemini-3.1-flash-lite with resilient fallbacks)
 const ACTIVE_FAST_MODELS = [
@@ -716,7 +716,12 @@ function getDirectFallbackAnswer(userText?: string): string {
     return 'मैं आपकी उच्च-शिक्षित, होशियार और समझदार AI दोस्त तारा हूँ। मैं इंसानों की तरह सोचकर, याद रखकर विज्ञान, तकनीक, गणित, फोटो विश्लेषण और जीवन के किसी भी सवाल का तुरंत जवाब दे सकती हूँ!';
   }
 
-  return 'नमस्ते! मैं तारा हूँ, आपकी होशियार और समझदार दोस्त। आप मुझसे कोई भी ज्ञानवर्धक सवाल पूछें, मैं फटाफट और सटीक जवाब दूँगी!';
+  const preview = (userText || '').trim();
+  if (preview) {
+    return `जी Boss, मैंने आपकी बात "${preview.length > 50 ? preview.slice(0, 50) + '...' : preview}" को ध्यान से समझ लिया है। कृपया बताइए आप इसमें क्या विशेष सहायता चाहते हैं? मैं तुरंत तैयार हूँ!`;
+  }
+
+  return 'जी Boss! कहिए, मैं आपकी किस प्रकार सहायता करूँ? आपका जो भी सवाल या निर्देश हो, मैं पूरी निष्ठा से हाजिर हूँ!';
 }
 
 // Helper to call Gemini models directly with a strict 15s timeout safeguard
@@ -731,7 +736,7 @@ async function generateWithGemini(
 
   for (const model of modelsToTry) {
     try {
-      console.log(`[Gemini Fast Engine] Querying ${model} (15s timeout)...`);
+      console.log(`[Gemini Fast Engine] Querying ${model} (${API_TIMEOUT_MS / 1000}s timeout)...`);
       const response = await promiseWithTimeout(
         ai.models.generateContent({
           model,
@@ -742,7 +747,7 @@ async function generateWithGemini(
           },
         }),
         API_TIMEOUT_MS,
-        `${model} query timed out after 15s`
+        `${model} query timed out after ${API_TIMEOUT_MS / 1000}s`
       );
 
       if (response && response.text && response.text.trim().length > 0) {
@@ -1245,7 +1250,7 @@ app.post('/api/chat-stream', async (req, res) => {
     // Keepalive ping interval to prevent proxy or socket timeouts
     const pingInterval = setInterval(() => {
       if (!res.writableEnded) {
-        res.write(': ping\n\n');
+        sendEvent({ type: 'ping', timestamp: Date.now() });
       }
     }, 3500);
 
@@ -1269,48 +1274,99 @@ app.post('/api/chat-stream', async (req, res) => {
       );
 
       for (const modelCandidate of streamModels) {
+        // If candidate is in cooldown, skip unless it is the only one
+        const cooldownUntil = modelQuotaCooldown.get(modelCandidate) || 0;
+        if (Date.now() < cooldownUntil && streamModels.length > 1) {
+          continue;
+        }
+
         try {
-          console.log(`[Gemini Stream] Starting real-time stream with ${modelCandidate} (15s timeout)...`);
-          const responseStream = await promiseWithTimeout(
-            ai.models.generateContentStream({
-              model: modelCandidate,
-              contents: formattedContents,
-              config: {
-                systemInstruction,
-                temperature: 0.7,
-              },
-            }),
-            API_TIMEOUT_MS,
-            `${modelCandidate} stream handshake timed out after 15s`
-          );
-
+          console.log(`[Gemini Engine] Querying ${modelCandidate}...`);
           let fullAccumulatedText = '';
+          let usedLiveStream = false;
 
-          const streamIterator = responseStream[Symbol.asyncIterator]();
-          while (true) {
-            const nextChunkPromise = streamIterator.next();
-            const chunkResult = await promiseWithTimeout(
-              nextChunkPromise,
-              API_TIMEOUT_MS,
-              'Stream chunk stalled after 15s'
+          // Attempt A: Direct generateContentStream with fast 7s handshake timeout
+          try {
+            const responseStream = await promiseWithTimeout(
+              ai.models.generateContentStream({
+                model: modelCandidate,
+                contents: formattedContents,
+                config: {
+                  systemInstruction,
+                  temperature: 0.7,
+                },
+              }),
+              7000,
+              `${modelCandidate} stream handshake slow (>7s)`
             );
-            if (chunkResult.done) break;
 
-            const chunk = chunkResult.value;
-            const chunkText = chunk.text;
-            if (chunkText) {
-              fullAccumulatedText += chunkText;
-              // Suppress streaming delta if this is a background edit request (client shows clean progress)
-              // or if we entered a json action or schema block
-              if (
-                !isExplicitBgEdit &&
-                !fullAccumulatedText.includes('```json_actions') &&
-                !fullAccumulatedText.includes('```json') &&
-                !fullAccumulatedText.trim().startsWith('{') &&
-                !fullAccumulatedText.includes('{"action"') &&
-                !fullAccumulatedText.includes('{"type"')
-              ) {
-                sendEvent({ chunk: chunkText, type: 'delta' });
+            const streamIterator = responseStream[Symbol.asyncIterator]();
+            const firstChunkResult = await promiseWithTimeout(
+              streamIterator.next(),
+              7000,
+              `${modelCandidate} first chunk slow (>7s)`
+            );
+
+            if (!firstChunkResult.done && firstChunkResult.value?.text) {
+              usedLiveStream = true;
+              fullAccumulatedText += firstChunkResult.value.text;
+              if (!isExplicitBgEdit) {
+                sendEvent({ chunk: firstChunkResult.value.text, type: 'delta' });
+              }
+
+              while (true) {
+                const nextChunk = await promiseWithTimeout(
+                  streamIterator.next(),
+                  15000,
+                  'Chunk stream stalled'
+                );
+                if (nextChunk.done) break;
+                const chunkText = nextChunk.value?.text;
+                if (chunkText) {
+                  fullAccumulatedText += chunkText;
+                  if (
+                    !isExplicitBgEdit &&
+                    !fullAccumulatedText.includes('```json_actions') &&
+                    !fullAccumulatedText.includes('```json') &&
+                    !fullAccumulatedText.trim().startsWith('{')
+                  ) {
+                    sendEvent({ chunk: chunkText, type: 'delta' });
+                  }
+                }
+              }
+            }
+          } catch (streamErr: any) {
+            console.log(`[Gemini Engine] Live stream handshake bypassed for ${modelCandidate}, using fast generateContent...`);
+          }
+
+          // Attempt B: If streaming handshake was slow or bypassed, execute reliable generateContent on the SAME model
+          if (!fullAccumulatedText.trim()) {
+            const directRes = await promiseWithTimeout(
+              ai.models.generateContent({
+                model: modelCandidate,
+                contents: formattedContents,
+                config: {
+                  systemInstruction,
+                  temperature: 0.7,
+                },
+              }),
+              25000,
+              `${modelCandidate} generateContent timed out after 25s`
+            );
+
+            if (directRes?.text && directRes.text.trim()) {
+              fullAccumulatedText = directRes.text.trim();
+
+              // Progressively emit words as deltas for smooth UI animations and sub-second TTS speech
+              if (!isExplicitBgEdit) {
+                const words = fullAccumulatedText.split(/(\s+)/);
+                for (let i = 0; i < words.length; i += 3) {
+                  const part = words.slice(i, i + 3).join('');
+                  if (part) {
+                    sendEvent({ chunk: part, type: 'delta' });
+                    await new Promise((r) => setTimeout(r, 15));
+                  }
+                }
               }
             }
           }
@@ -1327,7 +1383,7 @@ app.post('/api/chat-stream', async (req, res) => {
               text: cleanText,
               actions,
               suggestedPrompts,
-              engine: `${modelCandidate} (Stream)`,
+              engine: usedLiveStream ? `${modelCandidate} (Stream)` : `${modelCandidate} (Fast)`,
             });
 
             clearInterval(pingInterval);
@@ -1338,7 +1394,7 @@ app.post('/api/chat-stream', async (req, res) => {
         } catch (err: any) {
           recordModelError(modelCandidate, err);
           const errMsg = extractErrorMessage(err);
-          console.warn(`[Gemini Stream] ${modelCandidate} stream interrupted or failed:`, errMsg);
+          console.warn(`[Gemini Engine] ${modelCandidate} failed:`, errMsg);
           lastStreamError = new Error(`${modelCandidate}: ${errMsg}`);
         }
       }

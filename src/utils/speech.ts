@@ -574,7 +574,7 @@ class SpeechEngine {
     if (!this.isTtsEnabled) {
       this.stopSpeaking();
     } else {
-      this.speak('नमस्ते, मैं तारा हूँ। आपकी आवाज़ सहायक सक्रिय है। मैं हर सवाल का पूरा जवाब दूंगी।', true);
+      this.speak('TARA वॉयस इंजन सक्रिय है Boss, कहिए क्या हुक्म है?', true);
     }
     return this.isTtsEnabled;
   }
