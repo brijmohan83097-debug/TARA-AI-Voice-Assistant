@@ -4,6 +4,8 @@
  * and speech-to-text recognition with robust browser compatibility.
  */
 
+import { audioSynth } from './audio';
+
 class SpeechEngine {
   private isTtsEnabled: boolean = true;
   private voices: SpeechSynthesisVoice[] = [];
@@ -144,12 +146,12 @@ class SpeechEngine {
   }
 
   /**
-   * Intelligently splits text into comfortable, safe-sized spoken chunks (15-75 characters),
+   * Splits text into comfortable spoken chunks of 15-20 words,
    * dividing on full stops (., ।), commas (,), question marks (?), exclamation marks (!),
    * semicolons (;), colons (:), dashes, and natural clause boundaries.
    *
    * This guarantees:
-   * 1. Chrome's 14-second cutoff bug NEVER triggers because every chunk takes 1-3 seconds.
+   * 1. Response text is split into small 15-20 word pieces so speech never truncates midway.
    * 2. Commas and full stops provide natural human-like breathing pauses.
    * 3. The speech engine continuously plays through the entire queue until the very last word.
    */
@@ -158,7 +160,7 @@ class SpeechEngine {
     if (!clean) return [];
 
     // 1. Initial split by punctuation: full stops (., ।), commas (,), ?, !, ;, :, dashes, and newlines
-    const rawParts: string[] = [];
+    const rawClauses: string[] = [];
     let current = '';
 
     for (let i = 0; i < clean.length; i++) {
@@ -184,58 +186,58 @@ class SpeechEngine {
       if (isPurnaViram || isQuestionOrExclamation || isNewline || isComma || isSemicolon || isPeriod || isDash) {
         const trimmed = current.trim();
         if (trimmed.length > 0) {
-          rawParts.push(trimmed);
+          rawClauses.push(trimmed);
         }
         current = '';
       }
     }
 
     if (current.trim().length > 0) {
-      rawParts.push(current.trim());
+      rawClauses.push(current.trim());
     }
 
-    // 2. Normalize and merge tiny clauses (< 12 chars) with next chunk for smooth natural flow,
-    // and break down long clauses (> 75 chars) at word boundaries so every chunk stays under ~75 chars
+    // 2. Assemble clauses into strictly 15-20 word chunks (Target: 15-20 words per chunk)
+    const TARGET_MAX_WORDS = 20;
+    const TARGET_MIN_WORDS = 12;
+
     const chunks: string[] = [];
-    let accumulator = '';
+    let currentWords: string[] = [];
 
-    for (let j = 0; j < rawParts.length; j++) {
-      const part = rawParts[j];
-      if (!part) continue;
-
-      if (!accumulator) {
-        accumulator = part;
-      } else {
-        // If accumulator is very short (< 14 chars), merge with current part for smooth intonation
-        if (accumulator.length < 14 || (accumulator.length + part.length <= 65)) {
-          accumulator = `${accumulator} ${part}`;
-        } else {
-          chunks.push(accumulator.trim());
-          accumulator = part;
-        }
+    const flushCurrent = () => {
+      if (currentWords.length > 0) {
+        chunks.push(currentWords.join(' ').trim());
+        currentWords = [];
       }
+    };
 
-      // If accumulated part is over 80 characters, split cleanly at word boundaries
-      if (accumulator.length > 80) {
-        const words = accumulator.split(/\s+/);
-        let wordBuf = '';
-        for (const w of words) {
-          if ((wordBuf + ' ' + w).trim().length <= 65) {
-            wordBuf = wordBuf ? `${wordBuf} ${w}` : w;
-          } else {
-            if (wordBuf.trim()) chunks.push(wordBuf.trim());
-            wordBuf = w;
+    for (const clause of rawClauses) {
+      const wordsInClause = clause.split(/\s+/).filter(Boolean);
+      if (wordsInClause.length === 0) continue;
+
+      // If a single clause exceeds TARGET_MAX_WORDS (run-on sentence), split into 15-18 word slices
+      if (wordsInClause.length > TARGET_MAX_WORDS) {
+        flushCurrent();
+        for (let k = 0; k < wordsInClause.length; k += 16) {
+          const slice = wordsInClause.slice(k, k + 16);
+          if (slice.length > 0) {
+            chunks.push(slice.join(' ').trim());
           }
         }
-        accumulator = wordBuf.trim();
+        continue;
+      }
+
+      // If adding this clause exceeds TARGET_MAX_WORDS:
+      if (currentWords.length + wordsInClause.length > TARGET_MAX_WORDS) {
+        flushCurrent();
+        currentWords.push(...wordsInClause);
+      } else {
+        currentWords.push(...wordsInClause);
       }
     }
 
-    if (accumulator.trim()) {
-      chunks.push(accumulator.trim());
-    }
+    flushCurrent();
 
-    // Ensure the very last chunk has a clean closing punctuation for proper TTS sentence cadence
+    // Ensure the very last chunk has clean closing punctuation for proper TTS sentence cadence
     if (chunks.length > 0) {
       const lastIdx = chunks.length - 1;
       let lastChunk = chunks[lastIdx];
@@ -245,7 +247,7 @@ class SpeechEngine {
       }
     }
 
-    return chunks.filter(c => c.length >= 2);
+    return chunks.filter((c) => c.length >= 2);
   }
 
   /**
@@ -262,12 +264,13 @@ class SpeechEngine {
     this.isStreamingActive = true;
     this.isCurrentUtterancePlaying = false;
     this.hasSpokenInCurrentSession = false;
+    this.setSpeaking(true); // Synchronously mute mic before audio plays
   }
 
   /**
    * Feed a new streaming delta token/chunk from the SSE endpoint.
-   * As soon as a full stop, comma, or clause boundary is detected,
-   * it queues the chunks immediately so TTS starts playing in under 1 second!
+   * Detects sentence boundaries (। , ? ! \n) and commas, splitting into 15-20 word chunks.
+   * Immediately plays in queue so TTS starts playing continuously!
    */
   public feedStreamingChunk(chunk: string): void {
     if (!this.isTtsEnabled || typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -285,11 +288,19 @@ class SpeechEngine {
     // Detect sentence and clause delimiters: full stop (., ।), question mark (?), exclamation (!), comma (,), semicolon (;), newline (\n)
     const delimiterRegex = /([।?!;\n]|\.\s+|,\s*)/;
     let match = delimiterRegex.exec(this.streamingBuffer);
+    const wordCount = this.streamingBuffer.trim().split(/\s+/).filter(Boolean).length;
 
-    while (match) {
-      const splitIndex = match.index + match[0].length;
-      const candidate = this.streamingBuffer.slice(0, splitIndex).trim();
-      this.streamingBuffer = this.streamingBuffer.slice(splitIndex);
+    while (match || wordCount >= 18) {
+      let candidate = '';
+      if (match) {
+        const splitIndex = match.index + match[0].length;
+        candidate = this.streamingBuffer.slice(0, splitIndex).trim();
+        this.streamingBuffer = this.streamingBuffer.slice(splitIndex);
+      } else {
+        const words = this.streamingBuffer.trim().split(/\s+/);
+        candidate = words.slice(0, 16).join(' ');
+        this.streamingBuffer = words.slice(16).join(' ');
+      }
 
       if (candidate.length > 0) {
         const subChunks = this.splitIntoSpokenChunks(candidate);
@@ -305,6 +316,8 @@ class SpeechEngine {
       }
 
       match = delimiterRegex.exec(this.streamingBuffer);
+      const remainingWords = this.streamingBuffer.trim().split(/\s+/).filter(Boolean).length;
+      if (!match && remainingWords < 18) break;
     }
   }
 
@@ -339,8 +352,10 @@ class SpeechEngine {
   }
 
   /**
-   * Chrome keepalive heartbeat: Prevents browser from cutting off speech midway on long answers.
-   * Uses pause() + resume() pulse every 4.5 seconds to refresh Chromium's 14-second internal cutoff timer.
+   * SpeechSynthesis Keep-Alive Timer:
+   * Prevents browser audio engine from freezing or muting midway on long sentences.
+   * Runs a 5-second interval loop using pause() and resume() to keep Chromium's
+   * internal audio pipeline continuously active.
    */
   private startHeartbeat(): void {
     this.stopHeartbeat();
@@ -348,18 +363,20 @@ class SpeechEngine {
 
     this.heartbeatTimer = setInterval(() => {
       try {
-        if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
-          window.speechSynthesis.pause();
-          setTimeout(() => {
-            if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.paused) {
-              window.speechSynthesis.resume();
-            }
-          }, 35);
-        } else if (window.speechSynthesis.paused) {
-          window.speechSynthesis.resume();
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+          if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+            window.speechSynthesis.pause();
+            setTimeout(() => {
+              if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.paused) {
+                window.speechSynthesis.resume();
+              }
+            }, 30);
+          } else if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+          }
         }
       } catch {}
-    }, 4500);
+    }, 5000);
   }
 
   private stopHeartbeat(): void {
@@ -404,7 +421,8 @@ class SpeechEngine {
     }
 
     try {
-      // Ensure browser synthesis is unpaused before starting next utterance
+      // Ensure AudioContext and browser synthesis are active before speaking
+      audioSynth.resumeAudio();
       if (window.speechSynthesis.paused) {
         window.speechSynthesis.resume();
       }
@@ -412,21 +430,37 @@ class SpeechEngine {
       const utterance = new SpeechSynthesisUtterance(nextChunk.trim());
       const isHindi = this.isHindiText(nextChunk);
 
+      // System default voice fallback if specific Hindi or English voice is missing
+      const systemDefaultVoice =
+        this.voices.find(v => v.default) ||
+        (this.voices.length > 0 ? this.voices[0] : null);
+
       if (isHindi) {
-        utterance.lang = 'hi-IN';
         if (this.selectedHindiVoice) {
           utterance.voice = this.selectedHindiVoice;
+          utterance.lang = this.selectedHindiVoice.lang || 'hi-IN';
+        } else if (systemDefaultVoice) {
+          utterance.voice = systemDefaultVoice;
+          utterance.lang = systemDefaultVoice.lang || 'hi-IN';
+        } else {
+          utterance.lang = 'hi-IN';
         }
-        utterance.rate = 0.98; // Natural, articulate, human pace
-        utterance.pitch = 1.05;
       } else {
-        utterance.lang = 'en-US';
         if (this.selectedEnglishVoice) {
           utterance.voice = this.selectedEnglishVoice;
+          utterance.lang = this.selectedEnglishVoice.lang || 'en-US';
+        } else if (systemDefaultVoice) {
+          utterance.voice = systemDefaultVoice;
+          utterance.lang = systemDefaultVoice.lang || 'en-US';
+        } else {
+          utterance.lang = 'en-US';
         }
-        utterance.rate = 1.02;
-        utterance.pitch = 1.0;
       }
+
+      // Requirement 2: Volume ko 1.0 (full) aur rate ko 1.0 set karo
+      utterance.volume = 1.0;
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
 
       // Strong reference retention prevents Chrome's V8 Garbage Collector from cutting speech
       this.currentUtterance = utterance;
@@ -521,6 +555,7 @@ class SpeechEngine {
       this.sentenceQueue = [...chunks];
       this.isStreamingActive = false;
       this.hasSpokenInCurrentSession = false;
+      this.setSpeaking(true); // Synchronously mute mic before audio queue starts
       this.playNextQueuedSentence();
     } catch (err) {
       console.warn('Speech synthesis error:', err);
@@ -538,7 +573,8 @@ class SpeechEngine {
       this.isCurrentUtterancePlaying ||
       this.sentenceQueue.length > 0 ||
       this.isStreamingActive ||
-      this.hasSpokenInCurrentSession
+      this.hasSpokenInCurrentSession ||
+      (typeof window !== 'undefined' && 'speechSynthesis' in window && (window.speechSynthesis.speaking || window.speechSynthesis.pending))
     );
   }
 

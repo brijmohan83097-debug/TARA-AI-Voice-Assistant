@@ -16,6 +16,24 @@ class AudioSynthesizer {
     } catch {
       this.isMuted = false;
     }
+
+    // Auto-unlock AudioContext on first user interaction
+    if (typeof window !== 'undefined') {
+      const unlock = () => {
+        this.resumeAudio();
+      };
+      window.addEventListener('click', unlock, { passive: true, once: true });
+      window.addEventListener('touchstart', unlock, { passive: true, once: true });
+      window.addEventListener('keydown', unlock, { passive: true, once: true });
+    }
+  }
+
+  public resumeAudio(): Promise<void> {
+    this.initContext();
+    if (this.ctx && this.ctx.state === 'suspended') {
+      return this.ctx.resume().catch(() => {});
+    }
+    return Promise.resolve();
   }
 
   private initContext() {

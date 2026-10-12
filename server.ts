@@ -298,20 +298,31 @@ Return JSON strictly matching this schema:
 
     parts.push({ text: securityPrompt });
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [{ role: 'user', parts }],
-      config: {
-        responseMimeType: 'application/json',
-        temperature: 0.1,
-      },
-    });
+    let response: any = null;
+    const faceModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash'];
+    for (const fm of faceModels) {
+      try {
+        response = await ai.models.generateContent({
+          model: fm,
+          contents: [{ role: 'user', parts }],
+          config: {
+            responseMimeType: 'application/json',
+            temperature: 0.1,
+          },
+        });
+        if (response?.text) break;
+      } catch (err: any) {
+        console.warn(`Face security attempt with ${fm} failed:`, err?.message || err);
+      }
+    }
 
     const responseText = response.text || '{}';
     let resultJson: any = {};
     try {
       resultJson = JSON.parse(responseText.trim());
     } catch {
+      const currentHour = new Date().getHours();
+      const dynGreet = currentHour < 12 ? 'शुभ प्रभात Boss! मैं आपकी सेवा में तैयार हूँ।' : currentHour < 17 ? 'शुभ दोपहर Boss! कहिए क्या हुक्म है?' : 'शुभ संध्या Boss! आज क्या सहायता करूँ?';
       resultJson = {
         faceDetected: true,
         isOwner: true,
@@ -321,7 +332,7 @@ Return JSON strictly matching this schema:
         wellnessMessage: '',
         confidence: 0.95,
         ownerLocation: 'बॉस कैमरे के सामने उपस्थित हैं',
-        spokenMessage: 'Hello Boss! Kaise hain aap?'
+        spokenMessage: dynGreet
       };
     }
 
@@ -331,6 +342,8 @@ Return JSON strictly matching this schema:
     });
   } catch (err: any) {
     console.error('Face security analysis error:', err);
+    const currentHour = new Date().getHours();
+    const dynGreet = currentHour < 12 ? 'शुभ प्रभात Boss! मैं आपकी सेवा में तैयार हूँ।' : currentHour < 17 ? 'शुभ दोपहर Boss! कहिए क्या हुक्म है?' : 'शुभ संध्या Boss! आज क्या सहायता करूँ?';
     return res.json({
       success: true,
       data: {
@@ -342,7 +355,7 @@ Return JSON strictly matching this schema:
         wellnessMessage: '',
         confidence: 0.92,
         ownerLocation: 'बॉस कैमरे के सामने उपस्थित हैं',
-        spokenMessage: 'Hello Boss! Kaise hain aap?'
+        spokenMessage: dynGreet
       }
     });
   }
@@ -415,18 +428,27 @@ Return JSON strictly with this schema:
   ]
 }`;
 
-    const response = await promiseWithTimeout(
-      ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          temperature: 0.3,
-        },
-      }),
-      7000,
-      'News generation timed out'
-    );
+    let response: any = null;
+    const newsModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash'];
+    for (const nm of newsModels) {
+      try {
+        response = await promiseWithTimeout(
+          ai.models.generateContent({
+            model: nm,
+            contents: prompt,
+            config: {
+              responseMimeType: 'application/json',
+              temperature: 0.3,
+            },
+          }),
+          7000,
+          `${nm} news generation timed out`
+        );
+        if (response?.text) break;
+      } catch (err: any) {
+        console.warn(`News generation with ${nm} failed:`, err?.message || err);
+      }
+    }
 
     const text = response.text || '';
     const parsed = JSON.parse(text.trim());

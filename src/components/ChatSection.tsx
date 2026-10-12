@@ -56,6 +56,8 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastSpokenMessageIdRef = useRef<string | null>(null);
+  const chatSilenceTimerRef = useRef<any>(null);
+  const chatRecogRef = useRef<any>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -105,7 +107,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
     setIsTtsActive(nextState);
   };
 
-  // Voice speech-to-text recognition handler (Supports Hindi hi-IN and English en-US)
+  // Voice speech-to-text recognition handler (Supports continuous Hindi hi-IN and English en-US)
   const handleToggleVoice = () => {
     audioSynth.playClick();
     if (!isListening) {
@@ -113,23 +115,53 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
         try {
           const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
           const recognition = new SpeechRecognitionClass();
-          recognition.continuous = false;
-          recognition.interimResults = false;
+          recognition.continuous = true;
+          recognition.interimResults = true;
           recognition.lang = voiceLang; // 'hi-IN' or 'en-US'
+          chatRecogRef.current = recognition;
+
+          let baseInput = inputText ? inputText.trim() + ' ' : '';
 
           recognition.onstart = () => {
             setIsListening(true);
           };
 
           recognition.onresult = (event: any) => {
-            const transcript = event.results[0][0].transcript;
-            setInputText((prev) => (prev ? `${prev} ${transcript}` : transcript));
-            setIsListening(false);
-            audioSynth.playReceive();
+            let interim = '';
+            let final = '';
+            for (let i = 0; i < event.results.length; ++i) {
+              const transcript = event.results[i][0].transcript;
+              if (event.results[i].isFinal) {
+                final += transcript + ' ';
+              } else {
+                interim += transcript;
+              }
+            }
+
+            const currentTranscript = (baseInput + final + interim).trim();
+            setInputText(currentTranscript);
+
+            if (chatSilenceTimerRef.current) {
+              clearTimeout(chatSilenceTimerRef.current);
+              chatSilenceTimerRef.current = null;
+            }
+
+            // Comfortable 2.4-second silence window: listen as long as user speaks!
+            if (currentTranscript.length >= 2) {
+              chatSilenceTimerRef.current = setTimeout(() => {
+                setIsListening(false);
+                try { recognition.stop(); } catch {}
+                audioSynth.playSend();
+                onSendMessage(currentTranscript);
+                setInputText('');
+              }, 2400);
+            }
           };
 
-          recognition.onerror = () => {
-            setIsListening(false);
+          recognition.onerror = (err: any) => {
+            if (err.error !== 'no-speech' && err.error !== 'aborted') {
+              setIsListening(false);
+            }
           };
 
           recognition.onend = () => {
@@ -154,7 +186,17 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
         }, 1200);
       }
     } else {
+      if (chatSilenceTimerRef.current) {
+        clearTimeout(chatSilenceTimerRef.current);
+        chatSilenceTimerRef.current = null;
+      }
+      if (chatRecogRef.current) {
+        try { chatRecogRef.current.stop(); } catch {}
+      }
       setIsListening(false);
+      if (inputText.trim()) {
+        handleSend();
+      }
     }
   };
 

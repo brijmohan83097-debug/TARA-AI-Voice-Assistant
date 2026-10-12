@@ -261,6 +261,7 @@ export default function App() {
   const currentTranscriptRef = useRef<string>('');
   const conversationalRecogRef = useRef<any>(null);
   const vadTimerRef = useRef<any>(null);
+  const accumulatedVoiceTranscriptRef = useRef<string>('');
 
   // --- Android Native Telecom & Bridge State ---
   const [callState, setCallState] = useState<NativeCallState>(() => nativeBridge.getCallState());
@@ -423,17 +424,45 @@ export default function App() {
         setIsListening(false);
         isListeningRef.current = false;
       } else {
-        // Jawab bolkar khatam hote hi mic apne aap wapas active (listening) ho jaye taaki normal phone call ki tarah baat chalti rahe!
-        if (isHandsFreeRef.current && !isLoadingChatRef.current) {
+        // Requirement 3: Jab aakhri tukda poori tarah bol kar khatam ho jaye (onend event),
+        // tabhi speaker state idle hoti hai aur agle sawal ke liye microphone wapas chalu hota hai!
+        if (isHandsFreeRef.current && !isLoadingChatRef.current && !speechEngine.hasActiveSessionOrSpeech()) {
           setTimeout(() => {
-            if (isHandsFreeRef.current && !isSpeakingRef.current && !isLoadingChatRef.current) {
+            if (
+              isHandsFreeRef.current &&
+              !speechEngine.hasActiveSessionOrSpeech() &&
+              !isSpeakingRef.current &&
+              !isLoadingChatRef.current
+            ) {
               startHandsFreeRecognitionRef.current?.();
             }
-          }, 350);
+          }, 400);
         }
       }
     });
     return unsub;
+  }, []);
+
+  // AudioContext.resume() & SpeechSynthesis unpause on first user interaction so audio is never muted
+  useEffect(() => {
+    const unlockUserAudio = () => {
+      audioSynth.resumeAudio();
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
+      }
+    };
+
+    window.addEventListener('click', unlockUserAudio, { passive: true, once: true });
+    window.addEventListener('touchstart', unlockUserAudio, { passive: true, once: true });
+    window.addEventListener('keydown', unlockUserAudio, { passive: true, once: true });
+
+    return () => {
+      window.removeEventListener('click', unlockUserAudio);
+      window.removeEventListener('touchstart', unlockUserAudio);
+      window.removeEventListener('keydown', unlockUserAudio);
+    };
   }, []);
 
   // Android Native Bridge State Listener
@@ -2365,9 +2394,16 @@ export default function App() {
       clearTimeout(timeoutId);
       setIsLoadingChat(false);
       isLoadingChatRef.current = false;
-      // If hands-free mode is on and TTS is not currently speaking, resume listening
+      // Note: If speech is queued or playing, onSpeakingChange will cleanly start the mic
+      // when the final chunk ends. Only start here if TTS is completely disabled or inactive.
       setTimeout(() => {
-        if (isHandsFreeRef.current && !isSpeakingRef.current && !isLoadingChatRef.current && !isListeningRef.current) {
+        if (
+          isHandsFreeRef.current &&
+          !speechEngine.hasActiveSessionOrSpeech() &&
+          !isSpeakingRef.current &&
+          !isLoadingChatRef.current &&
+          !isListeningRef.current
+        ) {
           startHandsFreeRecognitionRef.current?.();
         }
       }, 500);
@@ -2555,7 +2591,35 @@ export default function App() {
     };
   }, [isAlwaysListening, isSpeaking, isListening, isLoadingChat, voiceLang, handleSendMessage, addLog]);
 
-  // --- 100% HANDS-FREE CONVERSATIONAL VOICE ASSISTANT ENGINE (FULL DUPLEX VAD AUTO-LOOP) ---
+  // --- 100% HANDS-FREE CONVERSATIONAL VOICE ASSISTANT ENGINE (NATURAL VAD AUTO-LOOP) ---
+  // Dynamic Silence Detection: Allows user to speak naturally without being cut off mid-sentence
+  const getDynamicSilenceTimeout = (text: string, isInterimActive: boolean): number => {
+    // If user is actively enunciating syllables right now: keep listening!
+    if (isInterimActive) return 3200;
+
+    const trimmed = text.trim();
+    const words = trimmed.split(/\s+/).filter(Boolean);
+
+    // If very short phrase (< 4 words), e.g. "तारा...", "सुनो Boss..."
+    // Give user ample breathing time (2800ms) to speak their full sentence!
+    if (words.length < 4) return 2800;
+
+    // If user paused on a continuation word: और, कि, लेकिन, तो, या, फिर, मतलब, etc.
+    const continuationWords = /(?:और|कि|लेकिन|तो|या|फिर|मतलब|जैसे|तथा|अथवा|and|so|because|then|but|or)$/i;
+    if (continuationWords.test(trimmed)) {
+      return 3000; // Extra time to finish thought
+    }
+
+    // If user finished with clear ending phrase or question
+    const completionWords = /(?:बताओ|बताइए|करो|कीजिए|चाहिए|होगा|होगी|कहो|दीजिए|समझाओ|दिखाओ|सुनाओ|\?|है\s*ना)$/i;
+    if (completionWords.test(trimmed)) {
+      return 2000; // 2 seconds after asking question
+    }
+
+    // Default comfortable conversational pause: 2400ms (2.4 seconds)
+    return 2400;
+  };
+
   const commitVoiceUtterance = useCallback((text: string) => {
     const clean = text.trim();
     if (!clean || isSpeakingRef.current || isLoadingChatRef.current) return;
@@ -2577,18 +2641,23 @@ export default function App() {
     isListeningRef.current = false;
     isLoadingChatRef.current = true;
     audioSynth.playReceive();
-    addLog('success', 'VAD_SILENCE_DETECT', `आवाज़ पहचान: "${clean}" (1-sec silence detected -> Mic auto turned off, response generating)`);
+    addLog('success', 'VAD_SILENCE_DETECT', `आवाज़ पहचान: "${clean}" (बात पूरी हुई -> TARA उत्तर तैयार कर रही है)`);
     handleSendMessage(clean);
 
+    accumulatedVoiceTranscriptRef.current = '';
+    currentTranscriptRef.current = '';
     setTimeout(() => {
       setLiveSpeechTranscript('');
-      currentTranscriptRef.current = '';
     }, 1200);
   }, [handleSendMessage, addLog]);
 
   const startHandsFreeRecognition = useCallback(() => {
     if (typeof window === 'undefined') return;
     if (isSpeakingRef.current || isLoadingChatRef.current) return;
+
+    if (speechEngine.hasActiveSessionOrSpeech() || isSpeakingRef.current || isLoadingChatRef.current) {
+      return;
+    }
 
     if (hotwordRecogRef.current) {
       try { hotwordRecogRef.current.abort(); } catch {}
@@ -2599,19 +2668,7 @@ export default function App() {
     }
 
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      // Browser fallback simulation if Web Speech API is absent
-      setIsListening(true);
-      isListeningRef.current = true;
-      setLiveSpeechTranscript('नमस्ते तारा...');
-      setTimeout(() => {
-        setLiveSpeechTranscript('नमस्ते तारा, तुम्हें मेरे बारे में क्या-क्या याद है?');
-      }, 700);
-      setTimeout(() => {
-        setIsListening(false);
-        isListeningRef.current = false;
-        setLiveSpeechTranscript('');
-        handleSendMessage('नमस्ते तारा, तुम्हें मेरे बारे में क्या-क्या याद है?');
-      }, 1500);
+      addLog('warn', 'SPEECH_API', 'इस ब्राउज़र में स्पीच रिकग्निशन उपलब्ध नहीं है। कृपया Chrome या Edge का उपयोग करें।');
       return;
     }
 
@@ -2625,40 +2682,43 @@ export default function App() {
       recognition.onstart = () => {
         setIsListening(true);
         isListeningRef.current = true;
-        currentTranscriptRef.current = '';
-        setLiveSpeechTranscript('');
-        addLog('info', 'VOICE_ASSISTANT', `🎙️ हैंड्स-फ्री कॉल सक्रिय (${voiceLang})... बोलिए`);
+        // Keep accumulatedVoiceTranscriptRef so user can speak multiple sentences without loss
+        addLog('info', 'VOICE_ASSISTANT', `🎙️ TARA ध्यान से सुन रही है (${voiceLang})... बोलते रहिए Boss`);
       };
 
       recognition.onresult = (event: any) => {
         let interim = '';
-        let final = '';
+        let finalSession = '';
         for (let i = 0; i < event.results.length; ++i) {
           const transcript = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            final += transcript + ' ';
+            finalSession += transcript + ' ';
           } else {
             interim += transcript;
           }
         }
-        const fullUtterance = (final + interim).trim();
+
+        const base = accumulatedVoiceTranscriptRef.current ? accumulatedVoiceTranscriptRef.current.trim() + ' ' : '';
+        const fullUtterance = (base + finalSession + interim).trim();
         if (!fullUtterance) return;
 
         currentTranscriptRef.current = fullUtterance;
         setLiveSpeechTranscript(fullUtterance);
 
-        // SILENCE DETECTION (VAD)
+        // SILENCE DETECTION (VAD) - Reset timer as long as user is speaking!
         if (vadTimerRef.current) {
           clearTimeout(vadTimerRef.current);
           vadTimerRef.current = null;
         }
 
-        // If user has spoken something substantial
+        // Only after user finishes speaking and genuine silence occurs, commit utterance
         if (fullUtterance.length >= 2) {
-          // Silence Detection (VAD): When silence occurs for 1000ms (1 second), mic auto turns off and triggers response
+          const isActivelySpeaking = Boolean(interim.trim());
+          const silenceMs = getDynamicSilenceTimeout(fullUtterance, isActivelySpeaking);
+
           vadTimerRef.current = setTimeout(() => {
             commitVoiceUtterance(fullUtterance);
-          }, 1000);
+          }, silenceMs);
         }
       };
 
@@ -2671,13 +2731,23 @@ export default function App() {
       recognition.onend = () => {
         setIsListening(false);
         isListeningRef.current = false;
-        // Requirement 5.1: Ek baar Start AI click karne ke baad mic bar-bar band nahi hona chahiye
-        if (isHandsFreeRef.current && !isSpeakingRef.current && !isLoadingChatRef.current) {
+        // Mic-mute during speech: Only restart if TARA is NOT speaking, queued, or generating response
+        if (
+          isHandsFreeRef.current &&
+          !speechEngine.hasActiveSessionOrSpeech() &&
+          !isSpeakingRef.current &&
+          !isLoadingChatRef.current
+        ) {
           setTimeout(() => {
-            if (isHandsFreeRef.current && !isSpeakingRef.current && !isLoadingChatRef.current) {
+            if (
+              isHandsFreeRef.current &&
+              !speechEngine.hasActiveSessionOrSpeech() &&
+              !isSpeakingRef.current &&
+              !isLoadingChatRef.current
+            ) {
               startHandsFreeRecognition();
             }
-          }, 250);
+          }, 300);
         }
       };
 
@@ -2701,13 +2771,13 @@ export default function App() {
     isHandsFreeRef.current = true;
     addLog('info', 'VOICE_ASSISTANT', '🟢 100% Hands-Free Conversational Call Mode STARTED');
 
-    // Requirement 2: Start dabane par sirf ek baar bole: "Hello Boss! Kaise hain aap?"
+    // 100% Dynamic Gemini Greeting: Remove all fallback static greetings!
     if (!hasGreetedBossRef.current) {
       hasGreetedBossRef.current = true;
-      speechEngine.speak("Hello Boss! Kaise hain aap?", true);
+      handleSendMessage("नमस्ते तारा, मैं आ गया हूँ। मुझे ग्रीट करो और पूछो आज क्या हुक्म है?");
+    } else {
+      startHandsFreeRecognition();
     }
-
-    startHandsFreeRecognition();
   };
 
   const handleStopVoice = () => {
@@ -2718,6 +2788,7 @@ export default function App() {
     isListeningRef.current = false;
     setLiveSpeechTranscript('');
     currentTranscriptRef.current = '';
+    accumulatedVoiceTranscriptRef.current = '';
     if (vadTimerRef.current) {
       clearTimeout(vadTimerRef.current);
       vadTimerRef.current = null;

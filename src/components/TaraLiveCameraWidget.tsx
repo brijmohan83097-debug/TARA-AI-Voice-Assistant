@@ -236,7 +236,9 @@ export const TaraLiveCameraWidget: React.FC<TaraLiveCameraWidgetProps> = ({
             setWellnessCareAlert(null);
             if (manualTrigger) {
               audioSynth.playSuccess();
-              speechEngine.speak(data.spokenMessage || 'Hello Boss! Kaise hain aap?', true);
+              const hour = new Date().getHours();
+              const dynGreeting = hour < 12 ? 'शुभ प्रभात Boss! मैं आपकी सेवा में तैयार हूँ।' : hour < 17 ? 'शुभ दोपहर Boss! कहिए क्या हुक्म है?' : 'शुभ संध्या Boss! आज का दिन कैसा रहा?';
+              speechEngine.speak(data.spokenMessage || dynGreeting, true);
             }
           }
         }
@@ -302,11 +304,11 @@ export const TaraLiveCameraWidget: React.FC<TaraLiveCameraWidgetProps> = ({
       ownerLocation: 'बॉस कैमरे के सामने उपस्थित हैं',
       confidence: 0.99,
       lastCheckedTime: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      spokenMessage: 'Hello Boss! Kaise hain aap?',
+      spokenMessage: 'नमस्ते Boss! बायोमेट्रिक सुरक्षा सत्यापित हो गई है।',
     };
     setSecurityState(newState);
     onSecurityStatusChange?.(newState);
-    speechEngine.speak('Hello Boss! Kaise hain aap?', true);
+    speechEngine.speak('नमस्ते Boss! बायोमेट्रिक सुरक्षा सत्यापित हो गई है।', true);
   };
 
   // Expose "Mujhe dekho" trigger listener via custom window event
