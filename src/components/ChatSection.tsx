@@ -74,23 +74,6 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
     return unsub;
   }, []);
 
-  // Automatically speak out loud any new assistant response instantly
-  useEffect(() => {
-    if (messages.length === 0) return;
-    const latestMsg = messages[messages.length - 1];
-
-    if (
-      latestMsg.sender === 'assistant' &&
-      latestMsg.id !== lastSpokenMessageIdRef.current &&
-      !latestMsg.text.includes('SYNTHESIZING NEURAL')
-    ) {
-      lastSpokenMessageIdRef.current = latestMsg.id;
-      setCurrentlySpeakingMsgId(latestMsg.id);
-      // Speak aloud immediately (Hindi or English text)
-      speechEngine.speak(latestMsg.text);
-    }
-  }, [messages]);
-
   // Manual Replay TTS for any message
   const handlePlayMessageAudio = (msgId: string, text: string) => {
     if (currentlySpeakingMsgId === msgId && isEngineSpeaking) {
@@ -146,7 +129,13 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
               chatSilenceTimerRef.current = null;
             }
 
-            // Comfortable 2.4-second silence window: listen as long as user speaks!
+            const isActivelySpeaking = Boolean(interim.trim());
+            // Do not commit while the user is actively vocalizing words
+            if (isActivelySpeaking) {
+              return;
+            }
+
+            // Comfortable 2.6-second silence window after user finishes speaking
             if (currentTranscript.length >= 2) {
               chatSilenceTimerRef.current = setTimeout(() => {
                 setIsListening(false);
@@ -154,7 +143,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
                 audioSynth.playSend();
                 onSendMessage(currentTranscript);
                 setInputText('');
-              }, 2400);
+              }, 2600);
             }
           };
 

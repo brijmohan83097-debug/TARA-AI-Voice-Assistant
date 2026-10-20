@@ -28,6 +28,18 @@ export interface AttachedMedia {
   source?: 'upload' | 'camera' | 'sample';
 }
 
+export interface FaceSecurityState {
+  status: 'idle' | 'scanning' | 'owner_verified' | 'stranger_detected' | 'no_face' | 'error';
+  isOwner: boolean;
+  isStranger: boolean;
+  mood: 'happy' | 'tired' | 'sad' | 'neutral' | 'focused';
+  isTiredOrSad: boolean;
+  wellnessMessage: string;
+  ownerLocation: string;
+  confidence: number;
+  spokenMessage?: string;
+}
+
 export type NodeType = 'hub' | 'memory' | 'skill' | 'workflow' | 'context';
 
 export interface MindMapNode {

@@ -51,18 +51,6 @@ export const HUB_APPS: HubAppItem[] = [
     isInternal: true,
   },
   {
-    id: 'camera',
-    name: 'Live Camera',
-    nameHi: 'लाइव कैमरा (फ़ोटो खींचो)',
-    category: 'Camera & Vision',
-    icon: 'camera',
-    url: '#camera',
-    status: 'Ready',
-    accentColor: 'cyan',
-    voiceHint: '"कैमरा खोलो" / "फोटो खींचो"',
-    isInternal: true,
-  },
-  {
     id: 'photos',
     name: 'Photo Upload',
     nameHi: 'फ़ोटो जोड़ें (गैलरी / फ़ाइल)',

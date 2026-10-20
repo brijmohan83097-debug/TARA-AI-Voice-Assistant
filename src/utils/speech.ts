@@ -48,6 +48,13 @@ class SpeechEngine {
     }
   }
 
+  public ensureVoicesLoaded() {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    if (this.voices.length === 0) {
+      this.initVoices();
+    }
+  }
+
   private initVoices() {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       return;
@@ -60,7 +67,7 @@ class SpeechEngine {
         this.selectedHindiVoice = 
           this.voices.find(v => (v.lang === 'hi-IN' || v.lang === 'hi_IN' || v.lang.startsWith('hi')) && /natural|neural|online|google|swara|madhur|kavya|kalpana/i.test(v.name)) ||
           this.voices.find(v => v.lang === 'hi-IN' || v.lang === 'hi_IN' || v.lang.startsWith('hi')) ||
-          this.voices.find(v => /hindi|india/i.test(v.name)) ||
+          this.voices.find(v => /hindi|india/i.test(v.name) && !/english/i.test(v.name)) ||
           null;
 
         // Find best English voice
@@ -278,12 +285,25 @@ class SpeechEngine {
     }
     if (!chunk) return;
 
-    // Filter out JSON code block fences or metadata tags
-    if (chunk.includes('```json') || chunk.includes('```json_actions') || chunk.includes('```json_prompts')) {
+    // Filter out JSON code block fences, metadata tags, or action payloads
+    if (
+      chunk.includes('```') ||
+      chunk.includes('json_actions') ||
+      chunk.includes('json_prompts') ||
+      chunk.includes('"type"') ||
+      chunk.includes('"action"') ||
+      chunk.includes('"emotion"')
+    ) {
       return;
     }
 
     this.streamingBuffer += chunk;
+
+    // Detect if buffer has entered a code block or JSON block and discard it
+    if (this.streamingBuffer.includes('```')) {
+      const parts = this.streamingBuffer.split('```');
+      this.streamingBuffer = parts[0] || '';
+    }
 
     // Detect sentence and clause delimiters: full stop (., ।), question mark (?), exclamation (!), comma (,), semicolon (;), newline (\n)
     const delimiterRegex = /([।?!;\n]|\.\s+|,\s*)/;
@@ -302,10 +322,11 @@ class SpeechEngine {
         this.streamingBuffer = words.slice(16).join(' ');
       }
 
-      if (candidate.length > 0) {
+      // Ensure candidate does not contain raw JSON or code fragments
+      if (candidate.length > 0 && !candidate.startsWith('{') && !candidate.startsWith('[') && !candidate.includes('"type"')) {
         const subChunks = this.splitIntoSpokenChunks(candidate);
         for (const sc of subChunks) {
-          if (sc && sc.length >= 2) {
+          if (sc && sc.length >= 2 && !sc.startsWith('{') && !sc.startsWith('[')) {
             this.sentenceQueue.push(sc);
           }
         }
@@ -427,10 +448,11 @@ class SpeechEngine {
         window.speechSynthesis.resume();
       }
 
+      this.ensureVoicesLoaded();
       const utterance = new SpeechSynthesisUtterance(nextChunk.trim());
       const isHindi = this.isHindiText(nextChunk);
 
-      // System default voice fallback if specific Hindi or English voice is missing
+      // System default voice fallback
       const systemDefaultVoice =
         this.voices.find(v => v.default) ||
         (this.voices.length > 0 ? this.voices[0] : null);
@@ -439,10 +461,11 @@ class SpeechEngine {
         if (this.selectedHindiVoice) {
           utterance.voice = this.selectedHindiVoice;
           utterance.lang = this.selectedHindiVoice.lang || 'hi-IN';
-        } else if (systemDefaultVoice) {
+        } else if (systemDefaultVoice && (systemDefaultVoice.lang?.startsWith('hi') || /hindi/i.test(systemDefaultVoice.name))) {
           utterance.voice = systemDefaultVoice;
           utterance.lang = systemDefaultVoice.lang || 'hi-IN';
         } else {
+          // Native Hindi synthesizer fallback without forcing an incompatible English voice
           utterance.lang = 'hi-IN';
         }
       } else {

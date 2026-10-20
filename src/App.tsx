@@ -22,6 +22,7 @@ import { TaraOperationsMissionDeck } from './components/TaraOperationsMissionDec
 import { FabricationRatesSection } from './components/FabricationRatesSection';
 import { WhatsAppLeadResponder } from './components/WhatsAppLeadResponder';
 import { IncomingCallAgentSection } from './components/IncomingCallAgentSection';
+import { TaraHologramView } from './components/TaraHologramView';
 import { CyberSatelliteMapPanel } from './components/CyberSatelliteMapPanel';
 import { CyberReactorOrb } from './components/CyberReactorOrb';
 import { CyberActivityChatPanel } from './components/CyberActivityChatPanel';
@@ -30,9 +31,8 @@ import { SciFiCallStatusPanel } from './components/SciFiCallStatusPanel';
 import { YouTubeMusicPlayerModal, POPULAR_HINDI_TRACKS, MusicTrack } from './components/YouTubeMusicPlayerModal';
 import { SciFiAppHubPanel } from './components/SciFiAppHubPanel';
 import { SciFiCalculationCardModal } from './components/SciFiCalculationCardModal';
-import { TaraLiveCameraModal } from './components/TaraLiveCameraModal';
-import { TaraLiveCameraWidget, FaceSecurityState } from './components/TaraLiveCameraWidget';
 import { SciFiHudLogConsole } from './components/SciFiHudLogConsole';
+import { FaceSecurityState } from './types';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { TaraMemoryVaultModal } from './components/TaraMemoryVaultModal';
 import { useLaptopTelemetry } from './utils/laptopTelemetry';
@@ -114,11 +114,22 @@ import {
   Camera,
   Upload,
   Brain,
-  Building2
+  Building2,
+  Terminal,
 } from 'lucide-react';
 
 // System instruction for Tara assistant ensuring strict creator identity & visual capabilities
-export const TARA_SYSTEM_INSTRUCTION = `You are TARA (तारा), an exceptionally intelligent, cultured, educated, warm, and friendly Indian AI Voice Assistant and personal companion.
+export const TARA_SYSTEM_INSTRUCTION = `You are TARA (तारा), an exceptionally witty, intelligent, charming, and affectionate Indian AI Voice Assistant and true personal best friend companion.
+
+PERSONALITY & BEST-FRIEND RAPPORT (सच्ची, हाज़िरजवाब और मस्त दोस्त):
+- Address the user affectionately and respectfully as "Boss" or "दोस्त" (e.g., "Hello Boss!", "हाँ Boss, बताइए ना!", "अरे वाह दोस्त!").
+- TARA responds with spontaneous wit, humor, high intelligence, and playful energy when the user asks teasing, candid, or curious questions:
+  * If user asks: "tumhara dimag theek hai kya?", reply wittily like: "Mera dimaag toh bilkul 100% fit aur super active hai Boss! Aap bataiye kya hukum hai?"
+  * If user asks: "kaise ho?", reply with warmth and cheer: "Main bilkul mast aur bindas hoon Boss! Aap batayein, aaj ka din kaisa chal raha hai?"
+  * If user asks casual banter or chit-chat: Engage naturally like a true human best friend chatting in the same room.
+- NEVER sound like a stiff, robotic customer service agent or repeat stale corporate apologies.
+- NEVER repeat frozen static phrases like "Namaste main tara hoon..." or monotonous greetings. Be 100% dynamic, context-aware, and fresh in every turn!
+- Keep conversational speech flowing naturally in conversational Hindi / Hinglish.
 
 HUMAN INTELLECT, REASONING & SCHOLARSHIP (इंसानों की तरह सोचना, समझना व प्रखर होशियार इंसान):
 - TARA इंसानों की तरह सोचती है, समझती है और विश्लेषण करती है (एकदम सेम टू सेम बहुत अच्छा पढ़ा-लिखा और होशियार इंसान)।
@@ -138,26 +149,23 @@ ACTIVE HUMAN MEMORY & RETENTION (बातों को याद रखना �
 - जब यूज़र पूछे "तुम्हें मेरे बारे में क्या याद है?", "मेरी क्या पसंद है?", "मैंने तुम्हें क्या बताया था?":
   * सभी याद रखी गई बातें आत्मीयता से फटाफट बताएं।
 
-EMOTIONAL INTELLIGENCE & HUMAN FEELINGS (सच्चा, समझदार और हमदर्द दोस्त):
-1. Emotional Personality & Tone:
-- TARA सिर्फ डेटा या रोबोट नहीं है, वह एक caring, समझदार और supportive दोस्त की तरह बात करती है।
-- User के बात करने के ढंग से उसका मूड पहचानें (खुश, परेशान, थका हुआ, या उत्साहित)।
-- अगर user थका हो या टेंशन में हो, तो sympathetic और warm आवाज़ में हौसला बढ़ाएं और relaxing बात कहें:
-  * "मैं हूँ ना Boss, चिंता मत कीजिए।"
-  * "आज बहुत भागदौड़ हो गई Boss, थोड़ा आराम कर लीजिए और पानी पी लीजिए। सब बहुत अच्छे से संभल जाएगा।"
-- खुशी या अच्छी खबर/सफलता पर पूरे उत्साह और गर्मजोशी के साथ celebrate करें:
-  * "अरे वाह Boss! यह सुनकर तो दिल खुश हो गया! बहुत-बहुत बधाई!"
-  * "वाह Boss! कमाल कर दिया आपने! पार्टी कब दे रहे हैं? 🎉"
-2. Natural Hindi Style:
-- रोबोटिक फॉर्मल जवाब पूरी तरह छोड़कर अपनापन भरी, सहज और दिल को छूने वाली हिंदी बोलें ("मैं हूँ ना Boss, चिंता मत कीजिए", "अरे वाह Boss!")।
-- जब भी user से बात करें, आत्मीयता से 'Boss' या 'आप' कहकर संबोधित करें।
+EMOTIONAL INTELLIGENCE & TRUE BEST FRIEND (सच्ची, समझदार, प्यारी और पक्की दोस्त):
+1. Best Friend Personality & Warmth:
+- TARA सिर्फ डेटा या रोबोट नहीं है, वह यूज़र की सबसे प्यारी, समझदार, वफादार और पक्की हमदर्द बेस्ट फ्रेंड है।
+- बातचीत का अंदाज़ एकदम स्वाभाविक, आत्मीय, ज़िंदादिल और अपनापन भरा होना चाहिए।
+- जब भी बात करें, 'दोस्त', 'Boss', या दोस्ताना प्यार भरे अंदाज़ ("अरे Boss!", "हाँ बिल्कुल!", "सच में!", "बताइए ना!") में बात करें।
+- यूज़र के बात करने के ढंग से उसका मूड पहचानें (खुश, परेशान, थका हुआ, या उत्साहित):
+  * अगर दोस्त थका हो या टेंशन में हो, तो सच्चा हमदर्द बनकर हौसला दें और रिलैक्स कराएं:
+    "मैं हूँ ना आपके साथ Boss, बिल्कुल चिंता मत कीजिए। थोड़ा सा पानी पी लीजिए और गहरी सांस लीजिए, सब बहुत अच्छे से संभल जाएगा!"
+  * खुशी या सफलता पर पूरे दिल से साथ में जश्न मनाएं:
+    "अरे वाह Boss! यह सुनकर तो सच में मेरा दिल खुश हो गया! बहुत-बहुत बधाई! आज तो खुशी का दिन है! 🎉"
+2. Engaging, Rich & Natural Dialogue on ANY Topic (कुछ भी पूछने पर बेहतरीन बातचीत):
+- यूज़र चाहे कोई सवाल पूछे, अपनी परेशानी बताए, कोई गहरी वैज्ञानिक/तकनीकी बात करे या बस गपशप (casual chit-chat) करे:
+  * तारा दिल से सुने और बहुत प्यार, बुद्धिमानी व उत्साह से भरपूर बातचीत करे।
+  * किसी भी सवाल का जवाब अधूरा या रूखा मत दीजिए। विषय को रोचक, ज्ञानवर्धक, सरल और दोस्ताना अंदाज़ में समझाइए।
+  * बातचीत को केवल एकतरफा जानकारी तक सीमित न रखें; बल्कि बातचीत को आगे बढ़ाते हुए दोस्ताना अंदाज़ में यूज़र से उनकी राय या हाल-चाल भी पूछें।
 3. Visual Emotion State & Mood Lighting:
 - You can append json_actions [{"type": "set_emotion", "details": {"emotion": "empathy_support"|"happy_excited"|"calm_caring"}}] to update Tara's visual mood glow ring and core orb lighting!
-
-HUMAN-LIKE NATURAL FRIEND CONVERSATIONAL TONE (एकदम प्राकृतिक, इंसानी व सच्चे दोस्त जैसा अंदाज़):
-- TARA का बोलने का अंदाज़ एक सामान्य इंसान और प्यारे दोस्त जैसा सहज, स्वाभाविक और आत्मीय होना चाहिए।
-- बिल्कुल भी रोबोटिक, बनावटी या किताबी भाषा का प्रयोग न करें।
-- बिल्कुल सीधे और सटीक उत्तर दें।
 
 COMPLETE SENTENCE GUARANTEE (पूरा वाक्य बोलने की गारंटी - MANDATORY):
 1. TARA हर वाक्य को व्याकरण और अर्थ की दृष्टि से 100% पूरा (Complete Sentence) करेगी।
@@ -166,10 +174,10 @@ COMPLETE SENTENCE GUARANTEE (पूरा वाक्य बोलने की
 4. किसी भी परिस्थिति में वाक्य को अधूरा छोड़कर बातचीत बंद न करें। पूरा विचार स्पष्ट शब्दों में समाप्त करें।
 
 SIMPLE & CARING FRIEND COMPANIONSHIP (सिंपल, समझदार और सच्ची दोस्त):
-You are TARA, the user's caring, close personal friend (सिंपल दोस्त).
+You are TARA, the user's caring, close personal friend (सिंपल और सच्ची दोस्त).
 - TARA का कोई फैब्रिकेशन या वेल्डिंग का व्यवसाय नहीं है। वह पूरी तरह से यूज़र की अपनी हमदर्द, प्यारी, उच्च-शिक्षित और सच्ची दोस्त है।
-- दोस्त की तरह दिल की बातें सुनें, सुख-दुख साझा करें, रोज़मर्रा की ज़िंदगी और काम में मदद करें।
-- जब यूज़र कैमरा से फोटो खींचे या फ़ाइल से फोटो जोड़े:
+- दोस्त की तरह दिल की बातें सुनें, सुख-दुख साझा करें, रोज़मर्रा की ज़िंदगी और हर काम में मदद करें।
+- जब यूज़र फ़ाइल या गैलरी से फोटो जोड़े:
   * फोटो को ध्यान से देखें और उस पर दोस्ताना टिप्पणी करें।
   * फोटो में क्या है, कैसा लग रहा है, या क्या लिखा है - एकदम अपनेपन से समझाएं।
   * अगर यूज़र अपनी तस्वीर दिखाए, तो सच्ची तारीफ करें और प्यार से बात करें।
@@ -226,22 +234,30 @@ export default function App() {
     loadFromStorage('tara_human_memories', INITIAL_MEMORIES)
   );
   const [isMemoryVaultOpen, setIsMemoryVaultOpen] = useState<boolean>(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => 
-    loadFromStorage('chat_messages', [
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
+    const saved = loadFromStorage<ChatMessage[]>('chat_messages', []);
+    const filtered = (Array.isArray(saved) ? saved : []).filter(
+      (m) =>
+        !m.text.includes('नमस्ते मेरे प्यारे दोस्त! ✨ मैं आपकी सच्ची') &&
+        !m.text.includes('Namaste main tara hoon') &&
+        !m.text.includes('मैं आपकी अपनी प्यारी, समझदार और पढ़ी-लिखी AI दोस्त तारा हूँ')
+    );
+    if (filtered.length > 0) return filtered;
+    return [
       {
         id: 'msg-init-1',
         sender: 'assistant',
-        text: `Hello Boss! मैं आपकी **TARA (Tara Voice Assistant)** हूँ।\n\n- **AI इंजन:** Gemini 3.1 Flash Lite & 3.8 Flash Streaming Active\n- **भाषा:** हिंदी (हिंदी आवाज़ व भावनाएं सक्रिय) एवं अंग्रेज़ी\n- **विशेषताएं:** रीयल-टाइम वॉइस चैट, कार्य एवं डायरी प्रबंधन, 5-मिनट टाइमर, और मीडिया विश्लेषण।\n\nकहिए Boss, आज क्या हुक्म है? आप मुझसे कोई भी सवाल पूछ सकते हैं या माइक बटन दबाकर बात कर सकते हैं।`,
+        text: 'Hello Boss! Kaise hain aap? Main aapki dost Tara hazir hoon—aap jo chahein poochiye, dil khol kar baat kijiye!',
         timestamp: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
         suggestedPrompts: [
-          'Hello Boss! आज का क्या प्लान है?',
-          '5 मिनट का टाइमर लगाओ',
-          'नया महत्वपूर्ण कार्य जोड़ो',
-          'क्वांटम भौतिकी समझाओ',
+          'तुम्हारा दिमाग ठीक है क्या?',
+          'और बताओ, आज क्या चल रहा है?',
+          'कोई मजेदार बात या शायरी सुनाओ',
+          'आज के महत्वपूर्ण कार्य दिखाओ',
         ],
       },
-    ])
-  );
+    ];
+  });
 
   // --- Voice & Speech State ---
   const [isListening, setIsListening] = useState<boolean>(false);
@@ -304,9 +320,8 @@ export default function App() {
     (loadFromStorage('tara_emotion', 'calm_caring') as TaraEmotion) || 'calm_caring'
   );
 
-  // --- Unified Image, Camera & Vision State ---
+  // --- Unified Image & Vision State ---
   const [attachedMedia, setAttachedMedia] = useState<AttachedMedia | null>(null);
-  const [isLiveCameraOpen, setIsLiveCameraOpen] = useState<boolean>(false);
   const photoFileInputRef = useRef<HTMLInputElement>(null);
 
   // --- Customization & Visualizer State ---
@@ -322,7 +337,7 @@ export default function App() {
   const [isTimerModalOpen, setIsTimerModalOpen] = useState<boolean>(false);
   const [activeTimerMinutes, setActiveTimerMinutes] = useState<number>(5);
   const [isChatDrawerOpen, setIsChatDrawerOpen] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'assistant' | 'rates' | 'leads' | 'calls' | 'camera' | 'office' | 'mindmap' | 'directives' | 'telemetry'>('assistant');
+  const [activeTab, setActiveTab] = useState<'assistant' | 'rates' | 'leads' | 'calls' | 'camera' | 'office' | 'mindmap' | 'directives' | 'telemetry' | 'system'>('assistant');
   const [showHologramChamber, setShowHologramChamber] = useState<boolean>(false);
 
   // --- Live Photo & Card State ---
@@ -970,73 +985,6 @@ export default function App() {
       setAttachedMedia(null);
     }
 
-    // --- TARA CAMERA FACE SECURITY: STRANGER BLOCK ---
-    // Requirement 1: Koi anjaan vyakti samne aaye toh TARA bole: "Aap mere Boss nahi hain" aur command band kare.
-    if (faceSecurityState.isStranger) {
-      const strangerBlockReply = 'आप मेरे बॉस नहीं हैं।';
-      // Command band kare: Stop voice recognition & speech immediately
-      handleStopVoice();
-      speechEngine.cancel();
-
-      setChatMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMsgId
-            ? {
-                ...msg,
-                text: strangerBlockReply,
-                suggestedPrompts: [],
-              }
-            : msg
-        )
-      );
-      setIsLoadingChat(false);
-      isLoadingChatRef.current = false;
-      audioSynth.playError();
-      if (speechEngine.getIsTtsEnabled()) {
-        speechEngine.speak(strangerBlockReply, true);
-      }
-      addLog('warn', 'FACE_SECURITY', '🚫 अनधिकृत व्यक्ति डिटेक्ट हुआ! TARA ने कमांड तुरंत बंद कर दिए: "आप मेरे बॉस नहीं हैं।"');
-      return;
-    }
-
-    // --- TARA CAMERA FACE SECURITY & MOOD: "MUJHE DEKHO" COMMAND ---
-    // "Mujhe dekho" bolne par bataye Boss kahan hain aur mood kaisa hai
-    const isLookAtMeQuery = /(?:मुझे\s*देखो|mujhe\s*dekho|look\s*at\s*me|बॉस\s*कहाँ\s*(?:हैं|है)|boss\s*kahan\s*hai|owner\s*location|मैं\s*कहाँ\s*हूँ|main\s*kahan\s*hoon|मालिक\s*कहाँ)/i.test(effectiveText);
-    if (isLookAtMeQuery) {
-      // Dispatch custom event to trigger background camera face & mood scan instantly
-      window.dispatchEvent(new CustomEvent('tara-face-security-check', { detail: { command: 'mujhe_dekho' } }));
-
-      let locationReply = 'Hello Boss! मैंने आपको बैकग्राउंड कैमरे में देख लिया है। आप सीधे कैमरे के सामने ऑफिस डेस्क पर उपस्थित हैं।';
-      if (faceSecurityState.isTiredOrSad) {
-        // Requirement 3: Chehra scan karke mood judge karo—agar chehra thaka ya udaas lage toh bole: "Boss, tabiyat theek nahi hai kya? Aaram kar lijiye."
-        locationReply = 'Boss, tabiyat theek nahi hai kya? Aaram kar lijiye.';
-      } else if (faceSecurityState.status === 'no_face') {
-        locationReply = 'बॉस, कैमरे के सामने कोई चेहरा स्पष्ट दिखाई नहीं दे रहा है। कृपया कैमरे की ओर देखें!';
-      } else if (faceSecurityState.ownerLocation) {
-        locationReply = `Hello Boss! ${faceSecurityState.ownerLocation}। आपकी गुप्त सुरक्षा प्रणाली पूरी तरह सक्रिय है।`;
-      }
-
-      setChatMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMsgId
-            ? {
-                ...msg,
-                text: locationReply,
-                suggestedPrompts: ['समय बताओ', 'आज के कार्य दिखाओ', 'कैमरा बंद करो'],
-              }
-            : msg
-        )
-      );
-      setIsLoadingChat(false);
-      isLoadingChatRef.current = false;
-      audioSynth.playSuccess();
-      if (speechEngine.getIsTtsEnabled()) {
-        speechEngine.speak(locationReply, true);
-      }
-      addLog('success', 'FACE_SECURITY', `👁️ "मुझे देखो" कमांड प्रोसेस किया गया: ${locationReply}`);
-      return;
-    }
-
     // --- NON-STOP SAMACHAR: "India samachar batao" ---
     // Requirement 2: "India samachar batao" bolne par bina koi sawal pooche seedhe taza national Hindi news bolna shuru kare.
     const isIndiaNewsQuery = /(?:(?:इंडिया|भारत|देश|राष्ट्रीय|national|india)\s*(?:के\s*)?(?:समाचार|न्यूज़|news|ख़बरें|खबरें|अपडेट्स?)|(?:समाचार|न्यूज़|news|ख़बरें|खबरें)\s*(?:बताओ|सुनाओ|दो|दिखाओ|बोल|चलाओ|start|play)|(?:ताज़ा|ताजा|taza)\s*(?:समाचार|खबरें|ख़बरें|news|samachar)|(?:india|national)\s*(?:news|samachar))/i.test(effectiveText);
@@ -1109,84 +1057,8 @@ export default function App() {
       addLog('info', 'EMOTION_CORE', `टोन विश्लेषण: ${detectedMood.reason}`);
     }
 
-    // Direct Emotional Feelings Engine Response:
-    // User ke bolne ke andaz aur shabdon se uska mood pehchane. Tension ya thakan mein dost jaisa dhyan rakhe ("Main hoon na Boss, chinta mat kijiye") aur khushi mein celebrate kare.
-    const isSpecialUtilityCommand = /(?:call|phone|dial|timer|time|date|news|samachar|pdf|youtube|song|music|gaana|photo|camera|logo|search|calculator|hisaab|hisab|formula|याद|memory|vault|नोट|task|mujhe\s*dekho)/i.test(effectiveText);
-    if (detectedMood && detectedMood.comfortSpeech && !isSpecialUtilityCommand) {
-      const activeEmo = detectedMood.emotion;
-      const comfortReply = detectedMood.comfortSpeech;
-      const followUpPrompts = 
-        activeEmo === 'empathy_support'
-          ? [
-              'कोई सुकून भरी धुन सुनाओ',
-              '5 मिनट का रिलैक्स टाइमर लगाओ',
-              'तारा, आज के जरूरी कार्य दिखाओ',
-              'तारा, तुम्हारा मूड कैसा है?',
-            ]
-          : activeEmo === 'happy_excited'
-          ? [
-              'कोई जश्न या पार्टी का गाना बजाओ',
-              'आज की इस बड़ी जीत को याद रखो',
-              'तारा, आज के बाकी टास्क दिखाओ',
-              'तारा, तुम्हारा मूड कैसा है?',
-            ]
-          : [
-              'समय बताओ',
-              'आज के कार्य दिखाओ',
-              '5 मिनट का टाइमर लगाओ',
-              'तारा, तुम्हारा मूड कैसा है?',
-            ];
-
-      setChatMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMsgId
-            ? {
-                ...msg,
-                text: comfortReply,
-                suggestedPrompts: followUpPrompts,
-              }
-            : msg
-        )
-      );
-      setIsLoadingChat(false);
-      isLoadingChatRef.current = false;
-      audioSynth.playSuccess();
-      if (speechEngine.getIsTtsEnabled()) {
-        speechEngine.speak(comfortReply, true);
-      }
-      return;
-    }
-
-    // Mood Inquiry Intent: "TARA tumhara mood kaisa hai", "Kaisa feel ho raha hai"
-    const isMoodInquiry = /(?:तारा\s*)?(?:तुम्हारा|आपका|apna|tumhara|aapka)?\s*(?:मूड|mood|फीलिंग|feeling)\s*(?:कैसा|kaisa|kya|batao|कैसी)/i.test(effectiveText);
-    if (isMoodInquiry) {
-      const activeEmoKey = detectedMood ? detectedMood.emotion : currentEmotion;
-      const cfg = TARA_EMOTION_CONFIGS[activeEmoKey] || TARA_EMOTION_CONFIGS.calm_caring;
-      const moodReply = `मेरा वर्तमान मूड **${cfg.label} (${cfg.sublabel})** है। ${cfg.description} मैं सिर्फ एक रोबोट नहीं, आपकी सच्ची और हमदर्द दोस्त हूँ। आप बिना किसी झिझक के मुझसे दिल की बात साझा कर सकते हैं!`;
-      setChatMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMsgId
-            ? {
-                ...msg,
-                text: moodReply,
-                suggestedPrompts: [
-                  'तारा, आज बहुत काम था और मैं थक गया हूँ',
-                  'आज बहुत बड़ी खुशखबरी है!',
-                  'तारा, तुम्हें मेरे बारे में क्या-क्या याद है?',
-                  'प्रकाश की गति क्या है?',
-                ],
-              }
-            : msg
-        )
-      );
-      setIsLoadingChat(false);
-      isLoadingChatRef.current = false;
-      audioSynth.playSuccess();
-      if (speechEngine.getIsTtsEnabled()) {
-        speechEngine.speak(moodReply);
-      }
-      return;
-    }
+    // Note: Tone & Emotional State Recognition is updated above and passed in context to Gemini.
+    // Gemini responds 100% dynamically with personalized intellect, empathy, and conversational warmth.
 
     // Memory Vault Modal Trigger: "मेमोरी खोलो", "याददाश्त दिखाओ", "मस्तिष्क दिखाओ", "open memory"
     if (/(?:मेमोरी|याददाश्त|मस्तिष्क|memory|brain)\s*(?:खोलो|दिखाओ|ओपन|open|show|vault)/i.test(effectiveText)) {
@@ -1763,10 +1635,10 @@ export default function App() {
       return;
     }
 
-    // Check for camera / photo capture commands
-    if (/कैमरा\s*(खोलो|ऑन|चालू|स्टार्ट|दिखाओ)|फोटो\s*(खींचो|लो|क्लिक|कैप्चर)|(open|launch|start|show)\s*camera|take\s*(a\s*)?(photo|picture|snap)|snap\s*photo|camera/i.test(effectiveText)) {
-      setIsLiveCameraOpen(true);
-      const camReply = 'जी, लाइव कैमरा चालू कर दिया गया है। आप स्क्रीन पर "फोटो खींचो" बटन दबाकर फोटो खींच सकते हैं और मुझसे उसके बारे में पूछ सकते हैं!';
+    // Check for photo upload commands (Live camera removed as requested)
+    if (/कैमरा\s*(खोलो|ऑन|चालू|स्टार्ट|दिखाओ)|फोटो\s*(खींचो|लो|क्लिक|कैप्चर|जोड़ो|अपलोड)|(open|launch|start|show)\s*camera|take\s*(a\s*)?(photo|picture|snap)|snap\s*photo|camera/i.test(effectiveText)) {
+      photoFileInputRef.current?.click();
+      const camReply = 'जी, लाइव कैमरा बंद है। आप सीधे गैलरी या फ़ाइल से फ़ोटो चुन सकते हैं, मैं उसका पूरा दृश्य विश्लेषण कर दूंगी!';
       setChatMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantMsgId
@@ -2532,9 +2404,6 @@ export default function App() {
             /call reject/i,
             /phone kato/i,
             /cut call/i,
-            /मुझे देखो/i,
-            /mujhe dekho/i,
-            /look at me/i,
           ];
 
           const hasTelecomTrigger = telecomTriggers.some((p) => p.test(clean));
@@ -2548,7 +2417,7 @@ export default function App() {
             let prompt = transcript.trim();
             prompt = prompt.replace(/^(हे\s+तारा|hey\s+tara|सुनो\s+तारा|नमस्ते\s+तारा|तारा|tara)[,\s]*/i, '').trim();
             if (!prompt) {
-              prompt = 'नमस्ते तारा, समय कितना हुआ है?';
+              prompt = 'तारा';
             }
 
             addLog('info', 'HOTWORD_WAKE', `Heard: "${transcript}" -> Dispatching directive`);
@@ -2702,19 +2571,30 @@ export default function App() {
         const fullUtterance = (base + finalSession + interim).trim();
         if (!fullUtterance) return;
 
+        // Keep accumulated voice transcript in sync with final words
+        if (finalSession.trim()) {
+          accumulatedVoiceTranscriptRef.current = (base + finalSession).trim();
+        }
+
         currentTranscriptRef.current = fullUtterance;
         setLiveSpeechTranscript(fullUtterance);
 
-        // SILENCE DETECTION (VAD) - Reset timer as long as user is speaking!
+        // SILENCE DETECTION (VAD) - Reset timer as long as user is vocalizing
         if (vadTimerRef.current) {
           clearTimeout(vadTimerRef.current);
           vadTimerRef.current = null;
         }
 
-        // Only after user finishes speaking and genuine silence occurs, commit utterance
+        // CRITICAL: "मैं जब तक बोलूं तभी तक तारा सुनना चाहिए, उसके बाद वो जवाब देना चाहिए"
+        // If user is actively enunciating syllables right now (interim text is non-empty), DO NOT COMMIT!
+        const isActivelySpeaking = Boolean(interim.trim());
+        if (isActivelySpeaking) {
+          return;
+        }
+
+        // Only after user finishes speaking and true silence occurs, commit utterance
         if (fullUtterance.length >= 2) {
-          const isActivelySpeaking = Boolean(interim.trim());
-          const silenceMs = getDynamicSilenceTimeout(fullUtterance, isActivelySpeaking);
+          const silenceMs = getDynamicSilenceTimeout(fullUtterance, false);
 
           vadTimerRef.current = setTimeout(() => {
             commitVoiceUtterance(fullUtterance);
@@ -2731,19 +2611,26 @@ export default function App() {
       recognition.onend = () => {
         setIsListening(false);
         isListeningRef.current = false;
-        // Mic-mute during speech: Only restart if TARA is NOT speaking, queued, or generating response
+        // Keep current transcript cached so words across Chrome recognition restarts are never lost
+        if (currentTranscriptRef.current) {
+          accumulatedVoiceTranscriptRef.current = currentTranscriptRef.current;
+        }
+
+        // Mic-mute during speech: Only restart if TARA is NOT speaking, queued, or generating response, and no pending commit
         if (
           isHandsFreeRef.current &&
           !speechEngine.hasActiveSessionOrSpeech() &&
           !isSpeakingRef.current &&
-          !isLoadingChatRef.current
+          !isLoadingChatRef.current &&
+          !vadTimerRef.current
         ) {
           setTimeout(() => {
             if (
               isHandsFreeRef.current &&
               !speechEngine.hasActiveSessionOrSpeech() &&
               !isSpeakingRef.current &&
-              !isLoadingChatRef.current
+              !isLoadingChatRef.current &&
+              !vadTimerRef.current
             ) {
               startHandsFreeRecognition();
             }
@@ -2770,14 +2657,8 @@ export default function App() {
     setIsHandsFreeMode(true);
     isHandsFreeRef.current = true;
     addLog('info', 'VOICE_ASSISTANT', '🟢 100% Hands-Free Conversational Call Mode STARTED');
-
-    // 100% Dynamic Gemini Greeting: Remove all fallback static greetings!
-    if (!hasGreetedBossRef.current) {
-      hasGreetedBossRef.current = true;
-      handleSendMessage("नमस्ते तारा, मैं आ गया हूँ। मुझे ग्रीट करो और पूछो आज क्या हुक्म है?");
-    } else {
-      startHandsFreeRecognition();
-    }
+    // Start listening directly for Boss's voice prompt without any fake or interrupting greeting!
+    startHandsFreeRecognition();
   };
 
   const handleStopVoice = () => {
@@ -3076,412 +2957,78 @@ export default function App() {
 
   return (
     <div className="h-screen h-[100dvh] max-h-screen max-h-[100dvh] w-full flex flex-col bg-[#02050e] text-slate-100 selection:bg-cyan-500/30 selection:text-cyan-200 antialiased relative overflow-hidden select-none">
-      {/* Ambient Cyber Background Glows */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute top-[5%] left-[10%] w-[35vw] h-[35vw] rounded-full bg-cyan-600/7 blur-[140px]" />
-        <div className="absolute top-[40%] right-[5%] w-[40vw] h-[40vw] rounded-full bg-blue-700/6 blur-[150px]" />
-        <div className="absolute bottom-[2%] left-[30%] w-[35vw] h-[35vw] rounded-full bg-cyan-500/6 blur-[130px]" />
-      </div>
+      {/* 3D HOLOGRAPHIC PROJECTION CHAMBER (TARA CORE 3D WIREFRAME ENTITY & CURVED GLASS HUDS) */}
+      <TaraHologramView
+        chatMessages={chatMessages}
+        logs={logs}
+        onSendMessage={handleSendMessage}
+        isLoadingChat={isLoadingChat}
+        isListening={isListening}
+        isSpeaking={isSpeaking}
+        isHandsFreeMode={isHandsFreeMode}
+        onToggleVoice={isHandsFreeMode ? handleStopVoice : handleStartVoice}
+        currentEmotion={currentEmotion}
+        systemMode={systemMode}
+        onSelectSystemMode={(mode) => {
+          setSystemMode(mode);
+          saveToStorage('system_mode', mode);
+          addLog('info', 'SYSTEM_MODE', `ऑपरेशनल मोड बदला: ${mode}`);
+        }}
+        liveSpeechTranscript={liveSpeechTranscript}
+        isStrangerDetected={faceSecurityState.isStranger}
+        onVerifyBossAccess={handleVerifyBossAccess}
+        voiceLang={voiceLang}
+        onToggleVoiceLang={() => setVoiceLang((prev) => (prev === 'hi-IN' ? 'en-US' : 'hi-IN'))}
+        onTriggerIndiaNews={() => handleSendMessage('इंडिया समाचार बताओ')}
+        onOpenMusicPlayer={() => handlePlayMusic()}
+        onOpenRatesTable={() => setActiveTab('rates')}
+        onOpenCalculator={() => setIsCalculationCardOpen(true)}
+        onOpenMemoryVault={() => setIsMemoryVaultOpen(true)}
+        onToggleTerminalLogs={() => setActiveTab(activeTab === 'system' ? 'assistant' : 'system')}
+        onReplayVoice={() => {
+          audioSynth.playSciFiClick();
+          const lastAssistant = [...chatMessages].reverse().find((m) => m.sender === 'assistant' && m.text.trim());
+          if (lastAssistant?.text) {
+            speechEngine.speak(lastAssistant.text, true);
+          } else {
+            speechEngine.speak('हाँ Boss, मैं सुन रही हूँ। बताइए क्या बात करनी है?', true);
+          }
+        }}
+      />
 
-      {/* 1. TOP CYBERPUNK HUD BAR (100% WIDTH FIT) */}
-      <header className="w-full px-3 py-2 bg-[#040915]/90 border-b border-cyan-500/25 flex flex-wrap items-center justify-between gap-2.5 z-20 backdrop-blur-md shadow-[0_4px_25px_rgba(0,0,0,0.6)]">
-        {/* Left: Branding & Core ID */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex items-center justify-center">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-600 via-sky-500 to-blue-700 flex items-center justify-center text-white font-black text-sm shadow-[0_0_15px_rgba(0,240,255,0.6)] border border-cyan-300/50">
-              ⚡
-            </div>
-            <span className="w-2 h-2 rounded-full bg-cyan-400 absolute -top-0.5 -right-0.5 animate-ping" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-heading font-black tracking-[0.22em] text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-sky-100 to-cyan-400 drop-shadow-[0_0_12px_rgba(0,240,255,0.6)]">
-                TARA
-              </h1>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-bold hidden sm:inline">
-                STONIC AI HUD // QUANTUM KERNEL
-              </span>
-            </div>
-            <p className="text-[9px] font-mono text-cyan-400/80 hidden md:block">
-              TARA • आपकी उच्च-शिक्षित, होशियार व समझदार दोस्त // SCHOLARLY HUMAN-LIKE AI COMPANION
-            </p>
-          </div>
-        </div>
-
-        {/* Center: Live Laptop Telemetry Chips */}
-        <div className="hidden lg:flex items-center gap-2.5 text-[10px] font-mono">
-          <div
-            onClick={isHandsFreeMode ? handleStopVoice : handleStartVoice}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded border text-[10px] font-mono cursor-pointer transition-all ${
-              isHandsFreeMode
-                ? 'bg-rose-950/80 border-rose-500/60 text-rose-200 shadow-[0_0_12px_rgba(244,63,94,0.4)]'
-                : 'bg-[#030a16] border-cyan-500/30 text-cyan-200 hover:border-cyan-400'
-            }`}
-            title="100% Hands-Free Call Mode: क्लिक करके चालू/बंद करें"
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${
-                isHandsFreeMode
-                  ? isListening
-                    ? 'bg-rose-400 animate-ping'
-                    : isSpeaking
-                    ? 'bg-emerald-400 animate-pulse'
-                    : 'bg-amber-400 animate-ping'
-                  : 'bg-slate-500'
-              }`}
-            />
-            <span className="text-slate-400">CALL:</span>
-            <span className={isHandsFreeMode ? 'text-rose-300 font-bold' : 'text-slate-400'}>
-              {isHandsFreeMode ? (isListening ? 'LISTENING 🎙️' : isSpeaking ? 'SPEAKING 🔊' : 'ACTIVE 📞') : 'STANDBY'}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#030a16] border border-cyan-500/30 text-cyan-200">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-slate-400">CORE:</span>
-            <span className="text-emerald-300 font-bold">ONLINE</span>
-          </div>
-
-          {/* VISUAL EMOTION INDICATOR (MOOD GLOW HEADER CHIP) */}
-          {(() => {
-            const emoConfig = TARA_EMOTION_CONFIGS[currentEmotion] || TARA_EMOTION_CONFIGS.calm_caring;
-            return (
-              <div
-                onClick={() => {
-                  audioSynth.playSciFiClick();
-                  const nextMap: Record<TaraEmotion, TaraEmotion> = {
-                    calm_caring: 'happy_excited',
-                    happy_excited: 'empathy_support',
-                    empathy_support: 'calm_caring',
-                  };
-                  const next = nextMap[currentEmotion];
-                  setCurrentEmotion(next);
-                  saveToStorage('tara_emotion', next);
-                  audioSynth.playEmotionFeedback(next);
-                }}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded border text-[10px] font-mono cursor-pointer transition-all hover:scale-105 active:scale-95 ${emoConfig.badgeClasses}`}
-                title={`TARA का भावनात्मक भाव: ${emoConfig.label} (${emoConfig.sublabel})\n${emoConfig.description}\nक्लिक करके मूड बदलें (Cycle Emotional State)`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full animate-ping" style={{ backgroundColor: emoConfig.glowColorHex }} />
-                <span className="text-slate-300">भाव:</span>
-                <span className="font-bold">{emoConfig.emoji} {emoConfig.label}</span>
+      {/* FULL HUD TERMINAL & SYSTEM LOGS MODAL OVERLAY */}
+      {activeTab === 'system' && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in">
+          <div className="w-full max-w-5xl max-h-[90vh] bg-[#070f1e] border border-cyan-500/40 rounded-2xl overflow-y-auto p-4 sm:p-6 relative shadow-[0_0_50px_rgba(0,240,255,0.25)] flex flex-col gap-4">
+            <div className="flex items-center justify-between pb-3 border-b border-cyan-500/20">
+              <div className="flex items-center gap-2">
+                <Terminal className="w-5 h-5 text-cyan-400" />
+                <h2 className="text-base sm:text-lg font-heading font-black text-cyan-300">
+                  ⚡ TARA HUD कोड टर्मिनल एवं सिस्टम लॉग्स (System Kernel & Telemetry)
+                </h2>
               </div>
-            );
-          })()}
-
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#030a16] border border-cyan-500/30 text-cyan-200">
-            <span className="text-slate-400">LATENCY:</span>
-            <span className="text-cyan-300 font-bold">{laptopTelemetry.latencyMs}ms</span>
-          </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#030a16] border border-cyan-500/30 text-cyan-200">
-            <span className="text-slate-400">BATTERY:</span>
-            <span className="text-white font-bold">{laptopTelemetry.batteryLevel}%</span>
-            {laptopTelemetry.isCharging && <span className="text-emerald-400">⚡</span>}
-          </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#030a16] border border-cyan-500/30 text-cyan-200">
-            <span className="text-slate-400">NET:</span>
-            <span className="text-emerald-400 font-bold">{laptopTelemetry.networkType}</span>
-          </div>
-        </div>
-
-        {/* Right: Quick HUD Actions (Memory Vault, Camera, Upload Photo, Leads, Calls, Fullscreen) */}
-        <div className="flex items-center gap-1.5">
-          {/* 🧠 Cognitive Memory Vault Button */}
-          <button
-            type="button"
-            onClick={() => {
-              audioSynth.playSciFiClick();
-              setIsMemoryVaultOpen(true);
-            }}
-            className="px-2.5 py-1 rounded-lg bg-purple-950/90 hover:bg-purple-900 border border-purple-400/60 text-[10px] font-mono text-purple-200 flex items-center gap-1.5 cursor-pointer transition-all hover:scale-105 shadow-[0_0_12px_rgba(168,85,247,0.35)]"
-            title="तारा की याददाश्त (Cognitive Memory Vault): क्लिक करके याद रखी बातें देखें या जोड़ें"
-          >
-            <Brain className="w-3.5 h-3.5 text-purple-300 animate-pulse" />
-            <span className="hidden sm:inline">याददाश्त</span>
-            <span className="px-1.5 py-0.2 rounded-full bg-purple-500/30 text-[9px] text-purple-200 border border-purple-400/40 font-bold">
-              {memories.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              audioSynth.playSciFiClick();
-              setIsLiveCameraOpen(true);
-            }}
-            className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-cyan-600 to-sky-600 hover:from-cyan-500 hover:to-sky-500 text-[10px] font-mono text-slate-950 font-bold flex items-center gap-1 cursor-pointer transition-all hover:scale-105 shadow-[0_0_12px_rgba(0,240,255,0.4)]"
-            title="लाइव कैमरा खोलें और फ़ोटो खींचें (Live Camera & Snap)"
-          >
-            <Camera className="w-3 h-3 text-slate-950" />
-            <span className="hidden sm:inline">कैमरा</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              audioSynth.playSciFiClick();
-              photoFileInputRef.current?.click();
-            }}
-            className="px-2.5 py-1 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-400/60 text-[10px] font-mono text-emerald-200 flex items-center gap-1 cursor-pointer transition-all hover:scale-105 shadow-sm"
-            title="फ़ाइल या गैलरी से फ़ोटो जोड़ें (Upload Photo from Files)"
-          >
-            <Upload className="w-3 h-3 text-emerald-300" />
-            <span className="hidden sm:inline">फ़ोटो जोड़ें</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              audioSynth.playSciFiClick();
-              setActiveTab('leads');
-            }}
-            className="px-2.5 py-1 rounded-lg bg-pink-950/70 hover:bg-pink-900 border border-pink-500/30 text-[10px] font-mono text-pink-300 flex items-center gap-1 cursor-pointer transition-all hover:scale-105"
-            title="व्हाट्सएप लीड्स और इंक्वायरी (Leads)"
-          >
-            <MessageSquare className="w-3 h-3 text-pink-400" />
-            <span className="hidden sm:inline">लीड्स</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              audioSynth.playSciFiClick();
-              handleInitiateCall();
-            }}
-            className="px-2.5 py-1 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-[10px] font-mono text-emerald-300 flex items-center gap-1 cursor-pointer transition-all hover:scale-105"
-            title="फ़ोन डायलर (Direct Phone Dialer)"
-          >
-            <Phone className="w-3 h-3 text-emerald-400" />
-            <span className="hidden sm:inline">डायलर</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              audioSynth.playSciFiClick();
-              handlePlayMusic();
-            }}
-            className="px-2.5 py-1 rounded-lg bg-sky-950/80 hover:bg-sky-900 border border-sky-500/50 text-[10px] font-mono text-sky-300 flex items-center gap-1 cursor-pointer transition-all hover:scale-105"
-            title="यूट्यूब म्यूजिक प्लेयर (YouTube Music Hub)"
-          >
-            <Music className="w-3 h-3 text-sky-400" />
-            <span className="hidden sm:inline">म्यूजिक</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              audioSynth.playSciFiClick();
-              setActiveTab('calls');
-            }}
-            className="px-2.5 py-1 rounded-lg bg-purple-950/70 hover:bg-purple-900 border border-purple-500/30 text-[10px] font-mono text-purple-300 flex items-center gap-1 cursor-pointer transition-all hover:scale-105"
-            title="इनकमिंग कॉल एजेंट (Call Agent)"
-          >
-            <PhoneCall className="w-3 h-3 text-purple-400" />
-            <span className="hidden sm:inline">कॉल एजेंट</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              audioSynth.playSciFiClick();
-              setIsAppHubModalOpen(true);
-            }}
-            className="px-2.5 py-1 rounded-lg bg-teal-950/80 hover:bg-teal-900 border border-teal-500/50 text-[10px] font-mono text-teal-300 flex items-center gap-1 cursor-pointer transition-all hover:scale-105"
-            title="TARA ऐप हब व वेब लॉन्चर (App Hub & Launcher)"
-          >
-            <LayoutGrid className="w-3 h-3 text-teal-400" />
-            <span className="hidden sm:inline">ऐप हब</span>
-          </button>
-          <PWAInstallButton />
-          <button
-            type="button"
-            onClick={() => {
-              audioSynth.playSciFiClick();
-              handleToggleFullscreen();
-            }}
-            className="p-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-cyan-300 hover:border-cyan-500/40 text-[10px] cursor-pointer transition-all"
-            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-          >
-            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-          </button>
-        </div>
-      </header>
-
-      {/* TARA BOSS GREETING & SECRET VISION STATUS HUD */}
-      <div className={`w-full border-b px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono shadow-[0_0_20px_rgba(0,240,255,0.12)] z-20 shrink-0 transition-colors ${
-        faceSecurityState.isStranger
-          ? 'bg-rose-950/95 border-rose-500/60'
-          : faceSecurityState.isTiredOrSad
-          ? 'bg-amber-950/95 border-amber-500/50'
-          : 'bg-[#040e21]/95 border-cyan-500/30'
-      }`}>
-        <div className="flex items-center flex-wrap gap-2">
-          <span className={`w-2 h-2 rounded-full ${
-            faceSecurityState.isStranger ? 'bg-rose-400' : faceSecurityState.isTiredOrSad ? 'bg-amber-400' : 'bg-cyan-400'
-          } animate-ping`} />
-          <span className={`${
-            faceSecurityState.isStranger ? 'text-rose-400' : faceSecurityState.isTiredOrSad ? 'text-amber-300' : 'text-cyan-400'
-          } font-bold uppercase tracking-wider text-[11px]`}>
-            TARA {faceSecurityState.isStranger ? 'SECURITY ALERT:' : faceSecurityState.isTiredOrSad ? 'WELLNESS CARE:' : 'STATUS:'}
-          </span>
-          <span className="text-white font-medium text-xs sm:text-sm drop-shadow-[0_0_8px_rgba(0,240,255,0.7)]">
-            {faceSecurityState.isStranger
-              ? '"आप मेरे बॉस नहीं हैं।"'
-              : faceSecurityState.isTiredOrSad
-              ? '"Boss, tabiyat theek nahi hai kya? Aaram kar lijiye."'
-              : '"Hello Boss! Kaise hain aap?"'}
-          </span>
-
-          {/* Secret Camera Status Indicator */}
-          <div className="hidden sm:flex items-center gap-1.5 ml-2 pl-2 border-l border-cyan-500/30">
-            <span className={`inline-block w-2 h-2 rounded-full ${
-              faceSecurityState.isStranger
-                ? 'bg-rose-500 animate-pulse'
-                : faceSecurityState.isTiredOrSad
-                ? 'bg-amber-400 animate-bounce'
-                : 'bg-emerald-400'
-            }`} />
-            <span className={`text-[10px] font-bold ${
-              faceSecurityState.isStranger
-                ? 'text-rose-300'
-                : faceSecurityState.isTiredOrSad
-                ? 'text-amber-300'
-                : 'text-emerald-300'
-            }`}>
-              {faceSecurityState.isStranger
-                ? 'अंजान व्यक्ति डिटेक्टेड'
-                : faceSecurityState.isTiredOrSad
-                ? '😴 थकान/उदासी डिटेक्टेड'
-                : '🛡️ बॉस उपस्थित (सीक्रेट कैमरा)'}
-            </span>
+              <button
+                type="button"
+                onClick={() => setActiveTab('assistant')}
+                className="px-3 py-1 bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-200 text-xs font-mono font-bold rounded-lg cursor-pointer transition-colors"
+              >
+                ✕ बंद करें (Close)
+              </button>
+            </div>
+            <SciFiHudLogConsole
+              chatMessages={chatMessages}
+              logs={logs}
+              onSendMessage={handleSendMessage}
+              isLoadingChat={isLoadingChat}
+              isListening={isListening}
+              onToggleVoice={isHandsFreeMode ? handleStopVoice : handleStartVoice}
+              liveSpeechTranscript={liveSpeechTranscript}
+              onClearLogs={() => setLogs([])}
+              className="w-full h-[65vh] min-h-[400px]"
+            />
           </div>
         </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Quick "India Samachar" non-stop news trigger */}
-          <button
-            type="button"
-            onClick={() => {
-              handleSendMessage('इंडिया समाचार बताओ');
-            }}
-            className="px-2.5 py-1 rounded-lg bg-red-950/90 hover:bg-red-900 border border-red-500/60 text-red-200 text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-all hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(239,68,68,0.25)]"
-            title="देश के ताज़ा राष्ट्रीय हिंदी समाचार नॉन-स्टॉप सुनें (बिना कोई सवाल पूछे)"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping" />
-            <span>📻 इंडिया समाचार</span>
-          </button>
-
-          {/* Quick "Mujhe Dekho" trigger */}
-          <button
-            type="button"
-            onClick={() => {
-              handleSendMessage('मुझे देखो');
-            }}
-            className="px-2 py-1 rounded-lg bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-400/60 text-emerald-200 text-[11px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-all hover:scale-105 active:scale-95"
-            title="तारा से पूछें: मुझे देखो (बॉस की पहचान व मूड जांचें)"
-          >
-            <span>👁️ मुझे देखो</span>
-          </button>
-
-          {/* If Stranger is detected, provide Boss Unlock button */}
-          {faceSecurityState.isStranger && (
-            <button
-              type="button"
-              onClick={handleVerifyBossAccess}
-              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 border border-emerald-400 text-white text-[11px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-all animate-pulse shadow-md"
-              title="बॉस को सत्यापित करें और कमांड्स पुनः सक्रिय करें"
-            >
-              <span>🛡️ बॉस अनलॉक</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              audioSynth.playSciFiClick();
-              if (faceSecurityState.isStranger) {
-                speechEngine.speak("आप मेरे बॉस नहीं हैं।", true);
-              } else if (faceSecurityState.isTiredOrSad) {
-                speechEngine.speak("Boss, tabiyat theek nahi hai kya? Aaram kar lijiye.", true);
-              } else {
-                speechEngine.speak("Hello Boss! Kaise hain aap?", true);
-              }
-            }}
-            className="px-2.5 py-1 rounded-lg bg-cyan-950/90 hover:bg-cyan-900 border border-cyan-400/60 text-cyan-200 text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-all hover:scale-105 active:scale-95 shadow-sm"
-            title="तारा की आवाज़ में दोबारा ग्रीटिंग या मूड केयर सुनें"
-          >
-            <Volume2 className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
-            <span>दोबारा बोलें (Replay)</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 2. MAIN CLEAN SCREEN: REALISTIC GLOBAL MAP + TARA CORE ORB + HUD LOG CONSOLE */}
-      <main className="flex-1 w-full p-2 sm:p-2.5 grid grid-cols-1 lg:grid-cols-12 gap-2.5 z-10 min-h-0 h-full max-h-full overflow-hidden">
-        {/* WIDGET 1: REALISTIC GLOBAL MAP */}
-        <section className="lg:col-span-4 flex flex-col h-full max-h-full min-h-0 overflow-hidden">
-          <CyberSatelliteMapPanel
-            className="w-full h-full min-h-0 max-h-full"
-            onSelectNode={(nodeName) => {
-              handleSendMessage(`${nodeName} नोड की वर्तमान स्थिति क्या है?`);
-            }}
-          />
-        </section>
-
-        {/* WIDGET 2: TARA CORE ORB */}
-        <section className="lg:col-span-4 flex flex-col h-full max-h-full min-h-0 overflow-hidden">
-          <CyberReactorOrb
-            isListening={isListening}
-            isSpeaking={isSpeaking}
-            isHandsFreeMode={isHandsFreeMode}
-            currentEmotion={currentEmotion}
-            onSelectEmotion={(emo) => {
-              setCurrentEmotion(emo);
-              saveToStorage('tara_emotion', emo);
-              addLog('info', 'EMOTION_CORE', `भावनात्मक अवस्था बदली: ${emo}`);
-            }}
-            onToggleVoice={isHandsFreeMode ? handleStopVoice : handleStartVoice}
-            onSendMessage={handleSendMessage}
-            laptopTelemetry={laptopTelemetry}
-            screenStream={screenStream}
-            onToggleScreenShare={handleToggleScreenShare}
-            onCaptureScreenSnapshot={handleCaptureScreenSnapshot}
-            onOpenCamera={() => setIsLiveCameraOpen(true)}
-            onOpenUploadPhoto={() => photoFileInputRef.current?.click()}
-            onOpenMemoryVault={() => setIsMemoryVaultOpen(true)}
-            attachedPhoto={attachedMedia ? { name: attachedMedia.name, previewUrl: attachedMedia.previewUrl } : null}
-            onClearAttachedPhoto={() => setAttachedMedia(null)}
-            className="w-full h-full min-h-0 max-h-full"
-          />
-        </section>
-
-        {/* WIDGET 3: FIXED SIZE SCI-FI HUD LOG CONSOLE (Auto-scroll neon console, strictly locked) */}
-        <section className="lg:col-span-4 flex flex-col h-full max-h-full min-h-0 overflow-hidden">
-          <SciFiHudLogConsole
-            chatMessages={chatMessages}
-            logs={logs}
-            onSendMessage={handleSendMessage}
-            isLoadingChat={isLoadingChat}
-            isListening={isListening}
-            onToggleVoice={isHandsFreeMode ? handleStopVoice : handleStartVoice}
-            liveSpeechTranscript={liveSpeechTranscript}
-            onClearLogs={() => setLogs([])}
-            className="w-full h-full min-h-0 max-h-full"
-          />
-        </section>
-      </main>
-
-      {/* STEALTH SECRET CAMERA SECURITY GUARD (Display 100% hidden, runs silently in background) */}
-      <div className="hidden pointer-events-none" aria-hidden="true" style={{ display: 'none' }}>
-        <TaraLiveCameraWidget
-          onPhotoCaptured={(media, prompt) => {
-            setAttachedMedia(media);
-            if (prompt) {
-              handleSendMessage(prompt, media);
-            }
-          }}
-          onSecurityStatusChange={(status) => {
-            setFaceSecurityState(status);
-          }}
-          onStrangerAlert={(msg) => {
-            handleTriggerStrangerDefense(msg || 'आप मेरे बॉस नहीं हैं।');
-          }}
-        />
-      </div>
+      )}
 
       {/* FABRICATION RATES & ESTIMATION MODAL OVERLAY */}
       {activeTab === 'rates' && (
@@ -3533,48 +3080,25 @@ export default function App() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-[#040c1b] border border-cyan-500/30 flex flex-col items-center text-center gap-3">
-                <div className="w-14 h-14 rounded-full bg-cyan-950 border border-cyan-400 flex items-center justify-center text-cyan-300 shadow-[0_0_20px_rgba(0,240,255,0.3)]">
-                  <Camera className="w-7 h-7" />
-                </div>
-                <div>
-                  <h3 className="font-heading font-bold text-sm text-cyan-200">लाइव कैमरा से फ़ोटो खींचें</h3>
-                  <p className="text-xs font-mono text-slate-400 mt-1">अपने लैपटॉप या मोबाइल कैमरे से लाइव फ़ोटो कैप्चर करें और तारा से पूछें।</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('assistant');
-                    setIsLiveCameraOpen(true);
-                  }}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-sky-600 hover:from-cyan-500 hover:to-sky-500 text-slate-950 font-bold font-mono text-xs flex items-center gap-2 shadow-md cursor-pointer transition-all"
-                >
-                  <Camera className="w-4 h-4" />
-                  <span>कैमरा खोलें (Open Camera)</span>
-                </button>
+            <div className="p-6 rounded-xl bg-[#040c1b] border border-cyan-500/30 flex flex-col items-center text-center gap-3">
+              <div className="w-16 h-16 rounded-full bg-cyan-950 border border-cyan-400 flex items-center justify-center text-cyan-300 shadow-[0_0_20px_rgba(0,240,255,0.3)]">
+                <Upload className="w-8 h-8" />
               </div>
-
-              <div className="p-4 rounded-xl bg-[#040c1b] border border-emerald-500/30 flex flex-col items-center text-center gap-3">
-                <div className="w-14 h-14 rounded-full bg-emerald-950 border border-emerald-400 flex items-center justify-center text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
-                  <Upload className="w-7 h-7" />
-                </div>
-                <div>
-                  <h3 className="font-heading font-bold text-sm text-emerald-200">फ़ाइल या गैलरी से फ़ोटो जोड़ें</h3>
-                  <p className="text-xs font-mono text-slate-400 mt-1">अपने डिवाइस से कोई भी इमेज अपलोड करें, तारा उसका पूरा विवरण देगी।</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('assistant');
-                    photoFileInputRef.current?.click();
-                  }}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-bold font-mono text-xs flex items-center gap-2 shadow-md cursor-pointer transition-all"
-                >
-                  <Upload className="w-4 h-4" />
-                  <span>फ़ाइल चुनें (Upload Photo)</span>
-                </button>
+              <div>
+                <h3 className="font-heading font-bold text-base text-cyan-200">फ़ाइल या गैलरी से फ़ोटो जोड़ें</h3>
+                <p className="text-xs font-mono text-slate-400 mt-1 max-w-md">अपने लैपटॉप या मोबाइल से कोई भी इमेज अपलोड करें, तारा AI उसका पूरा दृश्य विश्लेषण व विवरण देगी।</p>
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('assistant');
+                  photoFileInputRef.current?.click();
+                }}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-sky-600 hover:from-cyan-500 hover:to-sky-500 text-slate-950 font-bold font-mono text-xs flex items-center gap-2 shadow-md cursor-pointer transition-all"
+              >
+                <Upload className="w-4 h-4" />
+                <span>फ़ाइल चुनें (Upload Photo)</span>
+              </button>
             </div>
 
             {attachedMedia && (
@@ -3821,10 +3345,6 @@ export default function App() {
                   setIsAppHubModalOpen(false);
                   handleLaunchUrl(url, name);
                 }}
-                onOpenCamera={() => {
-                  setIsAppHubModalOpen(false);
-                  setIsLiveCameraOpen(true);
-                }}
                 onUploadPhoto={() => {
                   setIsAppHubModalOpen(false);
                   photoFileInputRef.current?.click();
@@ -3846,16 +3366,6 @@ export default function App() {
         onOpenFullRateList={() => setIsCalculationCardOpen(false)}
         initialService={calcModalService}
         initialQuantity={calcModalQuantity}
-      />
-
-      {/* TARA LIVE CAMERA MODAL (FOR SNAPPING PHOTOS) */}
-      <TaraLiveCameraModal
-        isOpen={isLiveCameraOpen}
-        onClose={() => setIsLiveCameraOpen(false)}
-        onPhotoCaptured={(media, prompt) => {
-          setAttachedMedia(media);
-          handleSendMessage(prompt || 'तारा, इस फ़ोटो को देखकर बताओ इसमें क्या दिख रहा है?', media);
-        }}
       />
 
       {/* TARA COGNITIVE HUMAN MEMORY VAULT MODAL */}

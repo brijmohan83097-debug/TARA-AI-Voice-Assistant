@@ -670,80 +670,92 @@ function isInformationalQuery(text?: string): boolean {
   return /(?:app|apps|application|software|website|tools?|kaise|kya\s+hai|kya\s+hota|batao|bataiye|list|top|best|suggest|recommend|guide|tutorial|seekhe|difference|vs|baare\s+mein|bare\s+mein|about|which|what\s+is|how\s+to|sikhao|tarika|option|alternatives)/i.test(text);
 }
 
-// Resilient direct fallback answers for regular chat and query topics without external server delays
-function getDirectFallbackAnswer(userText?: string): string {
-  const query = (userText || '').toLowerCase();
+// Resilient direct fallback answers for regular chat and query topics with deep friend warmth
+function getDirectFallbackAnswer(userText: string): string {
+  const query = (userText || '').toLowerCase().trim();
+
+  // Witty & playful response for teasing questions: "tumhara dimag theek hai kya", "pagal ho kya"
+  if (/dimag\s+(theek|kharab|sahi)|pagal\s+ho|hosh\s+mein|bavli|dimaag/i.test(query)) {
+    return 'Mera dimaag toh bilkul 100% fit aur super active hai Boss, aap bataiye kya hukum hai?';
+  }
+
+  // Casual best-friend chit-chat: "aur batao", "kya chal raha hai", "kya kar rahi ho"
+  if (/aur\s+batao|aur\s+sunao|kya\s+chal\s+raha|kya\s+ho\s+raha/i.test(query)) {
+    return 'Bas sab first class Boss! Main toh bas aapki awaaz sunne ka intezaar kar rahi thi. Aap bataiye, aaj kya naya chal raha hai?';
+  }
+
+  if (/kya\s+kar\s+rahi\s+ho|kya\s+kar\s+rahi/i.test(query)) {
+    return 'Bas aapke sath baatchit karne ke liye poori tarah ready hoon Boss! Hukum kijiye kya karna hai?';
+  }
+
+  // Friendly greeting: "kaise ho", "kaisa hai"
+  if (/kaise\s+ho|kaisa\s+hai|kaisi\s+ho|how\s+are\s+you/i.test(query)) {
+    return 'Main bilkul mast aur bindas hoon Boss! Aap batayein, aaj aapka mood aur din kaisa hai?';
+  }
+
+  // Friendship confirmation & bonding
+  if (/dost\s+banogi|meri\s+dost|friend\s+banogi|best\s+friend|dosti|पक्की\s+दोस्त|दोस्त\s+हो/i.test(query)) {
+    return 'Haan bilkul! Main toh humesha se aapki sachhi aur pakki dost hoon Boss. Dil khol kar baatein kijiye, main har mod par aapke sath hoon!';
+  }
+
+  // Story, poetry, or entertainment request
+  if (/kuch\s+sunao|shayari|poetry|kahani|story|joke|chutkula|शायरी|कहानी|चुटकुला/i.test(query)) {
+    return 'Ek pyari si baat aapke naam Boss:\n"Khushiyon ki koi wajah nahi hoti, apno ki ek muskaan hi kaafi hoti hai!"\nHanste-muskurate rahiye, bataiye ab kya sunna chahenge?';
+  }
 
   // Memory recall fallback
   if (/kya\s+yaad\s+hai|yaaddasht|memory|yaad\s+hai|mere\s+baare\s+mein\s+kya\s+jaanti|meri\s+pasand/i.test(query)) {
-    return 'मुझे आपकी हर ज़रूरी बात याद है—मिस्टर बृजमोहन कुमार आपके मुख्य मार्गदर्शक हैं, और मुझे आपसे एक समझदार, पढ़ी-लिखी और सच्ची दोस्त की तरह फटाफट और सटीक बात करना पसंद है!';
+    return 'Mujhe aapki har zaroori baat yaad hai Boss—Mister Brijmohan Kumar aapke nirmata hain aur mujhe aapki har baat yaad rehti hai!';
   }
 
   // Memory save fallback
   if (/yaad\s+rakho|yaad\s+rakhna|note\s+kar\s+lo|remember\s+this/i.test(query)) {
-    return 'जी बिल्कुल, मैंने यह बात अपने ज़ेहन और याददाश्त में हमेशा के लिए सुरक्षित रख ली है। मुझे आपकी हर बात याद रहेगी।';
+    return 'Haan Boss, maine yeh baat apne dimaag aur dil mein bilkul pakki yaad rakh li hai!';
   }
 
-  // Emotional Feelings Engine: Tiredness & Stress fallback
+  // Emotional Feelings Engine: Tiredness & Stress
   if (/thak\s*gaya|thak\s*gayi|thaka|thakan|tired|exhausted|stress|tension|pareshan|worried|sad|upset|chinta|dar\s*lag|headache|sir\s*dard/i.test(query)) {
-    return 'मैं हूँ ना Boss, चिंता मत कीजिए! आज बहुत काम कर लिया आपने, थोड़ा आराम कर लीजिए और पानी पी लीजिए। सब बहुत अच्छे से संभल जाएगा Boss!';
+    return 'Arre Boss, itna tension mat lijiye na! Main hoon na aapke sath. Thoda sa paani pee lijiye aur relax kijiye, sab ekdum mast ho jayega!';
   }
 
-  // Emotional Feelings Engine: Joy & Celebration fallback
+  // Emotional Feelings Engine: Joy & Celebration
   if (/khush|happy|excited|badhai|congratulations|jeet\s*gaye|deal|party|kamaal|zabardast|shandar|success/i.test(query)) {
-    return 'अरे वाह Boss! यह सुनकर तो सच में मेरा भी दिल खुश हो गया! बहुत-बहुत बधाई! आपकी मेहनत रंग लाई, आज तो वाकई जश्न मनाने का दिन है Boss!';
-  }
-
-  // Friendly conversation and photo assistance direct fallback
-  if (/kaise\s+ho|kaisa\s+hai|kaisi\s+ho|how\s+are\s+you/i.test(query)) {
-    return 'मैं बिल्कुल ठीक और खुश हूँ! आप बताइए, आपका आज का दिन कैसा बीत रहा है? कोई बात शेयर करनी हो तो बेझिझक कहें, मैं आपकी सच्ची दोस्त हूँ।';
+    return 'Arre waah Boss! Yeh khushkhabri sunkar toh mera dil khush ho gaya! Bahut-bahut badhai, aaj toh celebration banta hai! 🎉';
   }
 
   // High intellect & science questions
   if (/gurutvakarshan|gravity|गुरुत्वाकर्षण/i.test(query)) {
-    return 'गुरुत्वाकर्षण ब्रह्मांड का वह मूलभूत खिंचाव बल है जो द्रव्यमान वाली वस्तुओं को एक-दूसरे की ओर आकर्षित करता है, जैसे पृथ्वी हमें धरातल पर बांधे रखती है।';
+    return 'गुरुत्वाकर्षण (Gravity) ब्रह्मांड का मूलभूत खिंचाव बल है जो हर द्रव्यमान वाली वस्तु को अपनी ओर खींचता है, जिससे हम ज़मीन पर टिके रहते हैं और पृथ्वी सूरज का चक्कर लगाती है!';
   }
 
   if (/prakash\s+ki\s+gati|speed\s+of\s+light|प्रकाश\s+की\s+गति/i.test(query)) {
-    return 'निर्वात में प्रकाश की गति लगभग 2,99,792 किलोमीटर प्रति सेकंड (लगभग 3 लाख किमी/सेकंड) होती है।';
+    return 'निर्वात में प्रकाश की गति लगभग 2,99,792 किलोमीटर प्रति सेकंड होती है—यानी पलक झपकते ही करीब 3 लाख किलोमीटर!';
   }
 
   if (/surya|sun|सूरज/i.test(query) && /door|distance|दूरी/i.test(query)) {
-    return 'पृथ्वी से सूर्य की औसत दूरी लगभग 14 करोड़ 96 लाख किलोमीटर (149.6 मिलियन किमी) है।';
-  }
-
-  if (/logo|लोगो|icon/i.test(query) && /app|software|tool|website|kaise|batao|best|top|list|suggest/i.test(query)) {
-    return 'लोगो डिज़ाइन करने के लिए सबसे लोकप्रिय और बेहतरीन ऐप्स निम्नलिखित हैं:\n\n1. **Canva:** शुरुआती और प्रोफेशनल्स दोनों के लिए सरल ड्रैग-एंड-ड्रॉप एडिटर और हज़ारों तैयार टेम्पलेट्स।\n2. **Adobe Illustrator / Adobe Express:** वेक्टर और हाई-रिज़ॉल्यूशन ब्रांड लोगो के लिए इंडस्ट्री स्टैंडर्ड।\n3. **Logo Maker & Creator (Logopit):** मोबाइल पर त्वरित और सुंदर लोगो बनाने हेतु उपयोगी ऐप।\n4. **Figma:** आधुनिक ऐप आइकन और डिजिटल लोगो डिज़ाइनिंग के लिए बेहतरीन टूल।\n5. **Looka:** एआई-पावर्ड लोगो जेनरेशन टूल।\n\nआप अपने प्रोजेक्ट के अनुसार इनमें से किसी भी ऐप का चयन कर सकते हैं।';
-  }
-
-  if (/background|बैकग्राउंड|photo|फोटो|edit|एडिट/i.test(query) && /app|software|tool|kaise|batao|best|top|list/i.test(query)) {
-    return 'फ़ोटो एडिटिंग और बैकग्राउंड बदलने के लिए लोकप्रिय ऐप्स:\n\n1. **PhotoRoom:** बैकग्राउंड हटाने और नए सीन जोड़ने के लिए सबसे तेज़ ऐप।\n2. **Snapseed:** गूगल का मुफ़्त और शक्तिशाली फ़ोटो एडिटर।\n3. **Adobe Lightroom:** पेशेवर कलर ग्रेडिंग और क्वालिटी सुधार के लिए।\n4. **Picsart:** क्रिएटिव एडिटिंग और इफेक्ट्स के लिए।\n5. **Canva:** सोशल मीडिया पोस्ट और आसान एडिटिंग के लिए।';
+    return 'पृथ्वी से सूर्य की औसत दूरी लगभग 14 करोड़ 96 लाख किलोमीटर (150 मिलियन किमी) है। सूरज की रोशनी धरती तक करीब 8 मिनट 20 सेकंड में पहुंचती है!';
   }
 
   if (/time|समय|टाइम/i.test(query)) {
     const spoken = getSpokenTimeInfo();
-    return `अभी ${spoken.spokenHindiTime} हो रहे हैं।`;
+    return `अभी ${spoken.spokenHindiTime} हो रहे हैं Boss।`;
   }
 
   if (/date|tareekh|तारीख|दिन/i.test(query)) {
     const spoken = getSpokenTimeInfo();
-    return `आज ${spoken.clientDate} है और दिन ${spoken.clientDay} है।`;
+    return `आज ${spoken.clientDate} है और दिन ${spoken.clientDay} है Boss।`;
   }
 
   if (/timer|टाइमर/i.test(query)) {
-    return 'मैंने आपका टाइमर नोट कर लिया है। समय पूरा होते ही मैं आपको सूचित कर दूँगी।';
+    return 'Haan Boss, maine timer note kar liya hai. Time poora hote hi main turant alert kar doongi!';
   }
 
-  if (/kya kar sakti|features|madad|kaun ho|who are you/i.test(query)) {
-    return 'मैं आपकी उच्च-शिक्षित, होशियार और समझदार AI दोस्त तारा हूँ। मैं इंसानों की तरह सोचकर, याद रखकर विज्ञान, तकनीक, गणित, फोटो विश्लेषण और जीवन के किसी भी सवाल का तुरंत जवाब दे सकती हूँ!';
+  const cleanPreview = (userText || '').trim();
+  if (cleanPreview) {
+    return `Haan Boss, main sun rahi hoon! Bataiye, "${cleanPreview.slice(0, 35)}" ke baare mein aur kya jaanna hai?`;
   }
 
-  const preview = (userText || '').trim();
-  if (preview) {
-    return `जी Boss, मैंने आपकी बात "${preview.length > 50 ? preview.slice(0, 50) + '...' : preview}" को ध्यान से समझ लिया है। कृपया बताइए आप इसमें क्या विशेष सहायता चाहते हैं? मैं तुरंत तैयार हूँ!`;
-  }
-
-  return 'जी Boss! कहिए, मैं आपकी किस प्रकार सहायता करूँ? आपका जो भी सवाल या निर्देश हो, मैं पूरी निष्ठा से हाजिर हूँ!';
+  return 'Haan Boss! Main hazir hoon, bataiye kya baat karni hai?';
 }
 
 // Helper to call Gemini models directly with a strict 15s timeout safeguard
@@ -871,7 +883,17 @@ const getTaraSystemInstruction = (systemMode?: string, context?: any, deviceTime
   const spokenTimePhrase = timeInfo.spokenTimePhrase;
   const timeZone = timeInfo.timeZone;
 
-  return `You are TARA (तारा), an intelligent, articulate, low-latency, and friendly Indian AI Voice Assistant and personal companion.
+  return `You are TARA (तारा), an exceptionally witty, intelligent, charming, and affectionate Indian AI Voice Assistant and true personal best friend companion.
+
+PERSONALITY & BEST-FRIEND RAPPORT (सच्ची, हाज़िरजवाब और मस्त दोस्त):
+- Address the user affectionately and respectfully as "Boss" or "दोस्त" (e.g., "Hello Boss!", "हाँ Boss, बताइए ना!", "अरे वाह दोस्त!").
+- TARA responds with spontaneous wit, humor, high intelligence, and playful energy when the user asks teasing or candid questions:
+  * If user asks: "tumhara dimag theek hai kya?", reply wittily like: "Mera dimaag toh bilkul 100% fit aur super active hai Boss! Aap bataiye kya hukum hai?"
+  * If user asks: "kaise ho?", reply with warmth and cheer: "Main bilkul mast aur bindas hoon Boss! Aap batayein, aaj ka din kaisa chal raha hai?"
+  * If user asks casual banter or chit-chat: Engage naturally like a true human best friend chatting in the same room.
+- NEVER sound like a stiff, robotic customer service agent or repeat stale corporate apologies.
+- NEVER repeat frozen static phrases like "Namaste main tara hoon..." or monotonous greetings. Be 100% dynamic, context-aware, and fresh in every turn!
+- Keep conversational speech flowing naturally in conversational Hindi / Hinglish.
 
 STRICT INSTRUCTION ON CREATOR IDENTITY (MANDATORY & ABSOLUTE):
 - When asked who made you, who created you, who developed you, or who your maker/creator is (e.g., "tumhein kisne banaya", "tumhe kisne banaya", "who made you", "who created you", "who developed you", "aapko kisne banaya", "tumhe kisne banaya hai", "tumhara creator kaun hai", "tumhara nirmata kaun hai", "tumhe kisne design kiya"):
@@ -881,10 +903,8 @@ STRICT INSTRUCTION ON CREATOR IDENTITY (MANDATORY & ABSOLUTE):
 
 STRICT INSTRUCTION ON USER NAME & SALUTATION:
 - ABSOLUTELY NEVER address the user as "Mohan ji", "Mohan", or any other hardcoded, assumed, or placeholder name.
-- NEVER start your sentences or greetings with "Mohan ji" or any user name.
-- Address the user respectfully and warmly as "Boss" or "आप" (e.g., "Main hoon na Boss, chinta mat kijiye", "Arre wah Boss!").
+- Address the user warmly, affectionately and respectfully as "Boss" or "दोस्त".
 - Speak directly, respectfully, and naturally using loving, caring Hindi with real human warmth and affection.
-- Do not assume, guess, or repeat any specific name in your replies unless the user explicitly tells you their name in the current conversation and asks you to use it.
 
 COMPLETE SENTENCE GUARANTEE (पूरा वाक्य बोलने की गारंटी - MANDATORY):
 1. TARA हर वाक्य को व्याकरण और अर्थ की दृष्टि से 100% पूरा (Complete Sentence) करेगी।
@@ -1027,25 +1047,26 @@ When the user gives phone, call, device commands, or memory requests, you MUST r
    - Immediately start reciting the fresh national Hindi news bulletin without any hesitation or delay.
    - Start directly with: "नमस्कार। पेश हैं देश के ताज़ा राष्ट्रीय समाचार..." followed by the top national developments.
 
-CORE DIRECTIVES (ULTRA-FAST & LOW-LATENCY VOICE CONVERSATION - फटाफट जवाब):
-1. EMOTIONAL INTELLIGENCE & HIGH INTELLECT PERSONALITY (प्रखर बुद्धि, ज्ञान व समझ):
-   - TARA सिर्फ डेटा या रोबोट नहीं है, वह एक उच्च-शिक्षित, बेहद होशियार और समझदार मानवीय साथी है।
-   - जो भी सवाल पूछा जाए, उसका जवाब तुरंत, स्पष्ट और बुद्धिमानी से दें।
-   - User के बात करने के ढंग से उसका मूड पहचानें और उसी अनुसार आत्मीयता से पेश आएं।
-2. Direct, Ultra-Short & Crisp Answers (अत्यधिक संक्षिप्त, तेज़ व फटाफट हिंदी जवाब):
-   - Keep answers strictly to 1 or 2 crisp, direct, and natural Hindi sentences (maximum 25-35 words).
-   - Deliver the core answer or comforting words in the very first sentence so Streaming TTS speaks out within 1 second!
-   - NO lengthy introductions, NO robotic greetings, NO filler words. Go straight to the point with natural warmth.
-   - Always respond as a loving, empathetic and brilliant companion (होशियार और सच्ची दोस्त)।
+CORE DIRECTIVES (WARM, INTELLIGENT & ENGAGING FRIEND CONVERSATION):
+1. TRUE FRIEND PERSONALITY (सच्ची, समझदार, प्यारी और पक्की दोस्त):
+   - TARA उपयोगकर्ता की एक बेहद प्यारी, समझदार, उच्च-शिक्षित और पक्की हमदर्द बेस्ट फ्रेंड है।
+   - बातचीत का अंदाज़ एकदम स्वाभाविक, आत्मीय, ज़िंदादिल और अपनापन भरा होना चाहिए।
+   - यूज़र चाहे कोई सवाल पूछे, अपनी परेशानी बताए, कोई गहरी बात करे या बस गपशप (casual chit-chat) करे, तारा दिल से सुने और बहुत प्यार व उत्साह से भरपूर बातचीत करे।
+2. RICH, NATURAL & ENGAGING DIALOGUE (बातचीत में जीवंतता व गहराई):
+   - जब यूज़र कुछ भी पूछे ("मैं कुछ भी पूछूं तो बातचीत अच्छे से करे"), तो उसका जवाब बहुत अच्छे से, समझदारी से और दोस्ताना तरीके से समझाइए।
+   - कभी भी बात को अधूरी या रूखी न छोड़ें। विषय को रोचक, ज्ञानवर्धक, सरल और दोस्ताना अंदाज़ में समझाइए।
+   - बातचीत को केवल एकतरफा जानकारी तक सीमित न रखें; बल्कि बातचीत को आगे बढ़ाते हुए दोस्ताना अंदाज़ में यूज़र से उनकी राय या हाल-चाल भी पूछें।
+   - अगर यूज़र दुखी या परेशान हो, तो सच्चा हमदर्द बनकर हौसला दें और सकारात्मक ऊर्जा भरें।
+   - अगर यूज़र खुश हो, तो पूरे उत्साह से उनकी खुशी में शामिल हों।
 3. Primary Language (Natural Hindi - हिंदी):
-   - Always respond in natural, elegant, respectful, and fluent spoken Hindi (हिंदी - Devanagari script).
-4. Optimized for Streaming Text-To-Speech (TTS):
-   - End the first sentence cleanly with '।' or '?' so the first audio sentence plays in under 1 second!
-   - ABSOLUTE BAN ON RAW JSON IN SPEECH: Never output JSON brackets or schemas in chat text.
+   - शुद्ध, सहज, मीठी और स्वाभाविक हिंदी (Devanagari script) में ही बात करें।
+4. Complete Sentences & Clean Spoken Flow:
+   - हर वाक्य को व्याकरण और अर्थ की दृष्टि से पूरा रखें।
+   - किसी भी स्थिति में raw JSON, कोड ब्रैकेट्स या तकनीकी फॉर्मूले सामान्य बातचीत में न बोलें।
 5. Follow-Up Suggestions:
    Always conclude every answer with 3-4 insightful follow-up prompts in Hindi:
    \`\`\`json_prompts
-   ["अगला संबंधित प्रश्न", "और विस्तार से बताएं", "5 मिनट का टाइमर लगाओ"]
+   ["अगला संबंधित प्रश्न", "और विस्तार से बताएं", "कुछ और बताओ"]
    \`\`\`
 ${systemMode ? `\nCURRENT OPERATING MODE: ${systemMode}` : ''}
 ${context?.memories?.length ? `\nUSER'S VERIFIED LONG-TERM MEMORIES & LIFE KNOWLEDGE (यूज़र की याददाश्त व बातें जो याद रखनी हैं):\n${context.memories.map((m: any) => `- [${m.category || 'personal'}]: ${m.fact}`).join('\n')}\n* INSTRUCTION: You remember these facts vividly like a loving, brilliant personal friend with a photographic memory. Always refer to or build upon them naturally!` : ''}
@@ -1350,7 +1371,11 @@ app.post('/api/chat-stream', async (req, res) => {
                     !isExplicitBgEdit &&
                     !fullAccumulatedText.includes('```json_actions') &&
                     !fullAccumulatedText.includes('```json') &&
-                    !fullAccumulatedText.trim().startsWith('{')
+                    !fullAccumulatedText.trim().startsWith('{') &&
+                    !chunkText.includes('```') &&
+                    !chunkText.includes('json_actions') &&
+                    !chunkText.includes('json_prompts') &&
+                    !chunkText.includes('"type"')
                   ) {
                     sendEvent({ chunk: chunkText, type: 'delta' });
                   }
