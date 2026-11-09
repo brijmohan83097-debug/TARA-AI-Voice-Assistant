@@ -9,8 +9,9 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Activity, Cpu, Database, Radio, Sparkles, Orbit } from 'lucide-react';
+import { Activity, Cpu, Database, Radio, Sparkles, Orbit, Network } from 'lucide-react';
 import { SystemMode } from '../types';
+import { MiniArchitecturalMap } from './MiniArchitecturalMap';
 
 interface CurvedDiagnosticPanelProps {
   isSpeaking: boolean;
@@ -28,6 +29,7 @@ export const CurvedDiagnosticPanel: React.FC<CurvedDiagnosticPanelProps> = ({
   className = '',
 }) => {
   const waveCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [panelTab, setPanelTab] = useState<'map' | 'diagnostics'>('map');
 
   // Animated bar chart data (16 bars with dynamic heights matching photo)
   const [barHeights, setBarHeights] = useState<number[]>([
@@ -137,39 +139,64 @@ export const CurvedDiagnosticPanel: React.FC<CurvedDiagnosticPanelProps> = ({
             DIAGNOSTIC MATRIX
           </span>
         </div>
-        <span className="font-mono text-[9px] text-cyan-400/90 font-bold px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/30">
-          SYS-01 • LIVE
-        </span>
+        <div className="flex items-center gap-1 p-0.5 rounded bg-slate-950/80 border border-cyan-500/30 font-mono text-[9px]">
+          <button
+            type="button"
+            onClick={() => setPanelTab('map')}
+            className={`px-2 py-0.5 rounded transition-all cursor-pointer flex items-center gap-1 ${
+              panelTab === 'map' ? 'bg-cyan-500/40 text-cyan-100 font-bold' : 'text-slate-400 hover:text-cyan-300'
+            }`}
+          >
+            <Network className="w-2.5 h-2.5 text-cyan-400" />
+            <span>ARCH MAP</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPanelTab('diagnostics')}
+            className={`px-2 py-0.5 rounded transition-all cursor-pointer flex items-center gap-1 ${
+              panelTab === 'diagnostics' ? 'bg-cyan-500/40 text-cyan-100 font-bold' : 'text-slate-400 hover:text-cyan-300'
+            }`}
+          >
+            <Activity className="w-2.5 h-2.5 text-cyan-400" />
+            <span>METRICS</span>
+          </button>
+        </div>
       </div>
 
-      {/* 2. PRIMARY VERTICAL BAR CHART (Direct match to Image_15 / IMG_20261013_145133.jpg) */}
-      <div className="relative z-10 my-2 p-2 rounded-xl bg-[#010918]/85 border border-cyan-500/30 shadow-inner flex flex-col gap-1.5 shrink-0">
-        <div className="flex items-center justify-between text-[9px] font-mono text-cyan-400">
-          <span>NEURAL HARMONICS SPECTRUM</span>
-          <span className="text-cyan-300 font-bold">{isSpeaking ? 'ACTIVE VOCAL' : 'RESONANCE 432Hz'}</span>
+      {/* 2. TOP CONTENT: EITHER MINI ARCHITECTURAL MAP OR PRIMARY VERTICAL BAR CHART */}
+      {panelTab === 'map' ? (
+        <div className="relative z-10 my-1.5 shrink-0 h-52">
+          <MiniArchitecturalMap isSpeaking={isSpeaking} isListening={isListening} className="w-full h-full" />
         </div>
+      ) : (
+        <div className="relative z-10 my-2 p-2 rounded-xl bg-[#010918]/85 border border-cyan-500/30 shadow-inner flex flex-col gap-1.5 shrink-0">
+          <div className="flex items-center justify-between text-[9px] font-mono text-cyan-400">
+            <span>NEURAL HARMONICS SPECTRUM</span>
+            <span className="text-cyan-300 font-bold">{isSpeaking ? 'ACTIVE VOCAL' : 'RESONANCE 432Hz'}</span>
+          </div>
 
-        {/* 16 Vertical Glowing Bars */}
-        <div className="h-20 w-full flex items-end justify-between gap-1 px-1 pt-2 pb-0.5 border-b border-cyan-500/20 bg-slate-950/60 rounded">
-          {barHeights.map((h, idx) => (
-            <div
-              key={idx}
-              className="flex-1 flex flex-col justify-end items-center h-full group"
-            >
+          {/* 16 Vertical Glowing Bars */}
+          <div className="h-20 w-full flex items-end justify-between gap-1 px-1 pt-2 pb-0.5 border-b border-cyan-500/20 bg-slate-950/60 rounded">
+            {barHeights.map((h, idx) => (
               <div
-                className="w-full rounded-t-sm transition-all duration-300 relative shadow-[0_0_8px_rgba(0,240,255,0.6)]"
-                style={{
-                  height: `${h}%`,
-                  background:
-                    idx % 3 === 0
-                      ? 'linear-gradient(to top, rgba(0,240,255,0.4), #ffffff)'
-                      : 'linear-gradient(to top, rgba(0,240,255,0.3), #00f0ff)',
-                }}
-              />
-            </div>
-          ))}
+                key={idx}
+                className="flex-1 flex flex-col justify-end items-center h-full group"
+              >
+                <div
+                  className="w-full rounded-t-sm transition-all duration-300 relative shadow-[0_0_8px_rgba(0,240,255,0.6)]"
+                  style={{
+                    height: `${h}%`,
+                    background:
+                      idx % 3 === 0
+                        ? 'linear-gradient(to top, rgba(0,240,255,0.4), #ffffff)'
+                        : 'linear-gradient(to top, rgba(0,240,255,0.3), #00f0ff)',
+                  }}
+                />
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 3. OSCILLOSCOPE WAVEFORM SINE GRAPH (Matches middle wave in photo) */}
       <div className="relative z-10 my-1 p-2 rounded-xl bg-[#010918]/85 border border-cyan-500/30 shadow-inner flex flex-col gap-1 shrink-0">

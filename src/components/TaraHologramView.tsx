@@ -17,7 +17,9 @@ import React, { useState } from 'react';
 import { HologramTopBar } from './HologramTopBar';
 import { CurvedDiagnosticPanel } from './CurvedDiagnosticPanel';
 import { CurvedVoiceLogsPanel } from './CurvedVoiceLogsPanel';
+import { HologramEntity3D } from './HologramEntity3D';
 import { TaraInteractiveAvatar } from './TaraInteractiveAvatar';
+import { FloatingCyberneticModules } from './FloatingCyberneticModules';
 import { HologramBottomDock } from './HologramBottomDock';
 import { ChatMessage, SystemLog, SystemMode, TaraEmotion } from '../types';
 
@@ -74,6 +76,8 @@ export const TaraHologramView: React.FC<TaraHologramViewProps> = ({
 }) => {
   // View mode switcher for mobile/small screens: 'entity' | 'diagnostics' | 'dialogue'
   const [activeView, setActiveView] = useState<'entity' | 'diagnostics' | 'dialogue'>('entity');
+  // Visual mode in center chamber: 'orb' (futuristic AI Core orb & modules) | 'wireframe' | 'avatar'
+  const [entityVisualMode, setEntityVisualMode] = useState<'orb' | 'wireframe' | 'avatar'>('orb');
 
   return (
     <div className="relative w-full h-screen max-h-screen flex flex-col bg-[#02050e] text-cyan-200 overflow-hidden select-none">
@@ -147,7 +151,7 @@ export const TaraHologramView: React.FC<TaraHologramViewProps> = ({
         {(isSpeaking || isListening) && (
           <div
             className={`absolute top-[48%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] sm:w-[500px] h-[380px] sm:h-[500px] rounded-full blur-[90px] pointer-events-none transition-all duration-500 ${
-              isListening ? 'bg-rose-500/15 animate-pulse' : 'bg-cyan-400/20 animate-pulse'
+              isListening ? 'bg-sky-400/20 animate-pulse' : 'bg-cyan-400/20 animate-pulse'
             }`}
           />
         )}
@@ -198,23 +202,91 @@ export const TaraHologramView: React.FC<TaraHologramViewProps> = ({
           </section>
 
           {/* =================================================================
-              CENTER AREA: TARA INTERACTIVE AVATAR (image_28.png)
-              Live talking video container with real-time lip-sync, blinking,
-              breathing postures, biometric reticles, and holographic glow
+              CENTER AREA: MULTI-MODULE FUTURISTIC DASHBOARD (AI CORE ORB)
+              Default: Glowing concentric particle AI Core sphere ("START AI")
+              with floating cybernetic modules (Nodes, Skills, Vision, Settings)
+              and connecting vector lines.
               ================================================================= */}
           <section
             className={`flex-1 h-full max-h-full min-h-0 relative flex flex-col items-center justify-center transition-all duration-300 ${
               activeView === 'entity' ? 'flex' : 'hidden lg:flex'
             }`}
           >
-            <TaraInteractiveAvatar
-              isSpeaking={isSpeaking}
-              isListening={isListening}
-              isHandsFreeMode={isHandsFreeMode}
-              currentEmotion={currentEmotion}
-              onTapEntity={onToggleVoice}
-              className="w-full h-full"
-            />
+            {/* Visual Mode Selector: AI Core Dashboard vs 3D Wireframe vs Avatar Photo */}
+            <div className="absolute top-2 z-30 flex items-center gap-1.5 p-1 rounded-full bg-[#030d1d]/90 border border-cyan-500/35 backdrop-blur-md shadow-[0_0_20px_rgba(0,240,255,0.25)]">
+              <button
+                type="button"
+                onClick={() => setEntityVisualMode('orb')}
+                className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold tracking-wider cursor-pointer transition-all ${
+                  entityVisualMode === 'orb'
+                    ? 'bg-cyan-500/40 text-white border border-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.6)]'
+                    : 'text-cyan-300/70 hover:text-cyan-200'
+                }`}
+                title="AI Core Orb एवं मल्टी-मॉड्यूल डैशबोर्ड"
+              >
+                ⚡ AI CORE (डैशबोर्ड)
+              </button>
+              <button
+                type="button"
+                onClick={() => setEntityVisualMode('wireframe')}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold tracking-wider cursor-pointer transition-all ${
+                  entityVisualMode === 'wireframe'
+                    ? 'bg-cyan-500/40 text-white border border-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.6)]'
+                    : 'text-cyan-300/70 hover:text-cyan-200'
+                }`}
+                title="3D वायरफ़्रेम मोड"
+              >
+                🌐 3D वायरफ़्रेम
+              </button>
+              <button
+                type="button"
+                onClick={() => setEntityVisualMode('avatar')}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold tracking-wider cursor-pointer transition-all ${
+                  entityVisualMode === 'avatar'
+                    ? 'bg-cyan-500/40 text-white border border-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.6)]'
+                    : 'text-cyan-300/70 hover:text-cyan-200'
+                }`}
+                title="अवतार फ़ोटो फ्रेम"
+              >
+                👤 अवतार फ़ोटो
+              </button>
+            </div>
+
+            {entityVisualMode === 'orb' ? (
+              <FloatingCyberneticModules
+                isSpeaking={isSpeaking}
+                isListening={isListening}
+                isHandsFreeMode={isHandsFreeMode}
+                currentEmotion={currentEmotion}
+                systemMode={systemMode}
+                onSelectSystemMode={onSelectSystemMode}
+                onToggleVoice={onToggleVoice}
+                onTriggerIndiaNews={onTriggerIndiaNews}
+                onOpenMusicPlayer={onOpenMusicPlayer}
+                onOpenRatesTable={onOpenRatesTable}
+                onOpenCalculator={onOpenCalculator}
+                onOpenMemoryVault={onOpenMemoryVault}
+                className="w-full h-full"
+              />
+            ) : entityVisualMode === 'wireframe' ? (
+              <HologramEntity3D
+                isSpeaking={isSpeaking}
+                isListening={isListening}
+                isHandsFreeMode={isHandsFreeMode}
+                currentEmotion={currentEmotion}
+                onTapEntity={onToggleVoice}
+                className="w-full h-full"
+              />
+            ) : (
+              <TaraInteractiveAvatar
+                isSpeaking={isSpeaking}
+                isListening={isListening}
+                isHandsFreeMode={isHandsFreeMode}
+                currentEmotion={currentEmotion}
+                onTapEntity={onToggleVoice}
+                className="w-full h-full"
+              />
+            )}
           </section>
 
           {/* =================================================================

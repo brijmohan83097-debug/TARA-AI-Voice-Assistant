@@ -20,8 +20,13 @@ import {
   Volume2,
   Radio,
   Compass,
+  Copy,
+  Check,
+  Zap,
 } from 'lucide-react';
 import { ChatMessage, SystemLog } from '../types';
+import { speechEngine } from '../utils/speech';
+import ReactMarkdown from 'react-markdown';
 
 interface CurvedVoiceLogsPanelProps {
   chatMessages: ChatMessage[];
@@ -46,8 +51,15 @@ export const CurvedVoiceLogsPanel: React.FC<CurvedVoiceLogsPanelProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'dialogue' | 'logs' | 'network'>('dialogue');
   const [inputText, setInputText] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const radarCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const handleCopyText = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   // Equalizer bar heights (12 bars dancing in real time)
   const [equalizerBars, setEqualizerBars] = useState<number[]>([
@@ -178,10 +190,11 @@ export const CurvedVoiceLogsPanel: React.FC<CurvedVoiceLogsPanelProps> = ({
   };
 
   const suggestedPrompts = [
-    'और बताओ, कैसी हो?',
-    'आज का दिन कैसा बीत रहा है?',
-    'कोई अच्छी शायरी सुनाओ',
+    'नमस्ते तारा, आज का क्या हाल है?',
+    'ताज़ा समाचार बताओ',
     'गाना बजाओ',
+    'फैब्रिकेशन रेट्स बताओ',
+    'कैलकुलेटर खोलो',
   ];
 
   return (
@@ -205,7 +218,7 @@ export const CurvedVoiceLogsPanel: React.FC<CurvedVoiceLogsPanelProps> = ({
         <div className="flex items-center gap-1.5">
           <MessageSquare className="w-3.5 h-3.5 text-cyan-300" />
           <span className="font-heading font-black text-xs tracking-wider text-cyan-100">
-            NEURAL INTERFACE
+            SPLIT-SCREEN CHAT & HUD
           </span>
         </div>
         <div className="flex items-center gap-1 p-0.5 rounded bg-slate-950/80 border border-cyan-500/30 font-mono text-[9px]">
@@ -230,7 +243,7 @@ export const CurvedVoiceLogsPanel: React.FC<CurvedVoiceLogsPanelProps> = ({
         </div>
       </div>
 
-      {/* 2. CIRCULAR RADAR GAUGE & AUDIO EQUALIZER (Exact Match to Photo Upper-Right) */}
+      {/* 2. CIRCULAR RADAR GAUGE & AUDIO EQUALIZER */}
       <div className="relative z-10 my-2 p-2 rounded-xl bg-[#010918]/85 border border-cyan-500/30 shadow-inner flex items-center gap-2.5 shrink-0">
         {/* Rotating Circular Target Radar Dial */}
         <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
@@ -287,31 +300,73 @@ export const CurvedVoiceLogsPanel: React.FC<CurvedVoiceLogsPanelProps> = ({
               <div className="h-full flex flex-col items-center justify-center text-center p-3 text-cyan-300/60 font-mono text-[10px]">
                 <Radio className="w-6 h-6 mb-1 text-cyan-400/50 animate-pulse" />
                 <p>TARA न्यूरल वॉइस फीड सक्रिय है।</p>
-                <p className="text-[9px] text-slate-400 mt-0.5">बोलकर या टाइप करके सवाल पूछें।</p>
+                <p className="text-[9px] text-slate-400 mt-0.5">बोलकर या नीचे किसी बटन पर क्लिक करके बात शुरू करें।</p>
               </div>
             ) : (
-              chatMessages.slice(-8).map((msg) => (
+              chatMessages.slice(-10).map((msg) => (
                 <div
                   key={msg.id}
-                  className={`p-2 rounded-xl text-[10px] font-mono leading-relaxed transition-all ${
+                  className={`p-2.5 rounded-xl text-[10px] font-mono leading-relaxed transition-all relative group ${
                     msg.sender === 'user'
-                      ? 'bg-[#041a3a]/80 border border-cyan-500/40 text-cyan-100 ml-4'
-                      : 'bg-[#021128]/85 border border-cyan-400/50 text-cyan-200 mr-2 shadow-[0_0_12px_rgba(0,240,255,0.1)]'
+                      ? 'bg-[#041a3a]/90 border border-cyan-500/50 text-cyan-100 ml-4 shadow-[0_0_10px_rgba(0,240,255,0.1)]'
+                      : 'bg-[#021128]/95 border border-cyan-400/60 text-cyan-200 mr-2 shadow-[0_0_15px_rgba(0,240,255,0.15)]'
                   }`}
                 >
-                  <div className="flex items-center justify-between text-[8px] text-cyan-400/80 mb-0.5 font-bold">
-                    <span>{msg.sender === 'user' ? '👤 BOSS' : '⚡ TARA AI'}</span>
-                    <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  <div className="flex items-center justify-between text-[8px] text-cyan-400/80 mb-1 font-bold pb-1 border-b border-cyan-500/20">
+                    <span className="flex items-center gap-1">
+                      {msg.sender === 'user' ? (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                          <span>👤 BOSS</span>
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-2.5 h-2.5 text-cyan-300 animate-pulse" />
+                          <span className="text-cyan-200 font-bold">⚡ TARA AI</span>
+                        </>
+                      )}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyText(msg.id, msg.text)}
+                        className="p-0.5 hover:text-white transition-colors"
+                        title="टेक्स्ट कॉपी करें"
+                      >
+                        {copiedId === msg.id ? <Check className="w-2.5 h-2.5 text-emerald-400" /> : <Copy className="w-2.5 h-2.5" />}
+                      </button>
+                      {msg.sender === 'assistant' && (
+                        <button
+                          type="button"
+                          onClick={() => speechEngine.speak(msg.text, true)}
+                          className="p-0.5 hover:text-cyan-200 transition-colors"
+                          title="आवाज़ सुनें"
+                        >
+                          <Volume2 className="w-2.5 h-2.5 text-cyan-400" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <p className="whitespace-pre-wrap">{msg.text}</p>
+                  <div className="prose prose-invert max-w-none text-[10px] text-cyan-100 leading-relaxed">
+                    <ReactMarkdown>{msg.text}</ReactMarkdown>
+                  </div>
                 </div>
               ))
             )}
 
+            {/* HIGH-TECH CYBERNETIC TYPING INDICATOR */}
             {isLoadingChat && (
-              <div className="p-2 rounded-xl bg-[#021128]/80 border border-cyan-400/40 text-cyan-300 text-[10px] font-mono flex items-center gap-1.5 animate-pulse">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
-                <span>तारा सोच रही है...</span>
+              <div className="p-2.5 rounded-xl bg-[#021128]/95 border border-cyan-400/60 text-cyan-300 text-[10px] font-mono flex items-center justify-between shadow-[0_0_15px_rgba(0,240,255,0.25)] mr-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-300 animate-spin" />
+                  <span className="font-bold tracking-wider">TARA AI सोच रही है</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:0ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:150ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:300ms]" />
+                </div>
               </div>
             )}
           </div>
@@ -334,7 +389,7 @@ export const CurvedVoiceLogsPanel: React.FC<CurvedVoiceLogsPanelProps> = ({
             key={pIdx}
             type="button"
             onClick={() => onSendMessage(p)}
-            className="px-2 py-0.5 rounded-lg bg-cyan-950/70 hover:bg-cyan-900 border border-cyan-500/30 text-cyan-300 hover:text-white font-mono text-[8px] whitespace-nowrap cursor-pointer transition-colors shadow-sm"
+            className="px-2.5 py-1 rounded-lg bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 hover:text-white font-mono text-[9px] whitespace-nowrap cursor-pointer transition-colors shadow-sm"
           >
             {p}
           </button>

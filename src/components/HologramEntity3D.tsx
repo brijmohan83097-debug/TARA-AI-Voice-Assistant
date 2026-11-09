@@ -404,8 +404,8 @@ export const HologramEntity3D: React.FC<HologramEntity3DProps> = ({
       pedestalAngle += 0.006;
 
       const palette = EMOTION_PALETTES[currentEmotion] || EMOTION_PALETTES.calm_caring;
-      const primaryColor = isListening ? '#f43f5e' : palette.primary;
-      const glowColor = isListening ? 'rgba(244, 63, 94, 0.75)' : palette.glow;
+      const primaryColor = isListening ? '#38bdf8' : palette.primary;
+      const glowColor = isListening ? 'rgba(56, 189, 248, 0.85)' : palette.glow;
       const fillAlpha = isSpeaking ? 0.14 : isListening ? 0.12 : palette.fillAlpha;
 
       // Coordinate center and scale:
@@ -582,7 +582,7 @@ export const HologramEntity3D: React.FC<HologramEntity3DProps> = ({
           if (i === 0) ctx.moveTo(pt.x, pt.y);
           else ctx.lineTo(pt.x, pt.y);
         }
-        ctx.strokeStyle = isListening ? `rgba(244, 63, 94, ${rippleAlpha})` : `rgba(0, 240, 255, ${rippleAlpha})`;
+        ctx.strokeStyle = isListening ? `rgba(56, 189, 248, ${rippleAlpha})` : `rgba(0, 240, 255, ${rippleAlpha})`;
         ctx.lineWidth = 2.0;
         ctx.shadowColor = primaryColor;
         ctx.shadowBlur = 14;

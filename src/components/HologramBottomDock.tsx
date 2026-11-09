@@ -60,9 +60,9 @@ export const HologramBottomDock: React.FC<HologramBottomDockProps> = ({
           className={`flex-1 max-w-[220px] py-2 sm:py-2.5 px-4 rounded-2xl font-heading font-black text-xs sm:text-sm tracking-wider cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center gap-2 border shadow-lg ${
             isHandsFreeMode
               ? isListening
-                ? 'bg-rose-600/90 hover:bg-rose-500 text-white border-rose-300 shadow-[0_0_25px_rgba(244,63,94,0.7)] animate-pulse'
+                ? 'bg-cyan-600/90 hover:bg-cyan-500 text-white border-cyan-300 shadow-[0_0_25px_rgba(0,240,255,0.8)] animate-pulse'
                 : isSpeaking
-                ? 'bg-purple-600/90 hover:bg-purple-500 text-white border-purple-300 shadow-[0_0_25px_rgba(168,85,247,0.7)]'
+                ? 'bg-cyan-700/90 hover:bg-cyan-600 text-white border-cyan-300 shadow-[0_0_25px_rgba(0,240,255,0.7)]'
                 : 'bg-emerald-600/90 hover:bg-emerald-500 text-white border-emerald-300 shadow-[0_0_25px_rgba(16,185,129,0.7)]'
               : 'bg-[#081a33]/90 hover:bg-[#0c2448] text-cyan-200 hover:text-white border-cyan-400/60 shadow-[0_0_20px_rgba(0,240,255,0.35)]'
           }`}

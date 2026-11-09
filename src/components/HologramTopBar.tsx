@@ -77,9 +77,9 @@ export const HologramTopBar: React.FC<HologramTopBarProps> = ({
             <span
               className={`w-2.5 h-2.5 rounded-full ${
                 isListening
-                  ? 'bg-rose-400 animate-ping'
+                  ? 'bg-cyan-300 animate-ping shadow-[0_0_12px_#00f0ff]'
                   : isSpeaking
-                  ? 'bg-purple-400 animate-pulse'
+                  ? 'bg-cyan-400 animate-pulse shadow-[0_0_10px_#00f0ff]'
                   : 'bg-cyan-400 shadow-[0_0_8px_#00f0ff]'
               }`}
             />
@@ -156,7 +156,7 @@ export const HologramTopBar: React.FC<HologramTopBarProps> = ({
             <span>DIAGNOSTICS</span>
           </button>
 
-          {/* TAB 2: TARA AVATAR (Center Entity View) */}
+          {/* TAB 2: AI CORE HUB (Center Multi-Module View) */}
           <button
             type="button"
             onClick={() => onSelectView('entity')}
@@ -167,7 +167,7 @@ export const HologramTopBar: React.FC<HologramTopBarProps> = ({
             }`}
           >
             <Orbit className="w-3 h-3 text-cyan-400 animate-spin" />
-            <span>TARA AVATAR</span>
+            <span>AI CORE HUB</span>
           </button>
 
           {/* TAB 3: DIALOGUE (LOG) */}
