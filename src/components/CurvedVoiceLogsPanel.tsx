@@ -410,7 +410,7 @@ export const CurvedVoiceLogsPanel: React.FC<CurvedVoiceLogsPanelProps> = ({
           onClick={onToggleVoice}
           className={`p-1.5 rounded-xl cursor-pointer transition-all ${
             isListening
-              ? 'bg-rose-600 text-white animate-pulse shadow-[0_0_12px_rgba(244,63,94,0.7)]'
+              ? 'bg-cyan-400 text-black animate-pulse shadow-[0_0_15px_rgba(0,240,255,0.9)] border border-cyan-200'
               : 'bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/30'
           }`}
           title="माइक टॉगल करें"

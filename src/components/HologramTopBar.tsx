@@ -13,6 +13,7 @@ import {
   BatteryCharging,
   Battery,
   Volume2,
+  VolumeX,
   UserCheck,
   Clock,
   Activity,
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react';
 import { TaraEmotion } from '../types';
 import { TARA_EMOTION_CONFIGS } from '../utils/emotions';
+import { speechEngine } from '../utils/speech';
 
 interface HologramTopBarProps {
   currentEmotion: TaraEmotion;
@@ -49,6 +51,7 @@ export const HologramTopBar: React.FC<HologramTopBarProps> = ({
 }) => {
   const [timeStr, setTimeStr] = useState('');
   const [batteryLevel, setBatteryLevel] = useState<number>(98);
+  const [isTtsActive, setIsTtsActive] = useState<boolean>(() => speechEngine.getIsTtsEnabled());
 
   useEffect(() => {
     const updateTime = () => {
@@ -115,13 +118,40 @@ export const HologramTopBar: React.FC<HologramTopBarProps> = ({
             <span>12ms</span>
           </div>
 
+          {/* TTS Speaker Voice Output Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              const enabled = speechEngine.toggleTts();
+              setIsTtsActive(enabled);
+            }}
+            className={`px-2 py-0.5 rounded border text-[9px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm ${
+              isTtsActive
+                ? 'bg-cyan-950/90 text-cyan-200 border-cyan-400 shadow-[0_0_10px_rgba(0,240,255,0.4)]'
+                : 'bg-rose-950/80 text-rose-300 border-rose-500/50'
+            }`}
+            title={isTtsActive ? 'TTS आवाज़ सक्रिय है (बंद करने के लिए क्लिक करें)' : 'TTS आवाज़ चालू करें (Click to Enable Voice Speaker)'}
+          >
+            {isTtsActive ? (
+              <>
+                <Volume2 className="w-3 h-3 text-cyan-300 animate-pulse" />
+                <span className="hidden sm:inline">TTS: ON</span>
+              </>
+            ) : (
+              <>
+                <VolumeX className="w-3 h-3 text-rose-400" />
+                <span className="hidden sm:inline">TTS: OFF</span>
+              </>
+            )}
+          </button>
+
           {/* Replay voice button */}
           {onReplayLastAudio && (
             <button
               type="button"
               onClick={onReplayLastAudio}
               className="p-1 rounded bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/30 text-cyan-300 transition-colors cursor-pointer"
-              title="तारा की आवाज़ सुनें"
+              title="तारा की आवाज़ दोबारा सुनें (Speak response out loud)"
             >
               <Volume2 className="w-3.5 h-3.5" />
             </button>

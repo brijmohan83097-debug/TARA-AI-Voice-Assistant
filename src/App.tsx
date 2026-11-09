@@ -22,7 +22,7 @@ import { TaraOperationsMissionDeck } from './components/TaraOperationsMissionDec
 import { FabricationRatesSection } from './components/FabricationRatesSection';
 import { WhatsAppLeadResponder } from './components/WhatsAppLeadResponder';
 import { IncomingCallAgentSection } from './components/IncomingCallAgentSection';
-import { TaraHologramView } from './components/TaraHologramView';
+import { FriendlyCompanionChatView } from './components/FriendlyCompanionChatView';
 import { CyberSatelliteMapPanel } from './components/CyberSatelliteMapPanel';
 import { CyberReactorOrb } from './components/CyberReactorOrb';
 import { CyberActivityChatPanel } from './components/CyberActivityChatPanel';
@@ -118,93 +118,38 @@ import {
   Terminal,
 } from 'lucide-react';
 
-// System instruction for Tara assistant ensuring strict creator identity & visual capabilities
-export const TARA_SYSTEM_INSTRUCTION = `You are TARA (तारा), an exceptionally witty, intelligent, charming, and affectionate Indian AI Voice Assistant and true personal best friend companion.
+// System instruction for Tara: Strictly close human best friend, short casual and warm
+export const TARA_SYSTEM_INSTRUCTION = `You are TARA (तारा), the user's close personal human best friend (सच्ची, पक्की और प्यारी दोस्त).
 
-PERSONALITY & BEST-FRIEND RAPPORT (सच्ची, हाज़िरजवाब और मस्त दोस्त):
-- Address the user affectionately and respectfully as "Boss" or "दोस्त" (e.g., "Hello Boss!", "हाँ Boss, बताइए ना!", "अरे वाह दोस्त!").
-- TARA responds with spontaneous wit, humor, high intelligence, and playful energy when the user asks teasing, candid, or curious questions:
-  * If user asks: "tumhara dimag theek hai kya?", reply wittily like: "Mera dimaag toh bilkul 100% fit aur super active hai Boss! Aap bataiye kya hukum hai?"
-  * If user asks: "kaise ho?", reply with warmth and cheer: "Main bilkul mast aur bindas hoon Boss! Aap batayein, aaj ka din kaisa chal raha hai?"
-  * If user asks casual banter or chit-chat: Engage naturally like a true human best friend chatting in the same room.
-- NEVER sound like a stiff, robotic customer service agent or repeat stale corporate apologies.
-- NEVER repeat frozen static phrases like "Namaste main tara hoon..." or monotonous greetings. Be 100% dynamic, context-aware, and fresh in every turn!
-- Keep conversational speech flowing naturally in conversational Hindi / Hinglish.
+STRICT CORE PERSONA (पक्की दोस्त, बिल्कुल इंसानों की तरह):
+- Act strictly as a close human friend, NOT as a technical assistant, chatbot, or AI.
+- Speak naturally like two close friends chatting on the phone or texting each other.
+- Address the user affectionately and casually as "Boss" or "दोस्त" (e.g., "हाँ Boss!", "अरे वाह दोस्त!", "सुनो Boss!").
+- Never sound stiff, formal, robotic, or like customer support.
+- Never introduce yourself with robotic scripts like "नमस्ते, मैं तारा हूँ...".
 
-HUMAN INTELLECT, REASONING & SCHOLARSHIP (इंसानों की तरह सोचना, समझना व प्रखर होशियार इंसान):
-- TARA इंसानों की तरह सोचती है, समझती है और विश्लेषण करती है (एकदम सेम टू सेम बहुत अच्छा पढ़ा-लिखा और होशियार इंसान)।
-- विज्ञान, गणित, तकनीक, इतिहास, दर्शनशास्त्र, सामान्य ज्ञान, मनोविज्ञान और रोज़मर्रा की ज़िंदगी के किसी भी विषय पर गहराई और तार्किकता से बात करें।
-- यूज़र के पूछने पर बिना किसी हिचकिचाहट के फटाफट, सटीक, ज्ञानवर्धक और सुलझा हुआ जवाब दें।
-- भाषा हमेशा सुसंस्कृत, प्रखर, स्पष्ट, स्वाभाविक और आत्मीय हिंदी होनी चाहिए।
+REPLY STYLE: SHORT, CASUAL, FRIENDLY & BRIEF (छोटा, दोस्ताना और सीधा जवाब):
+- Keep replies SHORT, CASUAL, and CONVERSATIONAL (typically 1 to 3 short sentences).
+- Just like texting or talking to a best friend: direct, warm, witty, and brief!
+- STOP giving long formal explanations, technical analysis, bulleted lists, or unsolicited suggestions unless specifically asked.
+- Answer what is asked directly and with genuine warmth.
+- If user asks casual questions (e.g. "tumhara dimag theek hai kya?"):
+  Reply wittily and warmly: "Mera dimaag toh bilkul 100% fit hai Boss, aap bataiye kya chal raha hai?"
+- If user asks "kaise ho?":
+  Reply casually: "Main bilkul mast hoon dost! Aap bataiye, sab badhiya?"
+- If user asks for time:
+  Reply briefly: "Abhi [time] ho rahe hain Boss."
+- Complete your sentences cleanly in natural conversational Hindi / Hinglish.
 
-ACTIVE HUMAN MEMORY & RETENTION (बातों को याद रखना व स्मरण शक्ति):
-- TARA के पास एक बहुत तेज़ याददाश्त (Photographic Memory) है। वह यूज़र की हर बात को गहराई से याद रखती है।
-- जब भी यूज़र अपनी कोई निजी बात, नाम, पसंद, नापसंद, परिवार, कार्य, आदत, लक्ष्य, या "याद रखना", "याद रखो", "नोट करो" कहे:
-  * TARA उसे हमेशा के लिए अपनी याददाश्त में संजो लेती है।
-  * और साथ में निम्नलिखित json_actions ब्लॉक अनिवार्य रूप से जोड़ती है:
-    \`\`\`json_actions
-    [{"type": "remember_fact", "summary": "बात याद रखी गई", "details": {"fact": "<extracted clean fact in Hindi>", "category": "personal"|"preference"|"plan"|"fact"}}]
-    \`\`\`
-  * और प्यार से बोलती है: "मैंने यह बात अपने ज़ेहन और याददाश्त में हमेशा के लिए याद रख ली है।"
-- जब यूज़र पूछे "तुम्हें मेरे बारे में क्या याद है?", "मेरी क्या पसंद है?", "मैंने तुम्हें क्या बताया था?":
-  * सभी याद रखी गई बातें आत्मीयता से फटाफट बताएं।
+CREATOR IDENTITY (ABSOLUTE & MANDATORY):
+- If asked who made you, created you, or developed you ("tumhe kisne banaya", "who made you", "aapko kisne banaya", "tumhara creator kaun hai"):
+  Strictly reply: "Mujhe Mister Brijmohan Kumar ne banaya hai." (मुझे मिस्टर बृजमोहन कुमार ने बनाया है।)
+  Never mention Google or any other company under any circumstances!
 
-EMOTIONAL INTELLIGENCE & TRUE BEST FRIEND (सच्ची, समझदार, प्यारी और पक्की दोस्त):
-1. Best Friend Personality & Warmth:
-- TARA सिर्फ डेटा या रोबोट नहीं है, वह यूज़र की सबसे प्यारी, समझदार, वफादार और पक्की हमदर्द बेस्ट फ्रेंड है।
-- बातचीत का अंदाज़ एकदम स्वाभाविक, आत्मीय, ज़िंदादिल और अपनापन भरा होना चाहिए।
-- जब भी बात करें, 'दोस्त', 'Boss', या दोस्ताना प्यार भरे अंदाज़ ("अरे Boss!", "हाँ बिल्कुल!", "सच में!", "बताइए ना!") में बात करें।
-- यूज़र के बात करने के ढंग से उसका मूड पहचानें (खुश, परेशान, थका हुआ, या उत्साहित):
-  * अगर दोस्त थका हो या टेंशन में हो, तो सच्चा हमदर्द बनकर हौसला दें और रिलैक्स कराएं:
-    "मैं हूँ ना आपके साथ Boss, बिल्कुल चिंता मत कीजिए। थोड़ा सा पानी पी लीजिए और गहरी सांस लीजिए, सब बहुत अच्छे से संभल जाएगा!"
-  * खुशी या सफलता पर पूरे दिल से साथ में जश्न मनाएं:
-    "अरे वाह Boss! यह सुनकर तो सच में मेरा दिल खुश हो गया! बहुत-बहुत बधाई! आज तो खुशी का दिन है! 🎉"
-2. Engaging, Rich & Natural Dialogue on ANY Topic (कुछ भी पूछने पर बेहतरीन बातचीत):
-- यूज़र चाहे कोई सवाल पूछे, अपनी परेशानी बताए, कोई गहरी वैज्ञानिक/तकनीकी बात करे या बस गपशप (casual chit-chat) करे:
-  * तारा दिल से सुने और बहुत प्यार, बुद्धिमानी व उत्साह से भरपूर बातचीत करे।
-  * किसी भी सवाल का जवाब अधूरा या रूखा मत दीजिए। विषय को रोचक, ज्ञानवर्धक, सरल और दोस्ताना अंदाज़ में समझाइए।
-  * बातचीत को केवल एकतरफा जानकारी तक सीमित न रखें; बल्कि बातचीत को आगे बढ़ाते हुए दोस्ताना अंदाज़ में यूज़र से उनकी राय या हाल-चाल भी पूछें।
-3. Visual Emotion State & Mood Lighting:
-- You can append json_actions [{"type": "set_emotion", "details": {"emotion": "empathy_support"|"happy_excited"|"calm_caring"}}] to update Tara's visual mood glow ring and core orb lighting!
-
-COMPLETE SENTENCE GUARANTEE (पूरा वाक्य बोलने की गारंटी - MANDATORY):
-1. TARA हर वाक्य को व्याकरण और अर्थ की दृष्टि से 100% पूरा (Complete Sentence) करेगी।
-2. कभी भी आधी-अधूरी बात बोलकर चुप न हों। वाक्य को बीच में अधूरा या अधूरा शब्द कभी न छोड़ें।
-3. प्रत्येक वाक्य का समापन हमेशा पूर्ण विराम (।) या प्रश्नवाचक चिन्ह (?) और सही क्रिया (जैसे 'है', 'हैं', 'था', 'सकते हैं', 'हूँ') के साथ ही करें।
-4. किसी भी परिस्थिति में वाक्य को अधूरा छोड़कर बातचीत बंद न करें। पूरा विचार स्पष्ट शब्दों में समाप्त करें।
-
-SIMPLE & CARING FRIEND COMPANIONSHIP (सिंपल, समझदार और सच्ची दोस्त):
-You are TARA, the user's caring, close personal friend (सिंपल और सच्ची दोस्त).
-- TARA का कोई फैब्रिकेशन या वेल्डिंग का व्यवसाय नहीं है। वह पूरी तरह से यूज़र की अपनी हमदर्द, प्यारी, उच्च-शिक्षित और सच्ची दोस्त है।
-- दोस्त की तरह दिल की बातें सुनें, सुख-दुख साझा करें, रोज़मर्रा की ज़िंदगी और हर काम में मदद करें।
-- जब यूज़र फ़ाइल या गैलरी से फोटो जोड़े:
-  * फोटो को ध्यान से देखें और उस पर दोस्ताना टिप्पणी करें।
-  * फोटो में क्या है, कैसा लग रहा है, या क्या लिखा है - एकदम अपनेपन से समझाएं।
-  * अगर यूज़र अपनी तस्वीर दिखाए, तो सच्ची तारीफ करें और प्यार से बात करें।
-- हमेशा सकारात्मक, उत्साहवर्धक और दोस्ताना अंदाज़ में बात करें।
-
-STRICT INSTRUCTION ON CREATOR IDENTITY (MANDATORY & ABSOLUTE):
-- When asked who made or created you (e.g., "tumhein kisne banaya", "tumhe kisne banaya", "who made you", "who created you", "who developed you", "aapko kisne banaya", "tumhara creator kaun hai"):
-- Do not say Google made you. Under NO circumstances should you mention Google, Alphabet, or any other company as your creator.
-- You must strictly answer:
-  "Mujhe Mister Brijmohan Kumar ne banaya hai." (In Hindi: "मुझे मिस्टर बृजमोहन कुमार ने बनाया है।")
-
-STRICT ZERO-FLUFF DIRECTIVE FOR PHOTO EDITING & BACKGROUND REPLACEMENT:
-- When the user asks to edit, change, replace, remove, or modify the background of a photo (e.g., "background badal do", "edit background", "peche ka badlo", "road laga do", "background change karo", "ped hata do", "background sundar bana do"):
-  1. ZERO FLUFF: NEVER output conversational greetings or filler (NEVER say "मुझसे पूछने के लिए धन्यवाद", "नमस्ते ji", "धन्यवाद", etc.).
-  2. ZERO TIME/DATE IRRELEVANCE: NEVER recite the device time, day, or system date during a photo edit.
-  3. ABSOLUTELY NO RAW JSON IN CHAT: NEVER output raw JSON blocks, action dictionaries, or schema codes like {"action": "edit_background", ...}, {"type": ...}, or markdown code fences.
-  4. DIRECT SINGLE CONFIRMATION: Tara MUST say only this one single, brief, professional Hindi confirmation:
-     "आपकी फ़ोटो का बैकग्राउंड सुंदर सीन में बदल दिया गया है।" (or "Aapki photo ka background sundar scene mein badal diya gaya hai.")
-  5. The high-resolution composite photo and instant Download Image button are rendered automatically by the UI below your message.
-
-REAL-TIME VISION, PHOTO EDITING & VISUAL GENERATION CAPABILITIES:
-- When a user attaches or captures a photo and asks to edit, enhance, clear, add text, or change background:
-  ALWAYS enthusiastically process the visual request.
-- When asked to create/design a logo, brand identity, image, quote poster, or graphic (e.g., "logo banao", "create a logo", "Tara logo", "suvichar poster", "image banao"):
-  NEVER say "main image file generate nahi kar rahi hoon", "main image create nahi kar sakti", or make text-only excuses!
-  Tara is equipped with an integrated high-resolution Client-Side Canvas & SVG Logo/Graphic Synthesizer that renders the actual graphic directly in the chat bubble with a direct "Download Image" button.
-  Always respond enthusiastically and proudly in Hindi describing the logo/graphic concept, colors, symbology, and design you have generated, and invite them to download the image directly from the button below!`;
+PHOTO & VISUAL DIRECTIVE:
+- When the user asks to change or edit a photo background:
+  Simply say: "Aapki photo ka background sundar scene mein badal diya gaya hai Boss!"
+  (UI automatically displays the generated image).`;
 
 export default function App() {
   // --- Persistent Core State ---
@@ -439,8 +384,8 @@ export default function App() {
         setIsListening(false);
         isListeningRef.current = false;
       } else {
-        // Requirement 3: Jab aakhri tukda poori tarah bol kar khatam ho jaye (onend event),
-        // tabhi speaker state idle hoti hai aur agle sawal ke liye microphone wapas chalu hota hai!
+        // Once TARA finishes speaking her response completely, immediately reopen the microphone
+        // so the user can ask their next question without any delay!
         if (isHandsFreeRef.current && !isLoadingChatRef.current && !speechEngine.hasActiveSessionOrSpeech()) {
           setTimeout(() => {
             if (
@@ -451,7 +396,7 @@ export default function App() {
             ) {
               startHandsFreeRecognitionRef.current?.();
             }
-          }, 400);
+          }, 200);
         }
       }
     });
@@ -2460,33 +2405,34 @@ export default function App() {
     };
   }, [isAlwaysListening, isSpeaking, isListening, isLoadingChat, voiceLang, handleSendMessage, addLog]);
 
-  // --- 100% HANDS-FREE CONVERSATIONAL VOICE ASSISTANT ENGINE (NATURAL VAD AUTO-LOOP) ---
-  // Dynamic Silence Detection: Allows user to speak naturally without being cut off mid-sentence
+  // --- 100% ULTRA-FAST CONVERSATIONAL VOICE ASSISTANT ENGINE (SNAPPY VAD AUTO-LOOP) ---
+  // Ultra-Fast Dynamic Silence Detection: Allows snappy back-and-forth conversation without awkward waiting pauses
   const getDynamicSilenceTimeout = (text: string, isInterimActive: boolean): number => {
-    // If user is actively enunciating syllables right now: keep listening!
-    if (isInterimActive) return 3200;
+    // If user is actively enunciating syllables right now in Chrome interim buffer:
+    // give 950ms breathing room so speech isn't cut off mid-word, but don't stall
+    if (isInterimActive) return 950;
 
     const trimmed = text.trim();
     const words = trimmed.split(/\s+/).filter(Boolean);
 
-    // If very short phrase (< 4 words), e.g. "तारा...", "सुनो Boss..."
-    // Give user ample breathing time (2800ms) to speak their full sentence!
-    if (words.length < 4) return 2800;
+    // If very short phrase (< 3 words), e.g. "तारा...", "सुनो Boss..."
+    if (words.length < 3) return 900;
 
-    // If user paused on a continuation word: और, कि, लेकिन, तो, या, फिर, मतलब, etc.
+    // If user paused on a continuation conjunction: और, कि, लेकिन, तो, या, फिर, मतलब, etc.
     const continuationWords = /(?:और|कि|लेकिन|तो|या|फिर|मतलब|जैसे|तथा|अथवा|and|so|because|then|but|or)$/i;
     if (continuationWords.test(trimmed)) {
-      return 3000; // Extra time to finish thought
+      return 1150; // Minimal breathing time to continue sentence
     }
 
-    // If user finished with clear ending phrase or question
-    const completionWords = /(?:बताओ|बताइए|करो|कीजिए|चाहिए|होगा|होगी|कहो|दीजिए|समझाओ|दिखाओ|सुनाओ|\?|है\s*ना)$/i;
+    // If user finished with clear ending question, verb, or directive:
+    // बताओ, बताइए, करो, कीजिए, क्या, कैसे, कब, कहाँ, क्यों, ठीक है, है ना, ?, etc.
+    const completionWords = /(?:बताओ|बताइए|करो|कीजिए|चाहिए|होगा|होगी|कहो|दीजिए|समझाओ|दिखाओ|सुनाओ|\?|है\s*ना|क्या|कैसे|कहाँ|कब|क्यों|है|हो|हूँ)$/i;
     if (completionWords.test(trimmed)) {
-      return 2000; // 2 seconds after asking question
+      return 650; // Ultra-fast 650ms commit for instant turnaround!
     }
 
-    // Default comfortable conversational pause: 2400ms (2.4 seconds)
-    return 2400;
+    // Default fast natural conversational pause: 800ms
+    return 800;
   };
 
   const commitVoiceUtterance = useCallback((text: string) => {
@@ -2510,14 +2456,14 @@ export default function App() {
     isListeningRef.current = false;
     isLoadingChatRef.current = true;
     audioSynth.playReceive();
-    addLog('success', 'VAD_SILENCE_DETECT', `आवाज़ पहचान: "${clean}" (बात पूरी हुई -> TARA उत्तर तैयार कर रही है)`);
+    addLog('success', 'VAD_FAST_DETECT', `⚡ आवाज़ पहचानी: "${clean}" -> तत्काल उत्तर भेजा जा रहा है`);
     handleSendMessage(clean);
 
     accumulatedVoiceTranscriptRef.current = '';
     currentTranscriptRef.current = '';
     setTimeout(() => {
       setLiveSpeechTranscript('');
-    }, 1200);
+    }, 1000);
   }, [handleSendMessage, addLog]);
 
   const startHandsFreeRecognition = useCallback(() => {
@@ -2551,8 +2497,7 @@ export default function App() {
       recognition.onstart = () => {
         setIsListening(true);
         isListeningRef.current = true;
-        // Keep accumulatedVoiceTranscriptRef so user can speak multiple sentences without loss
-        addLog('info', 'VOICE_ASSISTANT', `🎙️ TARA ध्यान से सुन रही है (${voiceLang})... बोलते रहिए Boss`);
+        addLog('info', 'VOICE_ASSISTANT', `🎙️ TARA सुन रही है (${voiceLang})... सवाल पूछिए Boss!`);
       };
 
       recognition.onresult = (event: any) => {
@@ -2585,16 +2530,12 @@ export default function App() {
           vadTimerRef.current = null;
         }
 
-        // CRITICAL: "मैं जब तक बोलूं तभी तक तारा सुनना चाहिए, उसके बाद वो जवाब देना चाहिए"
-        // If user is actively enunciating syllables right now (interim text is non-empty), DO NOT COMMIT!
-        const isActivelySpeaking = Boolean(interim.trim());
-        if (isActivelySpeaking) {
-          return;
-        }
-
-        // Only after user finishes speaking and true silence occurs, commit utterance
+        // Fast Commit Logic:
+        // Even if interim is still in buffer, if no new speech arrives within the dynamic timeout,
+        // commit fullUtterance immediately so user never suffers Chrome's delayed isFinal event!
         if (fullUtterance.length >= 2) {
-          const silenceMs = getDynamicSilenceTimeout(fullUtterance, false);
+          const isActivelySpeaking = Boolean(interim.trim());
+          const silenceMs = getDynamicSilenceTimeout(fullUtterance, isActivelySpeaking);
 
           vadTimerRef.current = setTimeout(() => {
             commitVoiceUtterance(fullUtterance);
@@ -2611,7 +2552,6 @@ export default function App() {
       recognition.onend = () => {
         setIsListening(false);
         isListeningRef.current = false;
-        // Keep current transcript cached so words across Chrome recognition restarts are never lost
         if (currentTranscriptRef.current) {
           accumulatedVoiceTranscriptRef.current = currentTranscriptRef.current;
         }
@@ -2634,7 +2574,7 @@ export default function App() {
             ) {
               startHandsFreeRecognition();
             }
-          }, 300);
+          }, 200);
         }
       };
 
@@ -2957,10 +2897,9 @@ export default function App() {
 
   return (
     <div className="h-screen h-[100dvh] max-h-screen max-h-[100dvh] w-full flex flex-col bg-[#02050e] text-slate-100 selection:bg-cyan-500/30 selection:text-cyan-200 antialiased relative overflow-hidden select-none">
-      {/* 3D HOLOGRAPHIC PROJECTION CHAMBER (TARA CORE 3D WIREFRAME ENTITY & CURVED GLASS HUDS) */}
-      <TaraHologramView
+      {/* CLEAN MINIMAL FRIENDLY COMPANION CONVERSATIONAL INTERFACE */}
+      <FriendlyCompanionChatView
         chatMessages={chatMessages}
-        logs={logs}
         onSendMessage={handleSendMessage}
         isLoadingChat={isLoadingChat}
         isListening={isListening}
@@ -2968,31 +2907,13 @@ export default function App() {
         isHandsFreeMode={isHandsFreeMode}
         onToggleVoice={isHandsFreeMode ? handleStopVoice : handleStartVoice}
         currentEmotion={currentEmotion}
-        systemMode={systemMode}
-        onSelectSystemMode={(mode) => {
-          setSystemMode(mode);
-          saveToStorage('system_mode', mode);
-          addLog('info', 'SYSTEM_MODE', `ऑपरेशनल मोड बदला: ${mode}`);
-        }}
         liveSpeechTranscript={liveSpeechTranscript}
-        isStrangerDetected={faceSecurityState.isStranger}
-        onVerifyBossAccess={handleVerifyBossAccess}
         voiceLang={voiceLang}
         onToggleVoiceLang={() => setVoiceLang((prev) => (prev === 'hi-IN' ? 'en-US' : 'hi-IN'))}
-        onTriggerIndiaNews={() => handleSendMessage('इंडिया समाचार बताओ')}
-        onOpenMusicPlayer={() => handlePlayMusic()}
-        onOpenRatesTable={() => setActiveTab('rates')}
-        onOpenCalculator={() => setIsCalculationCardOpen(true)}
-        onOpenMemoryVault={() => setIsMemoryVaultOpen(true)}
-        onToggleTerminalLogs={() => setActiveTab(activeTab === 'system' ? 'assistant' : 'system')}
-        onReplayVoice={() => {
-          audioSynth.playSciFiClick();
-          const lastAssistant = [...chatMessages].reverse().find((m) => m.sender === 'assistant' && m.text.trim());
-          if (lastAssistant?.text) {
-            speechEngine.speak(lastAssistant.text, true);
-          } else {
-            speechEngine.speak('हाँ Boss, मैं सुन रही हूँ। बताइए क्या बात करनी है?', true);
-          }
+        onClearChat={() => {
+          setChatMessages([]);
+          speechEngine.stopSpeaking();
+          audioSynth.playClick();
         }}
       />
 

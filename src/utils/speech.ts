@@ -31,6 +31,9 @@ class SpeechEngine {
         const saved = localStorage.getItem('tara_tts_enabled');
         if (saved !== null) {
           this.isTtsEnabled = JSON.parse(saved);
+        } else {
+          this.isTtsEnabled = true;
+          localStorage.setItem('tara_tts_enabled', 'true');
         }
       } catch {
         this.isTtsEnabled = true;
@@ -305,12 +308,16 @@ class SpeechEngine {
       this.streamingBuffer = parts[0] || '';
     }
 
-    // Detect sentence and clause delimiters: full stop (., ।), question mark (?), exclamation (!), comma (,), semicolon (;), newline (\n)
-    const delimiterRegex = /([।?!;\n]|\.\s+|,\s*)/;
+    // Detect sentence and clause delimiters: full stop (., ।), question mark (?), exclamation (!), comma (,), semicolon (;), colon (:), newline (\n)
+    const delimiterRegex = /([।?!;\n]|\.\s+|,\s*|:\s*)/;
     let match = delimiterRegex.exec(this.streamingBuffer);
-    const wordCount = this.streamingBuffer.trim().split(/\s+/).filter(Boolean).length;
 
-    while (match || wordCount >= 18) {
+    // Fast-start: if this is the first chunk of the session, play as soon as 5 words or first punctuation arrives!
+    const isFirstChunk = !this.hasSpokenInCurrentSession && this.sentenceQueue.length === 0;
+    const thresholdWords = isFirstChunk ? 5 : 14;
+    let wordCount = this.streamingBuffer.trim().split(/\s+/).filter(Boolean).length;
+
+    while (match || wordCount >= thresholdWords) {
       let candidate = '';
       if (match) {
         const splitIndex = match.index + match[0].length;
@@ -318,8 +325,9 @@ class SpeechEngine {
         this.streamingBuffer = this.streamingBuffer.slice(splitIndex);
       } else {
         const words = this.streamingBuffer.trim().split(/\s+/);
-        candidate = words.slice(0, 16).join(' ');
-        this.streamingBuffer = words.slice(16).join(' ');
+        const take = Math.min(words.length, isFirstChunk ? 5 : 12);
+        candidate = words.slice(0, take).join(' ');
+        this.streamingBuffer = words.slice(take).join(' ');
       }
 
       // Ensure candidate does not contain raw JSON or code fragments
@@ -337,8 +345,9 @@ class SpeechEngine {
       }
 
       match = delimiterRegex.exec(this.streamingBuffer);
-      const remainingWords = this.streamingBuffer.trim().split(/\s+/).filter(Boolean).length;
-      if (!match && remainingWords < 18) break;
+      wordCount = this.streamingBuffer.trim().split(/\s+/).filter(Boolean).length;
+      const nextThreshold = (!this.hasSpokenInCurrentSession && this.sentenceQueue.length === 0) ? 5 : 14;
+      if (!match && wordCount < nextThreshold) break;
     }
   }
 
@@ -482,7 +491,7 @@ class SpeechEngine {
 
       // Requirement 2: Volume ko 1.0 (full) aur rate ko 1.0 set karo
       utterance.volume = 1.0;
-      utterance.rate = 1.0;
+      utterance.rate = 1.05;
       utterance.pitch = 1.0;
 
       // Strong reference retention prevents Chrome's V8 Garbage Collector from cutting speech
