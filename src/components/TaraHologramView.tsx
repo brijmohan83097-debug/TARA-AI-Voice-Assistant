@@ -1,16 +1,11 @@
 /**
  * TaraHologramView.tsx
- * Clean Cyberpunk Dark-Grid Holographic Chamber Interface for TARA:
- * 1. Background: Pristine cyberpunk dark-grid chamber with 3D perspective floor grid,
- *    concentric ceiling emitter fixture, subtle volumetric spotlight, and floating cyber dust.
- * 2. Center: 3D neon-cyan anatomical humanoid wireframe silhouette (HologramEntity3D)
- *    with rotating emitter base, scanning laser, and soundwave ripples.
- * 3. Left: Semi-transparent curved HUD glass screen (CurvedDiagnosticPanel)
- *    with vertical glowing bar charts, live oscilloscope waveform, and system diagnostics.
- * 4. Right: Semi-transparent curved HUD glass screen (CurvedVoiceLogsPanel)
- *    with rotating radar gauge, dynamic audio equalizer, and real-time chat dialogue logs.
- * 5. Top: HologramTopBar with TARA OS status, battery meter, and view switcher.
- * 6. Bottom: HologramBottomDock with holographic quick-action controls.
+ * TARA OS — Futuristic Sci-Fi Operating System & Personal AI Companion Dashboard:
+ * 1. TopBar: Brand & live state (Listening / Thinking / Speaking), section switcher, speaker/call controls
+ * 2. Left Panel: Diagnostic Matrix + System Architecture Map + Agent & Room Tracking Nodes
+ * 3. Center Chamber: Glowing AI Core Orb ("TARA") with floating modular Visual Hub, Core Telemetry & Agent Nodes
+ * 4. Right Panel: Split-Screen Chat & Voice HUD with live radar, audio equalizer, dialogue feed & kernel logs
+ * 5. Bottom Dock: Hands-free voice toggle, HUD Logs, Visual Hub, and quick workspace tools
  */
 
 import React, { useState } from 'react';
@@ -21,17 +16,21 @@ import { HologramEntity3D } from './HologramEntity3D';
 import { TaraInteractiveAvatar } from './TaraInteractiveAvatar';
 import { FloatingCyberneticModules } from './FloatingCyberneticModules';
 import { HologramBottomDock } from './HologramBottomDock';
-import { ChatMessage, SystemLog, SystemMode, TaraEmotion } from '../types';
+import { ChatMessage, MindMapNode, SystemLog, SystemMode, TaraEmotion } from '../types';
 
 interface TaraHologramViewProps {
   chatMessages: ChatMessage[];
   logs: SystemLog[];
   onSendMessage: (text: string, media?: any) => void;
   isLoadingChat: boolean;
+  isThinking?: boolean;
   isListening: boolean;
   isSpeaking: boolean;
   isHandsFreeMode: boolean;
   onToggleVoice: () => void;
+  onMicPress?: () => void;
+  voiceError?: string | null;
+  onDismissVoiceError?: () => void;
   currentEmotion: TaraEmotion;
   systemMode: SystemMode;
   onSelectSystemMode: (mode: SystemMode) => void;
@@ -47,6 +46,11 @@ interface TaraHologramViewProps {
   onOpenMemoryVault: () => void;
   onToggleTerminalLogs: () => void;
   onReplayVoice: () => void;
+  onOpenVisualHub?: () => void;
+  onUploadPhoto?: () => void;
+  nodes?: MindMapNode[];
+  onSelectNode?: (node: MindMapNode) => void;
+  memoriesCount?: number;
 }
 
 export const TaraHologramView: React.FC<TaraHologramViewProps> = ({
@@ -54,10 +58,14 @@ export const TaraHologramView: React.FC<TaraHologramViewProps> = ({
   logs,
   onSendMessage,
   isLoadingChat,
+  isThinking,
   isListening,
   isSpeaking,
   isHandsFreeMode,
   onToggleVoice,
+  onMicPress,
+  voiceError = null,
+  onDismissVoiceError,
   currentEmotion,
   systemMode,
   onSelectSystemMode,
@@ -73,46 +81,32 @@ export const TaraHologramView: React.FC<TaraHologramViewProps> = ({
   onOpenMemoryVault,
   onToggleTerminalLogs,
   onReplayVoice,
+  onOpenVisualHub,
+  onUploadPhoto,
+  nodes = [],
+  onSelectNode,
+  memoriesCount = 0,
 }) => {
-  // View mode switcher for mobile/small screens: 'entity' | 'diagnostics' | 'dialogue'
   const [activeView, setActiveView] = useState<'entity' | 'diagnostics' | 'dialogue'>('entity');
-  // Visual mode in center chamber: 'orb' (futuristic AI Core orb & modules) | 'wireframe' | 'avatar'
   const [entityVisualMode, setEntityVisualMode] = useState<'orb' | 'wireframe' | 'avatar'>('orb');
 
-  return (
-    <div className="relative w-full h-screen max-h-screen flex flex-col bg-[#02050e] text-cyan-200 overflow-hidden select-none">
-      {/* =====================================================================
-          1. CLEAN CYBERPUNK DARK-GRID CHAMBER BACKGROUND
-          Pure CSS & SVG environment with perspective grid floor,
-          ceiling aperture fixture, and atmospheric cyan volumetric spotlight.
-          ===================================================================== */}
-      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none select-none">
-        {/* Deep ambient radial glow */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(0,180,255,0.08)_0%,rgba(2,5,14,0.95)_75%,#010308_100%)]" />
+  const effectiveThinking = isThinking ?? isLoadingChat;
 
-        {/* Top Ceiling Fixture Aperture (Concentric high-tech rings) */}
+  return (
+    <div className="relative w-full h-screen h-[100dvh] max-h-screen max-h-[100dvh] flex flex-col bg-[#02050e] text-cyan-100 overflow-hidden select-none">
+      {/* Cyberpunk Dark-Grid Chamber Background */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none select-none">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(0,180,255,0.09)_0%,rgba(2,5,14,0.95)_75%,#010308_100%)]" />
+
+        {/* Ceiling Emitter Rings */}
         <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full border border-cyan-500/15 bg-gradient-to-b from-cyan-950/20 to-transparent flex items-center justify-center">
           <div className="w-[440px] h-[220px] rounded-full border border-cyan-400/20 border-dashed" />
-          <div className="absolute w-[300px] h-[150px] rounded-full border border-cyan-300/25 shadow-[0_0_30px_rgba(0,240,255,0.2)]" />
-        </div>
-
-        {/* Volumetric Downward Spotlight Cone */}
-        <div
-          className={`absolute top-0 left-1/2 -translate-x-1/2 w-[720px] h-full pointer-events-none transition-opacity duration-700 ${
-            isSpeaking ? 'opacity-85' : isListening ? 'opacity-70' : 'opacity-40'
-          }`}
-          style={{
-            background:
-              'polygon(35% 0%, 65% 0%, 90% 100%, 10% 100%)',
-            backgroundClip: 'padding-box',
-          }}
-        >
-          <div className="w-full h-full bg-gradient-to-b from-cyan-400/15 via-cyan-500/5 to-transparent blur-2xl" />
+          <div className="absolute w-[300px] h-[150px] rounded-full border border-cyan-300/20" />
         </div>
 
         {/* 3D Perspective Cyberpunk Grid Floor */}
         <div
-          className="absolute bottom-0 inset-x-0 h-[48%] pointer-events-none opacity-45"
+          className="absolute bottom-0 inset-x-0 h-[44%] pointer-events-none opacity-40"
           style={{
             perspective: '550px',
             perspectiveOrigin: '50% 0%',
@@ -124,8 +118,8 @@ export const TaraHologramView: React.FC<TaraHologramViewProps> = ({
               transform: 'rotateX(68deg)',
               transformOrigin: '50% 0%',
               backgroundImage: `
-                linear-gradient(to right, rgba(0, 240, 255, 0.22) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(0, 240, 255, 0.22) 1px, transparent 1px)
+                linear-gradient(to right, rgba(0, 240, 255, 0.2) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 240, 255, 0.2) 1px, transparent 1px)
               `,
               backgroundSize: '40px 40px',
               maskImage: 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.85) 45%, rgba(0,0,0,0.1) 100%)',
@@ -134,37 +128,27 @@ export const TaraHologramView: React.FC<TaraHologramViewProps> = ({
           />
         </div>
 
-        {/* Vertical Architectural Pillar Guidelines (Left & Right chamber borders) */}
-        <div className="hidden lg:block absolute inset-y-0 left-6 w-px bg-gradient-to-b from-transparent via-cyan-500/25 to-transparent" />
-        <div className="hidden lg:block absolute inset-y-0 right-6 w-px bg-gradient-to-b from-transparent via-cyan-500/25 to-transparent" />
-        <div className="hidden xl:block absolute inset-y-0 left-12 w-px bg-gradient-to-b from-transparent via-cyan-500/10 to-transparent" />
-        <div className="hidden xl:block absolute inset-y-0 right-12 w-px bg-gradient-to-b from-transparent via-cyan-500/10 to-transparent" />
-
-        {/* Ambient Horizontal Chamber Ribs (Subtle sci-fi wall accents) */}
-        <div className="absolute inset-0 flex flex-col justify-between py-24 opacity-15 pointer-events-none">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="w-full h-px bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent" />
-          ))}
-        </div>
-
-        {/* Dynamic Voice Halo Resonance when speaking or listening */}
-        {(isSpeaking || isListening) && (
+        {(isSpeaking || isListening || effectiveThinking) && (
           <div
-            className={`absolute top-[48%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] sm:w-[500px] h-[380px] sm:h-[500px] rounded-full blur-[90px] pointer-events-none transition-all duration-500 ${
-              isListening ? 'bg-sky-400/20 animate-pulse' : 'bg-cyan-400/20 animate-pulse'
+            className={`absolute top-[48%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] sm:w-[480px] h-[380px] sm:h-[480px] rounded-full blur-[90px] pointer-events-none transition-all duration-500 ${
+              isListening
+                ? 'bg-emerald-400/15'
+                : effectiveThinking
+                ? 'bg-sky-400/15'
+                : 'bg-cyan-400/18'
             }`}
           />
         )}
       </div>
 
-      {/* =====================================================================
-          2. TOP GLASS DIAGNOSTIC & STATUS LAYOUT
-          "TARA OS • SYSTEM ACTIVE", battery meter, [DIAGNOSTICS] [3D HOLOGRAM] [DIALOGUE (LOG)]
-          ===================================================================== */}
+      {/* Top Glass Header */}
       <HologramTopBar
         currentEmotion={currentEmotion}
         isSpeaking={isSpeaking}
         isListening={isListening}
+        isThinking={effectiveThinking}
+        isHandsFreeMode={isHandsFreeMode}
+        onToggleVoice={onToggleVoice}
         isStrangerDetected={isStrangerDetected}
         onVerifyBossAccess={onVerifyBossAccess}
         onReplayLastAudio={onReplayVoice}
@@ -174,81 +158,68 @@ export const TaraHologramView: React.FC<TaraHologramViewProps> = ({
         onSelectView={setActiveView}
       />
 
-      {/* =====================================================================
-          3. MAIN HOLOGRAPHIC STAGE (3-PANEL CYBERPUNK HUD)
-          Left: Diagnostics & Wave Charts
-          Center: 3D Neon-Cyan Human Wireframe Silhouette & Emitter Base
-          Right: Chat Dialogue & Terminal Logs
-          ===================================================================== */}
+      {/* Main 3-Panel Holographic Dashboard Stage */}
       <main className="flex-1 w-full min-h-0 h-full max-h-full p-2 sm:p-3 flex items-center justify-center z-10 overflow-hidden relative">
-        <div className="w-full max-w-[1560px] h-full flex items-center justify-between gap-3 sm:gap-4 relative">
-          
-          {/* =================================================================
-              LEFT AREA: SEMI-TRANSPARENT CURVED HUD GLASS SCREEN
-              Vertical bar charts, oscilloscope sine waveform, CPU/RAM telemetry
-              ================================================================= */}
+        <div className="w-full max-w-[1600px] h-full flex items-stretch justify-between gap-3 sm:gap-4 relative">
+          {/* Left Panel: Diagnostic Matrix + System Architecture Map + Agent/Room Nodes */}
           <section
-            className={`w-full lg:w-[320px] xl:w-[360px] h-[92%] max-h-full min-h-0 shrink-0 overflow-hidden transition-all duration-300 ${
+            className={`w-full lg:w-[320px] xl:w-[350px] h-full min-h-0 shrink-0 overflow-hidden transition-all duration-300 ${
               activeView === 'diagnostics' ? 'flex flex-col' : 'hidden lg:flex lg:flex-col'
             }`}
           >
             <CurvedDiagnosticPanel
               isSpeaking={isSpeaking}
               isListening={isListening}
+              isThinking={effectiveThinking}
               systemMode={systemMode}
               onSelectMode={onSelectSystemMode}
+              nodes={nodes}
+              onSelectNode={onSelectNode}
+              memoriesCount={memoriesCount}
               className="w-full h-full min-h-0 max-h-full"
             />
           </section>
 
-          {/* =================================================================
-              CENTER AREA: MULTI-MODULE FUTURISTIC DASHBOARD (AI CORE ORB)
-              Default: Glowing concentric particle AI Core sphere ("START AI")
-              with floating cybernetic modules (Nodes, Skills, Vision, Settings)
-              and connecting vector lines.
-              ================================================================= */}
+          {/* Center Stage: Glowing TARA AI Core Orb & Floating Cybernetic Modules */}
           <section
-            className={`flex-1 h-full max-h-full min-h-0 relative flex flex-col items-center justify-center transition-all duration-300 ${
+            className={`flex-1 min-w-0 h-full max-h-full min-h-0 relative flex flex-col items-center justify-center transition-all duration-300 ${
               activeView === 'entity' ? 'flex' : 'hidden lg:flex'
             }`}
           >
-            {/* Visual Mode Selector: AI Core Dashboard vs 3D Wireframe vs Avatar Photo */}
-            <div className="absolute top-2 z-30 flex items-center gap-1.5 p-1 rounded-full bg-[#030d1d]/90 border border-cyan-500/35 backdrop-blur-md shadow-[0_0_20px_rgba(0,240,255,0.25)]">
+            {/* Visual Mode Selector */}
+            <div className="absolute top-2 z-30 flex items-center gap-1 p-1 rounded-full bg-[#030d1d]/90 border border-cyan-500/35 backdrop-blur-md">
               <button
                 type="button"
                 onClick={() => setEntityVisualMode('orb')}
-                className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold tracking-wider cursor-pointer transition-all ${
+                className={`px-3 py-1 rounded-full text-[11px] font-mono font-semibold cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
                   entityVisualMode === 'orb'
-                    ? 'bg-cyan-500/40 text-white border border-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.6)]'
-                    : 'text-cyan-300/70 hover:text-cyan-200'
+                    ? 'bg-cyan-500/35 text-white border border-cyan-300/60'
+                    : 'text-slate-400 hover:text-cyan-200'
                 }`}
-                title="AI Core Orb एवं मल्टी-मॉड्यूल डैशबोर्ड"
               >
-                ⚡ AI CORE (डैशबोर्ड)
+                AI Core
               </button>
               <button
                 type="button"
                 onClick={() => setEntityVisualMode('wireframe')}
-                className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold tracking-wider cursor-pointer transition-all ${
+                className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
                   entityVisualMode === 'wireframe'
-                    ? 'bg-cyan-500/40 text-white border border-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.6)]'
-                    : 'text-cyan-300/70 hover:text-cyan-200'
+                    ? 'bg-cyan-500/35 text-white border border-cyan-300/60'
+                    : 'text-slate-400 hover:text-cyan-200'
                 }`}
-                title="3D वायरफ़्रेम मोड"
               >
-                🌐 3D वायरफ़्रेम
+                3D वायरफ़्रेम
               </button>
               <button
                 type="button"
                 onClick={() => setEntityVisualMode('avatar')}
-                className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold tracking-wider cursor-pointer transition-all ${
+                className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
                   entityVisualMode === 'avatar'
-                    ? 'bg-cyan-500/40 text-white border border-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.6)]'
-                    : 'text-cyan-300/70 hover:text-cyan-200'
+                    ? 'bg-cyan-500/35 text-white border border-cyan-300/60'
+                    : 'text-slate-400 hover:text-cyan-200'
                 }`}
-                title="अवतार फ़ोटो फ्रेम"
               >
-                👤 अवतार फ़ोटो
+                अवतार फ़ोटो
               </button>
             </div>
 
@@ -256,16 +227,21 @@ export const TaraHologramView: React.FC<TaraHologramViewProps> = ({
               <FloatingCyberneticModules
                 isSpeaking={isSpeaking}
                 isListening={isListening}
+                isThinking={effectiveThinking}
                 isHandsFreeMode={isHandsFreeMode}
                 currentEmotion={currentEmotion}
                 systemMode={systemMode}
                 onSelectSystemMode={onSelectSystemMode}
-                onToggleVoice={onToggleVoice}
+                onToggleVoice={onMicPress || onToggleVoice}
                 onTriggerIndiaNews={onTriggerIndiaNews}
                 onOpenMusicPlayer={onOpenMusicPlayer}
                 onOpenRatesTable={onOpenRatesTable}
                 onOpenCalculator={onOpenCalculator}
                 onOpenMemoryVault={onOpenMemoryVault}
+                onOpenVisualHub={onOpenVisualHub}
+                onUploadPhoto={onUploadPhoto}
+                nodes={nodes}
+                onSelectNode={onSelectNode}
                 className="w-full h-full"
               />
             ) : entityVisualMode === 'wireframe' ? (
@@ -274,7 +250,7 @@ export const TaraHologramView: React.FC<TaraHologramViewProps> = ({
                 isListening={isListening}
                 isHandsFreeMode={isHandsFreeMode}
                 currentEmotion={currentEmotion}
-                onTapEntity={onToggleVoice}
+                onTapEntity={onMicPress || onToggleVoice}
                 className="w-full h-full"
               />
             ) : (
@@ -283,18 +259,15 @@ export const TaraHologramView: React.FC<TaraHologramViewProps> = ({
                 isListening={isListening}
                 isHandsFreeMode={isHandsFreeMode}
                 currentEmotion={currentEmotion}
-                onTapEntity={onToggleVoice}
+                onTapEntity={onMicPress || onToggleVoice}
                 className="w-full h-full"
               />
             )}
           </section>
 
-          {/* =================================================================
-              RIGHT AREA: SEMI-TRANSPARENT CURVED HUD GLASS SCREEN
-              Rotating radar dial gauge, dynamic equalizer, dialogue history & prompt chips
-              ================================================================= */}
+          {/* Right Panel: Split-Screen Chat & Voice HUD */}
           <section
-            className={`w-full lg:w-[320px] xl:w-[360px] h-[92%] max-h-full min-h-0 shrink-0 overflow-hidden transition-all duration-300 ${
+            className={`w-full lg:w-[330px] xl:w-[380px] h-full min-h-0 shrink-0 overflow-hidden transition-all duration-300 ${
               activeView === 'dialogue' ? 'flex flex-col' : 'hidden lg:flex lg:flex-col'
             }`}
           >
@@ -304,18 +277,20 @@ export const TaraHologramView: React.FC<TaraHologramViewProps> = ({
               onSendMessage={onSendMessage}
               isLoadingChat={isLoadingChat}
               isListening={isListening}
+              isSpeaking={isSpeaking}
+              isHandsFreeMode={isHandsFreeMode}
               onToggleVoice={onToggleVoice}
+              onMicPress={onMicPress}
               liveSpeechTranscript={liveSpeechTranscript}
+              voiceError={voiceError}
+              onDismissVoiceError={onDismissVoiceError}
               className="w-full h-full min-h-0 max-h-full"
             />
           </section>
         </div>
       </main>
 
-      {/* =====================================================================
-          4. BOTTOM HOLOGRAPHIC ACTION CONTROLS DOCK
-          [CALL: ACTIVE], [CAMERA SCAN], [HUD LOGS], News, Music, Rates, etc.
-          ===================================================================== */}
+      {/* Bottom Dock */}
       <HologramBottomDock
         isListening={isListening}
         isSpeaking={isSpeaking}
@@ -328,6 +303,8 @@ export const TaraHologramView: React.FC<TaraHologramViewProps> = ({
         onOpenMemoryVault={onOpenMemoryVault}
         onToggleTerminalLogs={onToggleTerminalLogs}
         onReplayVoice={onReplayVoice}
+        onOpenVisualHub={onOpenVisualHub}
+        onUploadPhoto={onUploadPhoto}
       />
     </div>
   );

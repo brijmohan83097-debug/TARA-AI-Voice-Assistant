@@ -1,33 +1,33 @@
 /**
  * HologramTopBar.tsx
- * Top Glass Layout for TARA Hologram Chamber (Matches 1791885788037.png):
- * - "TARA OS • SYSTEM ACTIVE" in glowing cyan font.
- * - Glass segmented view controls: [DIAGNOSTICS] [3D HOLOGRAM] [DIALOGUE (LOG)]
- * - Battery meter, quantum network latency, synchronized clock, and Boss verification.
+ * Clean 3-Zone Sci-Fi Operating System Top Bar for TARA:
+ * - Left: TARA OS brand + live state indicator (Thinking / Speaking / Listening)
+ * - Center: Responsive View Switcher (Diagnostic Matrix / Core Hub / Chat & HUD)
+ * - Right: Single-line functional controls (Voice Loop, Speaker TTS, Replay, Language, Clock)
  */
 
 import React, { useEffect, useState } from 'react';
 import {
-  Shield,
-  Wifi,
-  BatteryCharging,
-  Battery,
   Volume2,
   VolumeX,
-  UserCheck,
+  Phone,
+  PhoneOff,
   Clock,
   Activity,
   Orbit,
   MessageSquare,
+  RotateCcw,
 } from 'lucide-react';
 import { TaraEmotion } from '../types';
-import { TARA_EMOTION_CONFIGS } from '../utils/emotions';
 import { speechEngine } from '../utils/speech';
 
 interface HologramTopBarProps {
   currentEmotion: TaraEmotion;
   isSpeaking: boolean;
   isListening: boolean;
+  isThinking?: boolean;
+  isHandsFreeMode?: boolean;
+  onToggleVoice?: () => void;
   isStrangerDetected: boolean;
   onVerifyBossAccess?: () => void;
   onReplayLastAudio?: () => void;
@@ -38,11 +38,11 @@ interface HologramTopBarProps {
 }
 
 export const HologramTopBar: React.FC<HologramTopBarProps> = ({
-  currentEmotion,
   isSpeaking,
   isListening,
-  isStrangerDetected,
-  onVerifyBossAccess,
+  isThinking = false,
+  isHandsFreeMode = false,
+  onToggleVoice,
   onReplayLastAudio,
   voiceLang,
   onToggleVoiceLang,
@@ -50,7 +50,6 @@ export const HologramTopBar: React.FC<HologramTopBarProps> = ({
   onSelectView,
 }) => {
   const [timeStr, setTimeStr] = useState('');
-  const [batteryLevel, setBatteryLevel] = useState<number>(98);
   const [isTtsActive, setIsTtsActive] = useState<boolean>(() => speechEngine.getIsTtsEnabled());
 
   useEffect(() => {
@@ -61,158 +60,176 @@ export const HologramTopBar: React.FC<HologramTopBarProps> = ({
           hour12: false,
           hour: '2-digit',
           minute: '2-digit',
-          second: '2-digit',
         })
       );
     };
     updateTime();
-    const timer = setInterval(updateTime, 1000);
+    const timer = setInterval(updateTime, 15000);
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const syncTts = setInterval(() => {
+      setIsTtsActive(speechEngine.getIsTtsEnabled());
+    }, 800);
+    return () => clearInterval(syncTts);
+  }, []);
+
+  const liveStateText = isListening
+    ? 'सुन रही हूँ'
+    : isThinking
+    ? 'सोच रही हूँ'
+    : isSpeaking
+    ? 'बोल रही हूँ'
+    : isHandsFreeMode
+    ? 'कॉल सक्रिय'
+    : 'तैयार';
+
   return (
-    <header className="w-full shrink-0 z-30 flex flex-col items-center justify-center pt-2 pb-1.5 px-3 sm:px-6 bg-gradient-to-b from-[#020716]/95 via-[#020716]/80 to-transparent backdrop-blur-md select-none border-b border-cyan-500/20">
-      {/* 1. TOP TITLE BAR: "TARA OS • SYSTEM ACTIVE" */}
-      <div className="w-full flex items-center justify-between max-w-6xl">
-        {/* Left: TARA OS Title & Active Beacon */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-2">
-            <span
-              className={`w-2.5 h-2.5 rounded-full ${
-                isListening
-                  ? 'bg-cyan-300 animate-ping shadow-[0_0_12px_#00f0ff]'
-                  : isSpeaking
-                  ? 'bg-cyan-400 animate-pulse shadow-[0_0_10px_#00f0ff]'
-                  : 'bg-cyan-400 shadow-[0_0_8px_#00f0ff]'
-              }`}
-            />
-            <h1 className="font-heading font-black text-sm sm:text-base tracking-widest text-cyan-200 uppercase drop-shadow-[0_0_12px_rgba(0,240,255,0.6)]">
-              TARA OS <span className="text-cyan-400 font-bold">• SYSTEM ACTIVE</span>
-            </h1>
-          </div>
-
-          {/* Boss Verified Tag */}
-          <div className="hidden md:flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-950/70 border border-cyan-500/30 text-[9px] font-mono text-cyan-300">
-            <UserCheck className="w-2.5 h-2.5 text-cyan-400" />
-            <span>MR. BRIJMOHAN KUMAR</span>
-          </div>
-        </div>
-
-        {/* Right: Battery Meter, WiFi Latency, Replay Audio, Lang Toggle */}
-        <div className="flex items-center gap-2 font-mono text-[10px]">
-          {/* Clock */}
-          <div className="hidden sm:flex items-center gap-1 text-cyan-300/80 bg-slate-950/70 px-2 py-0.5 rounded border border-cyan-500/25">
-            <Clock className="w-3 h-3 text-cyan-400" />
-            <span>{timeStr || '00:00:00'}</span>
-          </div>
-
-          {/* Battery Meter */}
-          <div className="flex items-center gap-1 text-emerald-400 bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-500/30 text-[9px]">
-            <BatteryCharging className="w-3 h-3 animate-pulse" />
-            <span>{batteryLevel}%</span>
-          </div>
-
-          {/* Network Latency */}
-          <div className="hidden sm:flex items-center gap-1 text-cyan-400 bg-slate-950/70 px-2 py-0.5 rounded border border-cyan-500/20 text-[9px]">
-            <Wifi className="w-2.5 h-2.5 text-cyan-300" />
-            <span>12ms</span>
-          </div>
-
-          {/* TTS Speaker Voice Output Toggle */}
-          <button
-            type="button"
-            onClick={() => {
-              const enabled = speechEngine.toggleTts();
-              setIsTtsActive(enabled);
-            }}
-            className={`px-2 py-0.5 rounded border text-[9px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm ${
-              isTtsActive
-                ? 'bg-cyan-950/90 text-cyan-200 border-cyan-400 shadow-[0_0_10px_rgba(0,240,255,0.4)]'
-                : 'bg-rose-950/80 text-rose-300 border-rose-500/50'
+    <header className="w-full shrink-0 z-30 px-3 sm:px-6 py-2.5 bg-[#030816]/95 border-b border-cyan-500/25 backdrop-blur-md select-none">
+      <div className="w-full max-w-[1600px] mx-auto flex items-center justify-between gap-4">
+        {/* Zone 1: Brand & Live Core State */}
+        <div className="flex items-center gap-3 min-w-0 shrink-0">
+          <h1 className="font-heading font-bold text-base sm:text-lg tracking-wider text-cyan-200 whitespace-nowrap shrink-0">
+            TARA OS
+          </h1>
+          <span className="hidden sm:inline text-cyan-500/40" aria-hidden="true">/</span>
+          <span
+            className={`hidden sm:inline text-xs font-mono whitespace-nowrap shrink-0 ${
+              isListening
+                ? 'text-emerald-300'
+                : isThinking
+                ? 'text-sky-300'
+                : isSpeaking
+                ? 'text-cyan-300'
+                : 'text-slate-400'
             }`}
-            title={isTtsActive ? 'TTS आवाज़ सक्रिय है (बंद करने के लिए क्लिक करें)' : 'TTS आवाज़ चालू करें (Click to Enable Voice Speaker)'}
           >
-            {isTtsActive ? (
-              <>
-                <Volume2 className="w-3 h-3 text-cyan-300 animate-pulse" />
-                <span className="hidden sm:inline">TTS: ON</span>
-              </>
-            ) : (
-              <>
-                <VolumeX className="w-3 h-3 text-rose-400" />
-                <span className="hidden sm:inline">TTS: OFF</span>
-              </>
-            )}
-          </button>
-
-          {/* Replay voice button */}
-          {onReplayLastAudio && (
-            <button
-              type="button"
-              onClick={onReplayLastAudio}
-              className="p-1 rounded bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/30 text-cyan-300 transition-colors cursor-pointer"
-              title="तारा की आवाज़ दोबारा सुनें (Speak response out loud)"
-            >
-              <Volume2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-
-          {/* Language Switch */}
-          <button
-            type="button"
-            onClick={onToggleVoiceLang}
-            className="px-2 py-0.5 rounded bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 font-bold text-[9px] cursor-pointer transition-colors"
-            title="भाषा बदलें"
-          >
-            {voiceLang === 'hi-IN' ? '🇮🇳 हिंदी' : '🌐 EN'}
-          </button>
+            {liveStateText}
+          </span>
         </div>
-      </div>
 
-      {/* 2. CENTER GLASS SEGMENTED VIEW SELECTOR (Matches 1791885788037.png Header) */}
-      <div className="mt-1.5 flex items-center justify-center z-20">
-        <div className="flex items-center gap-1 p-1 rounded-2xl bg-[#031026]/85 border border-cyan-500/40 shadow-[0_0_20px_rgba(0,240,255,0.18)] backdrop-blur-md">
-          {/* TAB 1: DIAGNOSTICS */}
+        {/* Zone 2: Section Switcher (Essential on Mobile/Tablet, quick focus on Desktop) */}
+        <nav
+          aria-label="Dashboard sections"
+          className="flex items-center gap-1 p-1 rounded-xl bg-[#041024] border border-cyan-500/30 shrink-0"
+        >
           <button
             type="button"
             onClick={() => onSelectView('diagnostics')}
-            className={`px-3 sm:px-4 py-1 rounded-xl font-mono text-[10px] sm:text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-mono text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
               activeView === 'diagnostics'
-                ? 'bg-cyan-500/35 text-white border border-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.5)]'
-                : 'text-cyan-300/70 hover:text-cyan-200 hover:bg-cyan-950/50'
+                ? 'bg-cyan-500/30 text-white border border-cyan-400/60'
+                : 'text-slate-400 hover:text-cyan-200'
             }`}
           >
-            <Activity className="w-3 h-3 text-cyan-400" />
-            <span>DIAGNOSTICS</span>
+            <Activity className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden md:inline">Diagnostics</span>
           </button>
 
-          {/* TAB 2: AI CORE HUB (Center Multi-Module View) */}
           <button
             type="button"
             onClick={() => onSelectView('entity')}
-            className={`px-3 sm:px-4 py-1 rounded-xl font-mono text-[10px] sm:text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-mono text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
               activeView === 'entity'
-                ? 'bg-cyan-500/35 text-white border border-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.5)]'
-                : 'text-cyan-300/70 hover:text-cyan-200 hover:bg-cyan-950/50'
+                ? 'bg-cyan-500/30 text-white border border-cyan-400/60'
+                : 'text-slate-400 hover:text-cyan-200'
             }`}
           >
-            <Orbit className="w-3 h-3 text-cyan-400 animate-spin" />
-            <span>AI CORE HUB</span>
+            <Orbit className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden md:inline">Core Hub</span>
           </button>
 
-          {/* TAB 3: DIALOGUE (LOG) */}
           <button
             type="button"
             onClick={() => onSelectView('dialogue')}
-            className={`px-3 sm:px-4 py-1 rounded-xl font-mono text-[10px] sm:text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-mono text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
               activeView === 'dialogue'
-                ? 'bg-cyan-500/35 text-white border border-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.5)]'
-                : 'text-cyan-300/70 hover:text-cyan-200 hover:bg-cyan-950/50'
+                ? 'bg-cyan-500/30 text-white border border-cyan-400/60'
+                : 'text-slate-400 hover:text-cyan-200'
             }`}
           >
-            <MessageSquare className="w-3 h-3 text-cyan-400" />
-            <span>DIALOGUE (LOG)</span>
+            <MessageSquare className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden md:inline">Chat & HUD</span>
           </button>
+        </nav>
+
+        {/* Zone 3: Primary Controls */}
+        <div className="flex items-center gap-2 shrink-0">
+          {timeStr && (
+            <div className="hidden xl:flex items-center gap-1.5 text-xs font-mono tabular-nums text-slate-400 px-2">
+              <Clock className="w-3.5 h-3.5 text-cyan-400" />
+              <span>{timeStr}</span>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              speechEngine.unlockSpeech();
+              const enabled = speechEngine.toggleTts();
+              setIsTtsActive(enabled);
+            }}
+            className={`px-2.5 py-1.5 rounded-lg border text-xs font-mono flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
+              isTtsActive
+                ? 'bg-cyan-950/80 hover:bg-cyan-900 border-cyan-400/60 text-cyan-200'
+                : 'bg-rose-950/70 hover:bg-rose-900 border-rose-500/50 text-rose-200'
+            }`}
+            title={isTtsActive ? 'स्पीकर चालू है' : 'स्पीकर बंद है'}
+          >
+            {isTtsActive ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{isTtsActive ? 'स्पीकर ON' : 'स्पीकर OFF'}</span>
+          </button>
+
+          {onReplayLastAudio && (
+            <button
+              type="button"
+              onClick={() => {
+                speechEngine.unlockSpeech();
+                onReplayLastAudio();
+              }}
+              className="p-1.5 rounded-lg bg-[#041024] hover:bg-cyan-950 border border-cyan-500/35 text-cyan-300 cursor-pointer transition-colors shrink-0"
+              title="आखिरी जवाब दोबारा सुनें"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={onToggleVoiceLang}
+            className="px-2.5 py-1.5 rounded-lg bg-[#041024] hover:bg-cyan-950 border border-cyan-500/35 text-cyan-200 font-mono text-xs cursor-pointer transition-colors whitespace-nowrap shrink-0"
+            title="भाषा बदलें"
+          >
+            {voiceLang === 'hi-IN' ? 'हिन्दी' : 'EN'}
+          </button>
+
+          {onToggleVoice && (
+            <button
+              type="button"
+              onClick={() => {
+                speechEngine.unlockSpeech();
+                onToggleVoice();
+              }}
+              className={`px-3 py-1.5 rounded-lg font-medium text-xs flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
+                isHandsFreeMode
+                  ? 'bg-rose-600 hover:bg-rose-500 text-white'
+                  : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold'
+              }`}
+            >
+              {isHandsFreeMode ? (
+                <>
+                  <PhoneOff className="w-3.5 h-3.5" />
+                  <span>कॉल बंद</span>
+                </>
+              ) : (
+                <>
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>कॉल शुरू</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </header>

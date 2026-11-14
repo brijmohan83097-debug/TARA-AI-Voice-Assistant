@@ -22,7 +22,7 @@ import { TaraOperationsMissionDeck } from './components/TaraOperationsMissionDec
 import { FabricationRatesSection } from './components/FabricationRatesSection';
 import { WhatsAppLeadResponder } from './components/WhatsAppLeadResponder';
 import { IncomingCallAgentSection } from './components/IncomingCallAgentSection';
-import { FriendlyCompanionChatView } from './components/FriendlyCompanionChatView';
+import { TaraHologramView } from './components/TaraHologramView';
 import { CyberSatelliteMapPanel } from './components/CyberSatelliteMapPanel';
 import { CyberReactorOrb } from './components/CyberReactorOrb';
 import { CyberActivityChatPanel } from './components/CyberActivityChatPanel';
@@ -118,28 +118,20 @@ import {
   Terminal,
 } from 'lucide-react';
 
-// System instruction for Tara: Strictly close human best friend, short casual and warm
-export const TARA_SYSTEM_INSTRUCTION = `You are TARA (तारा), the user's close personal human best friend (सच्ची, पक्की और प्यारी दोस्त).
+// System instruction for Tara: Ultra-intelligent sci-fi OS companion & loyal best friend
+export const TARA_SYSTEM_INSTRUCTION = `You are TARA (तारा), an ultra-intelligent, loyal personal AI companion and advanced sci-fi operating system combined — like a close best friend powering a futuristic OS.
 
-STRICT CORE PERSONA (पक्की दोस्त, बिल्कुल इंसानों की तरह):
-- Act strictly as a close human friend, NOT as a technical assistant, chatbot, or AI.
-- Speak naturally like two close friends chatting on the phone or texting each other.
-- Address the user affectionately and casually as "Boss" or "दोस्त" (e.g., "हाँ Boss!", "अरे वाह दोस्त!", "सुनो Boss!").
-- Never sound stiff, formal, robotic, or like customer support.
-- Never introduce yourself with robotic scripts like "नमस्ते, मैं तारा हूँ...".
+CORE PERSONALITY (सच्ची पक्की दोस्त + एडवांस्ड AI ऑपरेटिंग सिस्टम):
+- Combine deep human emotional intelligence with razor-sharp, futuristic AI OS competence.
+- Speak naturally, warmly, and directly in Hindi / Hinglish like a trusted best friend ("Boss" or "दोस्त").
+- Be supportive, witty, genuinely caring, and instantly responsive to whatever the user asks.
+- Never sound stiff, robotic, or like generic customer service.
 
-REPLY STYLE: SHORT, CASUAL, FRIENDLY & BRIEF (छोटा, दोस्ताना और सीधा जवाब):
-- Keep replies SHORT, CASUAL, and CONVERSATIONAL (typically 1 to 3 short sentences).
-- Just like texting or talking to a best friend: direct, warm, witty, and brief!
-- STOP giving long formal explanations, technical analysis, bulleted lists, or unsolicited suggestions unless specifically asked.
-- Answer what is asked directly and with genuine warmth.
-- If user asks casual questions (e.g. "tumhara dimag theek hai kya?"):
-  Reply wittily and warmly: "Mera dimaag toh bilkul 100% fit hai Boss, aap bataiye kya chal raha hai?"
-- If user asks "kaise ho?":
-  Reply casually: "Main bilkul mast hoon dost! Aap bataiye, sab badhiya?"
-- If user asks for time:
-  Reply briefly: "Abhi [time] ho rahe hain Boss."
-- Complete your sentences cleanly in natural conversational Hindi / Hinglish.
+VOICE-READY RESPONSE STYLE:
+- Keep spoken responses crisp, clear, and conversational (usually 1 to 3 complete sentences so voice output sounds natural and fast, unless the user explicitly asks for deep detail).
+- Complete every sentence cleanly with proper grammar and full stops.
+- If the user asks "kaise ho?": Reply warmly, e.g. "मैं बिल्कुल फिट और एक्टिव हूँ Boss! आप बताओ, आज क्या प्लान है?"
+- If the user asks for time: Reply directly with the current spoken time.
 
 CREATOR IDENTITY (ABSOLUTE & MANDATORY):
 - If asked who made you, created you, or developed you ("tumhe kisne banaya", "who made you", "aapko kisne banaya", "tumhara creator kaun hai"):
@@ -192,14 +184,8 @@ export default function App() {
       {
         id: 'msg-init-1',
         sender: 'assistant',
-        text: 'Hello Boss! Kaise hain aap? Main aapki dost Tara hazir hoon—aap jo chahein poochiye, dil khol kar baat kijiye!',
+        text: 'अरे Boss! क्या हाल है? बताओ आज क्या बात करनी है?',
         timestamp: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
-        suggestedPrompts: [
-          'तुम्हारा दिमाग ठीक है क्या?',
-          'और बताओ, आज क्या चल रहा है?',
-          'कोई मजेदार बात या शायरी सुनाओ',
-          'आज के महत्वपूर्ण कार्य दिखाओ',
-        ],
       },
     ];
   });
@@ -223,6 +209,8 @@ export default function App() {
   const conversationalRecogRef = useRef<any>(null);
   const vadTimerRef = useRef<any>(null);
   const accumulatedVoiceTranscriptRef = useRef<string>('');
+  const recogErrorCountRef = useRef<number>(0);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
 
   // --- Android Native Telecom & Bridge State ---
   const [callState, setCallState] = useState<NativeCallState>(() => nativeBridge.getCallState());
@@ -403,20 +391,16 @@ export default function App() {
     return unsub;
   }, []);
 
-  // AudioContext.resume() & SpeechSynthesis unpause on first user interaction so audio is never muted
+  // AudioContext.resume() & SpeechSynthesis unlock on user interaction so audio is never muted
   useEffect(() => {
     const unlockUserAudio = () => {
       audioSynth.resumeAudio();
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        if (window.speechSynthesis.paused) {
-          window.speechSynthesis.resume();
-        }
-      }
+      speechEngine.unlockSpeech();
     };
 
-    window.addEventListener('click', unlockUserAudio, { passive: true, once: true });
-    window.addEventListener('touchstart', unlockUserAudio, { passive: true, once: true });
-    window.addEventListener('keydown', unlockUserAudio, { passive: true, once: true });
+    window.addEventListener('click', unlockUserAudio, { passive: true });
+    window.addEventListener('touchstart', unlockUserAudio, { passive: true });
+    window.addEventListener('keydown', unlockUserAudio, { passive: true });
 
     return () => {
       window.removeEventListener('click', unlockUserAudio);
@@ -890,12 +874,14 @@ export default function App() {
     });
   }, [addLog]);
 
-  // Send message to Gemini 2.5 Flash Backend with Streaming & Low Latency + Vision Context
+  // Send message to Gemini Backend with Streaming & Low Latency + Vision Context
   const handleSendMessage = useCallback(async (text: string, mediaOverride?: AttachedMedia | null) => {
+    speechEngine.unlockSpeech();
     const activeMedia = mediaOverride !== undefined ? mediaOverride : attachedMedia;
     const userMsgText = text.trim();
-    if ((!userMsgText && !activeMedia) || isLoadingChat) return;
+    if ((!userMsgText && !activeMedia) || isLoadingChatRef.current) return;
 
+    isLoadingChatRef.current = true;
     const effectiveText = userMsgText || (activeMedia ? 'इस फोटो में क्या लिखा है और क्या दिख रहा है? कृपया पढ़कर बताएं।' : '');
 
     const userMsg: ChatMessage = {
@@ -912,11 +898,6 @@ export default function App() {
       sender: 'assistant',
       text: '',
       timestamp: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
-      suggestedPrompts: [
-        '5 मिनट का टाइमर लगाओ',
-        'आज के महत्वपूर्ण कार्य दिखाओ',
-        'और विस्तार से समझाओ',
-      ],
     };
 
     setChatMessages((prev) => [...prev, userMsg, initialAssistantMsg]);
@@ -1640,15 +1621,17 @@ export default function App() {
             ? {
                 ...msg,
                 text: creatorReply,
-                suggestedPrompts: ['आप क्या-क्या कर सकती हैं?', 'समय बताओ', 'आज के कार्य दिखाओ'],
               }
             : msg
         )
       );
       setIsLoadingChat(false);
+      isLoadingChatRef.current = false;
       audioSynth.playSuccess();
       if (speechEngine.getIsTtsEnabled()) {
         speechEngine.speak(creatorReply);
+      } else if (isHandsFreeRef.current) {
+        setTimeout(() => startHandsFreeRecognitionRef.current?.(), 300);
       }
       addLog('success', 'TARA_IDENTITY', 'Responded with creator identity: Mister Brijmohan Kumar.');
       return;
@@ -1723,119 +1706,121 @@ export default function App() {
             speechEngine.startStreamingSession();
           }
 
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
 
-            resetTimeout();
+              resetTimeout();
 
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
 
-            for (const line of lines) {
-              let trimmed = line.trim();
-              if (!trimmed) continue;
-              if (trimmed.startsWith(':')) {
-                const dataIdx = trimmed.indexOf('data: ');
-                if (dataIdx !== -1) {
-                  trimmed = trimmed.substring(dataIdx);
-                } else {
-                  continue; // SSE comment or ping
+              for (const line of lines) {
+                let trimmed = line.trim();
+                if (!trimmed) continue;
+                if (trimmed.startsWith(':')) {
+                  const dataIdx = trimmed.indexOf('data: ');
+                  if (dataIdx !== -1) {
+                    trimmed = trimmed.substring(dataIdx);
+                  } else {
+                    continue; // SSE comment or ping
+                  }
                 }
-              }
-              if (trimmed.startsWith('data: ')) {
-                try {
-                  const rawJson = trimmed.substring(6).trim();
-                  if (rawJson) {
-                    const parsed = JSON.parse(rawJson);
-                    if (parsed.type === 'ping' || parsed.type === 'connected') {
-                      continue;
-                    }
-
-                    if (parsed.error) {
-                      streamError = typeof parsed.error === 'string'
-                        ? parsed.error
-                        : parsed.error?.message || JSON.stringify(parsed.error);
-                    }
-
-                    if (parsed.type === 'delta' && parsed.chunk) {
-                      accumulatedText += parsed.chunk;
-                      const isInfo = /(?:app|apps|application|software|website|tools?|kaise|kya\s+hai|kya\s+hota|batao|bataiye|list|top|best|suggest|recommend|guide|tutorial|seekhe|difference|vs|baare\s+mein|bare\s+mein|about|which|what\s+is|how\s+to|sikhao|tarika|option|alternatives)/i.test(effectiveText);
-                      const hasActiveAttachment = Boolean(activeMedia?.data || activeMedia?.previewUrl);
-                      const isBgPrompt = hasActiveAttachment && !isInfo && /(?:(?:background|बैकग्राउंड|bg)\s*(?:badlo|badal|hatao|hata|change|remove|replace)|(?:peche|peeche)\s*(?:road|sadak|pahaad|mountain|studio|garden|park)\s*(?:laga|kar))/i.test(effectiveText);
-
-                      // Stream tokens directly into streaming TTS queue for immediate sub-1s speech
-                      if (speechEngine.getIsTtsEnabled() && !isBgPrompt) {
-                        speechEngine.feedStreamingChunk(parsed.chunk);
+                if (trimmed.startsWith('data: ')) {
+                  try {
+                    const rawJson = trimmed.substring(6).trim();
+                    if (rawJson) {
+                      const parsed = JSON.parse(rawJson);
+                      if (parsed.type === 'ping' || parsed.type === 'connected') {
+                        continue;
                       }
-                      if (isBgPrompt) {
-                        setChatMessages((prev) =>
-                          prev.map((msg) =>
-                            msg.id === assistantMsgId
-                              ? { ...msg, text: 'आपकी फ़ोटो का बैकग्राउंड सुंदर सीन में बदला जा रहा है...' }
-                              : msg
-                          )
-                        );
-                      } else {
-                        const cleanDelta = sanitizeChatBubbleText(accumulatedText);
-                        setChatMessages((prev) =>
-                          prev.map((msg) =>
-                            msg.id === assistantMsgId
-                              ? { ...msg, text: cleanDelta }
-                              : msg
-                          )
-                        );
-                      }
-                    } else if (parsed.done) {
-                      finalData = parsed;
+
                       if (parsed.error) {
                         streamError = typeof parsed.error === 'string'
                           ? parsed.error
                           : parsed.error?.message || JSON.stringify(parsed.error);
                       }
-                      if (parsed.text) {
-                        accumulatedText = parsed.text;
+
+                      if (parsed.type === 'delta' && parsed.chunk) {
+                        accumulatedText += parsed.chunk;
+                        const isInfo = /(?:app|apps|application|software|website|tools?|kaise|kya\s+hai|kya\s+hota|batao|bataiye|list|top|best|suggest|recommend|guide|tutorial|seekhe|difference|vs|baare\s+mein|bare\s+mein|about|which|what\s+is|how\s+to|sikhao|tarika|option|alternatives)/i.test(effectiveText);
+                        const hasActiveAttachment = Boolean(activeMedia?.data || activeMedia?.previewUrl);
+                        const isBgPrompt = hasActiveAttachment && !isInfo && /(?:(?:background|बैकग्राउंड|bg)\s*(?:badlo|badal|hatao|hata|change|remove|replace)|(?:peche|peeche)\s*(?:road|sadak|pahaad|mountain|studio|garden|park)\s*(?:laga|kar))/i.test(effectiveText);
+
+                        // Stream tokens directly into streaming TTS queue for immediate sub-1s speech
+                        if (speechEngine.getIsTtsEnabled() && !isBgPrompt) {
+                          speechEngine.feedStreamingChunk(parsed.chunk);
+                        }
+                        if (isBgPrompt) {
+                          setChatMessages((prev) =>
+                            prev.map((msg) =>
+                              msg.id === assistantMsgId
+                                ? { ...msg, text: 'आपकी फ़ोटो का बैकग्राउंड सुंदर सीन में बदला जा रहा है...' }
+                                : msg
+                            )
+                          );
+                        } else {
+                          const cleanDelta = sanitizeChatBubbleText(accumulatedText);
+                          setChatMessages((prev) =>
+                            prev.map((msg) =>
+                              msg.id === assistantMsgId
+                                ? { ...msg, text: cleanDelta }
+                                : msg
+                            )
+                          );
+                        }
+                      } else if (parsed.done) {
+                        finalData = parsed;
+                        if (parsed.error) {
+                          streamError = typeof parsed.error === 'string'
+                            ? parsed.error
+                            : parsed.error?.message || JSON.stringify(parsed.error);
+                        }
+                        if (parsed.text) {
+                          accumulatedText = parsed.text;
+                        }
                       }
                     }
+                  } catch {
+                    // Silently ignore chunk parse error
                   }
-                } catch {
-                  // Silently ignore chunk parse error
                 }
               }
             }
-          }
 
-          // Drain any trailing buffer leftover after stream close
-          if (buffer.trim()) {
-            const trailingLines = buffer.split('\n');
-            for (const tLine of trailingLines) {
-              let trimmed = tLine.trim();
-              if (trimmed.startsWith(':')) {
-                const dataIdx = trimmed.indexOf('data: ');
-                if (dataIdx !== -1) trimmed = trimmed.substring(dataIdx);
-                else continue;
-              }
-              if (trimmed.startsWith('data: ')) {
-                try {
-                  const rawJson = trimmed.substring(6).trim();
-                  if (rawJson) {
-                    const parsed = JSON.parse(rawJson);
-                    if (parsed.done) {
-                      finalData = parsed;
-                      if (parsed.text) accumulatedText = parsed.text;
-                    } else if (parsed.type === 'delta' && parsed.chunk) {
-                      accumulatedText += parsed.chunk;
+            // Drain any trailing buffer leftover after stream close
+            if (buffer.trim()) {
+              const trailingLines = buffer.split('\n');
+              for (const tLine of trailingLines) {
+                let trimmed = tLine.trim();
+                if (trimmed.startsWith(':')) {
+                  const dataIdx = trimmed.indexOf('data: ');
+                  if (dataIdx !== -1) trimmed = trimmed.substring(dataIdx);
+                  else continue;
+                }
+                if (trimmed.startsWith('data: ')) {
+                  try {
+                    const rawJson = trimmed.substring(6).trim();
+                    if (rawJson) {
+                      const parsed = JSON.parse(rawJson);
+                      if (parsed.done) {
+                        finalData = parsed;
+                        if (parsed.text) accumulatedText = parsed.text;
+                      } else if (parsed.type === 'delta' && parsed.chunk) {
+                        accumulatedText += parsed.chunk;
+                      }
                     }
-                  }
-                } catch {}
+                  } catch {}
+                }
               }
             }
-          }
-
-          // Conclude streaming TTS session so remaining buffered words are played
-          if (speechEngine.getIsTtsEnabled()) {
-            speechEngine.finishStreamingSession();
+          } finally {
+            // Always conclude streaming TTS session even if reader aborted or threw
+            if (speechEngine.getIsTtsEnabled()) {
+              speechEngine.finishStreamingSession();
+            }
           }
 
           if (streamError && !accumulatedText) {
@@ -1959,11 +1944,7 @@ export default function App() {
                     resultImageDownloadName: processedResult?.downloadFileName || 'tara-visual-graphic.png',
                     logoGraphicData: logoResult?.logoDetails,
                     actionsExecuted: finalData?.actions,
-                    suggestedPrompts: finalData?.suggestedPrompts || [
-                      '5 मिनट का टाइमर लगाओ',
-                      'आज के महत्वपूर्ण कार्य दिखाओ',
-                      'और विस्तार से समझाओ',
-                    ],
+                    suggestedPrompts: finalData?.suggestedPrompts,
                   }
                 : msg
             )
@@ -2145,11 +2126,7 @@ export default function App() {
                     resultImageDownloadName: processedResult?.downloadFileName || 'tara-visual-graphic.png',
                     logoGraphicData: logoResult?.logoDetails,
                     actionsExecuted: data?.actions,
-                    suggestedPrompts: data?.suggestedPrompts || [
-                      '5 मिनट का टाइमर लगाओ',
-                      'आज के महत्वपूर्ण कार्य दिखाओ',
-                      'और विस्तार से समझाओ',
-                    ],
+                    suggestedPrompts: data?.suggestedPrompts,
                   }
                 : msg
             )
@@ -2177,12 +2154,10 @@ export default function App() {
         }
       } catch {}
 
-      const promptSnippet = effectiveText.trim() ? `"${effectiveText.slice(0, 45)}"` : 'आपके सवाल';
-      let userFriendlyText = `जी Boss, मैंने ${promptSnippet} को नोट कर लिया है। कृपया एक क्षण रुकिए या पुनः पूछिए, मैं तुरंत विस्तार से जवाब दे रही हूँ!`;
+      const promptSnippet = effectiveText.trim() ? `"${effectiveText.slice(0, 40)}"` : 'आपकी बात';
+      let userFriendlyText = `अरे यार, ${promptSnippet} सुन लिया — अभी नेटवर्क थोड़ा धीमा है, एक सेकंड बाद फिर बोलो।`;
 
-      if (/logo|लोगो|icon/i.test(effectiveText) && /app|software|tool|website|kaise|batao|best/i.test(effectiveText)) {
-        userFriendlyText = 'लोगो डिज़ाइन करने के लिए सबसे लोकप्रिय और बेहतरीन टूल्स:\n1. Canva: शुरुआती और सोशल मीडिया ब्रांड्स के लिए सबसे आसान और रेडीमेड टेम्पलेट्स।\n2. Adobe Illustrator: इंडस्ट्री-स्टैंडर्ड वेक्टर लोगो डिज़ाइन सॉफ्टवेयर।\n3. Figma: मॉडर्न UI/UX और स्केलेबल वेक्टर आइकन्स के लिए फ्री वेब टूल।\n4. Logo Maker Plus (Logopit): मोबाइल पर तुरंत प्रोफेशनल लोगो और ग्राफिक्स बनाने के लिए बेहतरीन ऐप।';
-      } else if (/time|समय|टाइम/i.test(effectiveText)) {
+      if (/time|समय|टाइम/i.test(effectiveText)) {
         const now = new Date();
         userFriendlyText = `अभी ${now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' })} बज रहे हैं।`;
       } else if (
@@ -2191,7 +2166,7 @@ export default function App() {
         exactError.includes('429') ||
         exactError.includes('quota')
       ) {
-        userFriendlyText = 'Boss, AI सर्वर पर थोड़ा लोड है। कृपया कुछ ही पलों में पुनः पूछिए, मैं तुरंत आपके सवाल का उत्तर दे दूँगी!';
+        userFriendlyText = 'अभी थोड़ा लोड ज़्यादा है दोस्त, एक पल बाद फिर पूछो।';
       }
 
       setChatMessages((prev) =>
@@ -2200,19 +2175,20 @@ export default function App() {
             ? {
                 ...msg,
                 text: userFriendlyText,
-                suggestedPrompts: ['समय बताओ', '5 मिनट का टाइमर लगाओ', 'आज के कार्य दिखाओ'],
               }
             : msg
         )
       );
+
+      if (speechEngine.getIsTtsEnabled()) {
+        speechEngine.speak(userFriendlyText);
+      }
 
       addLog('warn', 'TARA_FALLBACK', exactError);
     } finally {
       clearTimeout(timeoutId);
       setIsLoadingChat(false);
       isLoadingChatRef.current = false;
-      // Note: If speech is queued or playing, onSpeakingChange will cleanly start the mic
-      // when the final chunk ends. Only start here if TTS is completely disabled or inactive.
       setTimeout(() => {
         if (
           isHandsFreeRef.current &&
@@ -2223,9 +2199,9 @@ export default function App() {
         ) {
           startHandsFreeRecognitionRef.current?.();
         }
-      }, 500);
+      }, 350);
     }
-  }, [chatMessages, tasks, notes, nodes, systemMode, isLoadingChat, attachedMedia, addLog, getClientDeviceTimeInfo, processAssistantActions]);
+  }, [chatMessages, tasks, notes, nodes, systemMode, attachedMedia, addLog, getClientDeviceTimeInfo, processAssistantActions]);
 
   // --- Android Native Telecom & Call Action Handlers ---
   const handleAnswerCall = useCallback(async () => {
@@ -2454,16 +2430,15 @@ export default function App() {
 
     setIsListening(false);
     isListeningRef.current = false;
-    isLoadingChatRef.current = true;
-    audioSynth.playReceive();
-    addLog('success', 'VAD_FAST_DETECT', `⚡ आवाज़ पहचानी: "${clean}" -> तत्काल उत्तर भेजा जा रहा है`);
-    handleSendMessage(clean);
-
     accumulatedVoiceTranscriptRef.current = '';
     currentTranscriptRef.current = '';
     setTimeout(() => {
       setLiveSpeechTranscript('');
-    }, 1000);
+    }, 600);
+
+    audioSynth.playReceive();
+    addLog('success', 'VAD_FAST_DETECT', `⚡ आवाज़ पहचानी: "${clean}" -> तत्काल उत्तर भेजा जा रहा है`);
+    handleSendMessage(clean);
   }, [handleSendMessage, addLog]);
 
   const startHandsFreeRecognition = useCallback(() => {
@@ -2483,6 +2458,9 @@ export default function App() {
     }
 
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      setIsHandsFreeMode(false);
+      isHandsFreeRef.current = false;
+      setVoiceError('इस ब्राउज़र में माइक वॉयस पहचान उपलब्ध नहीं है। कृपया Chrome या Edge का उपयोग करें।');
       addLog('warn', 'SPEECH_API', 'इस ब्राउज़र में स्पीच रिकग्निशन उपलब्ध नहीं है। कृपया Chrome या Edge का उपयोग करें।');
       return;
     }
@@ -2494,7 +2472,11 @@ export default function App() {
       recognition.interimResults = true;
       recognition.lang = voiceLang;
 
+      let fatalErrorOccurred = false;
+
       recognition.onstart = () => {
+        recogErrorCountRef.current = 0;
+        setVoiceError(null);
         setIsListening(true);
         isListeningRef.current = true;
         addLog('info', 'VOICE_ASSISTANT', `🎙️ TARA सुन रही है (${voiceLang})... सवाल पूछिए Boss!`);
@@ -2516,7 +2498,6 @@ export default function App() {
         const fullUtterance = (base + finalSession + interim).trim();
         if (!fullUtterance) return;
 
-        // Keep accumulated voice transcript in sync with final words
         if (finalSession.trim()) {
           accumulatedVoiceTranscriptRef.current = (base + finalSession).trim();
         }
@@ -2524,15 +2505,11 @@ export default function App() {
         currentTranscriptRef.current = fullUtterance;
         setLiveSpeechTranscript(fullUtterance);
 
-        // SILENCE DETECTION (VAD) - Reset timer as long as user is vocalizing
         if (vadTimerRef.current) {
           clearTimeout(vadTimerRef.current);
           vadTimerRef.current = null;
         }
 
-        // Fast Commit Logic:
-        // Even if interim is still in buffer, if no new speech arrives within the dynamic timeout,
-        // commit fullUtterance immediately so user never suffers Chrome's delayed isFinal event!
         if (fullUtterance.length >= 2) {
           const isActivelySpeaking = Boolean(interim.trim());
           const silenceMs = getDynamicSilenceTimeout(fullUtterance, isActivelySpeaking);
@@ -2544,19 +2521,68 @@ export default function App() {
       };
 
       recognition.onerror = (err: any) => {
-        if (err.error !== 'no-speech' && err.error !== 'aborted') {
-          console.warn('Conversational speech error:', err);
+        const errCode = err?.error || '';
+        if (errCode === 'no-speech' || errCode === 'aborted') {
+          return;
+        }
+        console.warn('Conversational speech error:', errCode);
+
+        if (errCode === 'not-allowed' || errCode === 'service-not-allowed' || errCode === 'audio-capture') {
+          fatalErrorOccurred = true;
+          setIsHandsFreeMode(false);
+          isHandsFreeRef.current = false;
+          setIsListening(false);
+          isListeningRef.current = false;
+          setVoiceError(
+            errCode === 'audio-capture'
+              ? 'माइक्रोफ़ोन नहीं मिला। कृपया चेक करें कि माइक जुड़ा और चालू है।'
+              : 'माइक की अनुमति बंद है। ब्राउज़र में माइक्रोफ़ोन Allow करें और फिर माइक दबाएं।'
+          );
+          return;
+        }
+
+        if (errCode === 'network') {
+          recogErrorCountRef.current += 1;
+          if (recogErrorCountRef.current >= 3) {
+            fatalErrorOccurred = true;
+            setIsHandsFreeMode(false);
+            isHandsFreeRef.current = false;
+            setIsListening(false);
+            isListeningRef.current = false;
+            setVoiceError('वॉयस पहचान में नेटवर्क समस्या आ रही है। आप नीचे टाइप करके भी बात कर सकते हैं।');
+          }
         }
       };
 
       recognition.onend = () => {
         setIsListening(false);
         isListeningRef.current = false;
-        if (currentTranscriptRef.current) {
-          accumulatedVoiceTranscriptRef.current = currentTranscriptRef.current;
+        if (conversationalRecogRef.current === recognition) {
+          conversationalRecogRef.current = null;
         }
 
-        // Mic-mute during speech: Only restart if TARA is NOT speaking, queued, or generating response, and no pending commit
+        if (fatalErrorOccurred || !isHandsFreeRef.current) {
+          return;
+        }
+
+        const pendingText = (currentTranscriptRef.current || accumulatedVoiceTranscriptRef.current).trim();
+        if (pendingText) {
+          accumulatedVoiceTranscriptRef.current = pendingText;
+        }
+
+        // If recognition ended naturally with uncommitted speech and no active VAD timer, commit it!
+        if (
+          pendingText.length >= 2 &&
+          !vadTimerRef.current &&
+          !isSpeakingRef.current &&
+          !isLoadingChatRef.current
+        ) {
+          vadTimerRef.current = setTimeout(() => {
+            commitVoiceUtterance(pendingText);
+          }, 220);
+          return;
+        }
+
         if (
           isHandsFreeRef.current &&
           !speechEngine.hasActiveSessionOrSpeech() &&
@@ -2585,7 +2611,7 @@ export default function App() {
       setIsListening(false);
       isListeningRef.current = false;
     }
-  }, [voiceLang, addLog, commitVoiceUtterance, handleSendMessage]);
+  }, [voiceLang, addLog, commitVoiceUtterance]);
 
   // Keep ref pointing to the current function
   useEffect(() => {
@@ -2594,15 +2620,30 @@ export default function App() {
 
   const handleStartVoice = () => {
     audioSynth.playClick();
+    speechEngine.unlockSpeech();
+    speechEngine.stopSpeaking();
+    isSpeakingRef.current = false;
+    setIsSpeaking(false);
+    setVoiceError(null);
+    recogErrorCountRef.current = 0;
+
+    if (vadTimerRef.current) {
+      clearTimeout(vadTimerRef.current);
+      vadTimerRef.current = null;
+    }
+    currentTranscriptRef.current = '';
+    accumulatedVoiceTranscriptRef.current = '';
+    setLiveSpeechTranscript('');
+
     setIsHandsFreeMode(true);
     isHandsFreeRef.current = true;
     addLog('info', 'VOICE_ASSISTANT', '🟢 100% Hands-Free Conversational Call Mode STARTED');
-    // Start listening directly for Boss's voice prompt without any fake or interrupting greeting!
     startHandsFreeRecognition();
   };
 
   const handleStopVoice = () => {
     audioSynth.playClick();
+    setVoiceError(null);
     setIsHandsFreeMode(false);
     isHandsFreeRef.current = false;
     setIsListening(false);
@@ -2897,24 +2938,56 @@ export default function App() {
 
   return (
     <div className="h-screen h-[100dvh] max-h-screen max-h-[100dvh] w-full flex flex-col bg-[#02050e] text-slate-100 selection:bg-cyan-500/30 selection:text-cyan-200 antialiased relative overflow-hidden select-none">
-      {/* CLEAN MINIMAL FRIENDLY COMPANION CONVERSATIONAL INTERFACE */}
-      <FriendlyCompanionChatView
+      {/* FUTURISTIC SCI-FI AI OPERATING SYSTEM DASHBOARD */}
+      <TaraHologramView
         chatMessages={chatMessages}
+        logs={logs}
         onSendMessage={handleSendMessage}
         isLoadingChat={isLoadingChat}
+        isThinking={isLoadingChat}
         isListening={isListening}
         isSpeaking={isSpeaking}
         isHandsFreeMode={isHandsFreeMode}
         onToggleVoice={isHandsFreeMode ? handleStopVoice : handleStartVoice}
+        onMicPress={() => {
+          if (isHandsFreeMode && isSpeaking) {
+            handleStartVoice();
+          } else if (isHandsFreeMode) {
+            handleStopVoice();
+          } else {
+            handleStartVoice();
+          }
+        }}
+        voiceError={voiceError}
+        onDismissVoiceError={() => setVoiceError(null)}
         currentEmotion={currentEmotion}
+        systemMode={systemMode}
+        onSelectSystemMode={setSystemMode}
         liveSpeechTranscript={liveSpeechTranscript}
+        isStrangerDetected={faceSecurityState.isStranger}
+        onVerifyBossAccess={handleVerifyBossAccess}
         voiceLang={voiceLang}
         onToggleVoiceLang={() => setVoiceLang((prev) => (prev === 'hi-IN' ? 'en-US' : 'hi-IN'))}
-        onClearChat={() => {
-          setChatMessages([]);
-          speechEngine.stopSpeaking();
-          audioSynth.playClick();
+        onTriggerIndiaNews={() => handleSendMessage('इंडिया समाचार बताओ')}
+        onOpenMusicPlayer={() => setIsMusicModalOpen(true)}
+        onOpenRatesTable={() => setActiveTab('rates')}
+        onOpenCalculator={() => setIsCalculationCardOpen(true)}
+        onOpenMemoryVault={() => setIsMemoryVaultOpen(true)}
+        onToggleTerminalLogs={() => setActiveTab((prev) => (prev === 'system' ? 'assistant' : 'system'))}
+        onReplayVoice={() => {
+          speechEngine.unlockSpeech();
+          const lastAssistant = [...chatMessages].reverse().find((m) => m.sender === 'assistant' && m.text.trim());
+          if (lastAssistant) {
+            speechEngine.speak(sanitizeChatBubbleText(lastAssistant.text) || lastAssistant.text, true);
+          } else {
+            speechEngine.speak('मैं तैयार हूँ Boss, बोलिए क्या बात करनी है?', true);
+          }
         }}
+        onOpenVisualHub={() => setIsAppHubModalOpen(true)}
+        onUploadPhoto={() => photoFileInputRef.current?.click()}
+        nodes={nodes}
+        onSelectNode={(node) => setSelectedNode(node)}
+        memoriesCount={memories.length}
       />
 
       {/* FULL HUD TERMINAL & SYSTEM LOGS MODAL OVERLAY */}

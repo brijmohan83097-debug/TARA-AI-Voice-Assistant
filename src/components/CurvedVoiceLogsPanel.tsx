@@ -1,11 +1,10 @@
 /**
  * CurvedVoiceLogsPanel.tsx
- * Right Cylindrical Curved Holographic HUD Screen (Faithfully matching IMG_20261013_145133.jpg):
- * - Circular Rotating Radar / Compass Target Dial Gauge with concentric rings and reticle.
- * - Live dynamic Audio Frequency Equalizer Bar Graph.
- * - Real-time conversational Dialogue Stream & live speech transcript (Boss & TARA).
- * - Instant voice prompt chips and quick query input bar.
- * - Authentic cylindrical concave curvature, cyan edge bloom, and glass reflection.
+ * Right Split-Screen Chat & HUD Panel for TARA OS:
+ * - Crisp glass panel with rotating Radar Dial + live Audio Frequency Equalizer.
+ * - Real-time dialogue stream (Boss & TARA) with Thinking / Listening / Speaking indicators.
+ * - Live speech transcript banner, inline TTS replay, image previews & downloads, and voice error alert.
+ * - Real-time System & Neural Kernel logs viewer tab.
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -14,18 +13,20 @@ import {
   Mic,
   MicOff,
   MessageSquare,
-  Terminal,
-  Shield,
   Sparkles,
   Volume2,
   Radio,
-  Compass,
   Copy,
   Check,
   Zap,
+  Download,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 import { ChatMessage, SystemLog } from '../types';
 import { speechEngine } from '../utils/speech';
+import { sanitizeChatBubbleText } from '../utils/textSanitizer';
+import { downloadImageToDevice } from '../utils/imageService';
 import ReactMarkdown from 'react-markdown';
 
 interface CurvedVoiceLogsPanelProps {
@@ -34,9 +35,27 @@ interface CurvedVoiceLogsPanelProps {
   onSendMessage: (text: string) => void;
   isLoadingChat: boolean;
   isListening: boolean;
+  isSpeaking?: boolean;
+  isHandsFreeMode?: boolean;
   onToggleVoice: () => void;
+  onMicPress?: () => void;
   liveSpeechTranscript: string;
+  voiceError?: string | null;
+  onDismissVoiceError?: () => void;
   className?: string;
+}
+
+function formatMessageTime(ts?: string): string {
+  if (!ts) return '';
+  const trimmed = ts.trim();
+  if (/^\d{1,2}:\d{2}(:\d{2})?(\s?[AP]M)?$/i.test(trimmed)) {
+    return trimmed;
+  }
+  const d = new Date(trimmed);
+  if (!isNaN(d.getTime())) {
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  return '';
 }
 
 export const CurvedVoiceLogsPanel: React.FC<CurvedVoiceLogsPanelProps> = ({
@@ -45,48 +64,51 @@ export const CurvedVoiceLogsPanel: React.FC<CurvedVoiceLogsPanelProps> = ({
   onSendMessage,
   isLoadingChat,
   isListening,
+  isSpeaking = false,
+  isHandsFreeMode = false,
   onToggleVoice,
+  onMicPress,
   liveSpeechTranscript,
+  voiceError = null,
+  onDismissVoiceError,
   className = '',
 }) => {
-  const [activeTab, setActiveTab] = useState<'dialogue' | 'logs' | 'network'>('dialogue');
+  const [activeTab, setActiveTab] = useState<'dialogue' | 'logs'>('dialogue');
   const [inputText, setInputText] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const radarCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const handleCopyText = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(text).catch(() => {});
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Equalizer bar heights (12 bars dancing in real time)
   const [equalizerBars, setEqualizerBars] = useState<number[]>([
-    20, 45, 70, 35, 85, 60, 40, 95, 65, 30, 50, 75,
+    24, 48, 72, 38, 86, 62, 42, 92, 66, 34, 54, 78,
   ]);
 
-  // Auto-scroll chat to latest message
   useEffect(() => {
     if (chatScrollRef.current) {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
-  }, [chatMessages, liveSpeechTranscript, isLoadingChat]);
+  }, [chatMessages, liveSpeechTranscript, isLoadingChat, activeTab]);
 
-  // Equalizer animation
   useEffect(() => {
     const interval = setInterval(() => {
+      const intensity = isSpeaking ? 44 : isListening ? 36 : isLoadingChat ? 26 : 12;
       setEqualizerBars((prev) =>
         prev.map((val) => {
-          const delta = (Math.random() - 0.5) * (isListening ? 40 : 20);
-          return Math.max(15, Math.min(95, Math.round(val + delta)));
+          const delta = (Math.random() - 0.5) * intensity;
+          const floor = isSpeaking || isListening ? 20 : 12;
+          return Math.max(floor, Math.min(95, Math.round(val + delta)));
         })
       );
     }, 180);
     return () => clearInterval(interval);
-  }, [isListening]);
+  }, [isListening, isSpeaking, isLoadingChat]);
 
-  // Rotating Circular Radar / Dial Gauge Canvas (Direct match to Image_15 / IMG_20261013_145133.jpg)
   useEffect(() => {
     const canvas = radarCanvasRef.current;
     if (!canvas) return;
@@ -101,52 +123,34 @@ export const CurvedVoiceLogsPanel: React.FC<CurvedVoiceLogsPanelProps> = ({
       const height = canvas.height;
       const cx = width * 0.5;
       const cy = height * 0.5;
-      const maxR = Math.min(cx, cy) - 6;
+      const maxR = Math.min(cx, cy) - 5;
 
       ctx.clearRect(0, 0, width, height);
-      angle += isListening ? 0.05 : 0.025;
+      angle += isListening ? 0.055 : isSpeaking ? 0.045 : 0.022;
 
-      // 1. Concentric circular rings
-      [0.95, 0.70, 0.45, 0.20].forEach((rFactor, idx) => {
+      [0.95, 0.7, 0.45, 0.2].forEach((rFactor, idx) => {
         ctx.beginPath();
         ctx.arc(cx, cy, maxR * rFactor, 0, Math.PI * 2);
-        ctx.strokeStyle = idx === 0 ? '#00f0ff' : 'rgba(0, 240, 255, 0.4)';
-        ctx.lineWidth = idx === 0 ? 1.5 : 0.8;
+        ctx.strokeStyle = idx === 0 ? '#00f0ff' : 'rgba(0, 240, 255, 0.35)';
+        ctx.lineWidth = idx === 0 ? 1.4 : 0.8;
         if (idx === 1) ctx.setLineDash([3, 4]);
         else ctx.setLineDash([]);
-        ctx.shadowColor = '#00f0ff';
-        ctx.shadowBlur = idx === 0 ? 8 : 2;
         ctx.stroke();
       });
 
-      // 2. Crosshair grid lines
       ctx.beginPath();
       ctx.moveTo(cx - maxR, cy);
       ctx.lineTo(cx + maxR, cy);
       ctx.moveTo(cx, cy - maxR);
       ctx.lineTo(cx, cy + maxR);
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.28)';
       ctx.lineWidth = 0.8;
       ctx.setLineDash([2, 4]);
       ctx.stroke();
 
-      // 3. Degree tick marks around outer circle
       ctx.setLineDash([]);
-      for (let i = 0; i < 24; i++) {
-        const tickAng = (i / 24) * Math.PI * 2;
-        const r1 = maxR * 0.88;
-        const r2 = maxR * 0.95;
-        ctx.beginPath();
-        ctx.moveTo(cx + Math.cos(tickAng) * r1, cy + Math.sin(tickAng) * r1);
-        ctx.lineTo(cx + Math.cos(tickAng) * r2, cy + Math.sin(tickAng) * r2);
-        ctx.strokeStyle = i % 6 === 0 ? '#ffffff' : 'rgba(0, 240, 255, 0.6)';
-        ctx.lineWidth = i % 6 === 0 ? 1.6 : 0.8;
-        ctx.stroke();
-      }
-
-      // 4. Rotating sweep scanner cone
       const sweepGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, maxR);
-      sweepGrad.addColorStop(0, 'rgba(0, 240, 255, 0.45)');
+      sweepGrad.addColorStop(0, 'rgba(0, 240, 255, 0.42)');
       sweepGrad.addColorStop(1, 'transparent');
 
       ctx.save();
@@ -157,20 +161,16 @@ export const CurvedVoiceLogsPanel: React.FC<CurvedVoiceLogsPanelProps> = ({
       ctx.fillStyle = sweepGrad;
       ctx.fill();
 
-      // Sweep leading laser line
       ctx.beginPath();
       ctx.moveTo(cx, cy);
       ctx.lineTo(cx + Math.cos(angle) * maxR * 0.95, cy + Math.sin(angle) * maxR * 0.95);
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.6;
-      ctx.shadowColor = '#00f0ff';
-      ctx.shadowBlur = 10;
+      ctx.lineWidth = 1.4;
       ctx.stroke();
       ctx.restore();
 
-      // Center blip
       ctx.beginPath();
-      ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 2.2, 0, Math.PI * 2);
       ctx.fillStyle = '#ffffff';
       ctx.fill();
 
@@ -179,99 +179,116 @@ export const CurvedVoiceLogsPanel: React.FC<CurvedVoiceLogsPanelProps> = ({
 
     renderRadar();
     return () => cancelAnimationFrame(animId);
-  }, [isListening]);
+  }, [isListening, isSpeaking]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const clean = inputText.trim();
     if (!clean || isLoadingChat) return;
+    speechEngine.unlockSpeech();
     onSendMessage(clean);
     setInputText('');
   };
 
   const suggestedPrompts = [
-    'नमस्ते तारा, आज का क्या हाल है?',
+    'कैसी हो तारा?',
     'ताज़ा समाचार बताओ',
     'गाना बजाओ',
-    'फैब्रिकेशन रेट्स बताओ',
-    'कैलकुलेटर खोलो',
+    'अभी क्या समय हुआ है?',
   ];
+
+  const liveBadge = isListening
+    ? 'LISTENING'
+    : isLoadingChat
+    ? 'THINKING'
+    : isSpeaking
+    ? 'SPEAKING'
+    : isHandsFreeMode
+    ? 'HANDS-FREE'
+    : 'ONLINE';
+
+  const handleMicClick = () => {
+    speechEngine.unlockSpeech();
+    if (onMicPress) {
+      onMicPress();
+    } else {
+      onToggleVoice();
+    }
+  };
 
   return (
     <aside
-      className={`h-full flex flex-col rounded-[22px] bg-[#020b1c]/80 border-[1.5px] border-cyan-400/60 backdrop-blur-md shadow-[0_0_35px_rgba(0,240,255,0.22),inset_0_0_20px_rgba(0,240,255,0.08)] p-3 sm:p-3.5 text-cyan-200 overflow-hidden relative select-none [transform:perspective(1000px)_rotateY(-14deg)] transition-all hover:[transform:perspective(1000px)_rotateY(-8deg)] duration-300 ${className}`}
-      style={{
-        boxShadow: '0 0 30px rgba(0, 240, 255, 0.25), inset 0 0 15px rgba(0, 240, 255, 0.06)',
-      }}
+      className={`h-full flex flex-col rounded-2xl bg-[#040d1e]/90 border border-cyan-400/40 backdrop-blur-md shadow-[0_0_28px_rgba(0,240,255,0.14)] p-4 text-slate-100 overflow-hidden relative ${className}`}
     >
-      {/* Cylindrical Curved Screen Glowing Edge Accents */}
-      <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-300 to-transparent pointer-events-none z-10" />
-      <div className="absolute bottom-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-300 to-transparent pointer-events-none z-10" />
-      <div className="absolute inset-y-0 left-0 w-[2px] bg-gradient-to-b from-transparent via-cyan-400/50 to-transparent pointer-events-none z-10" />
-      <div className="absolute inset-y-0 right-0 w-[2px] bg-gradient-to-b from-transparent via-cyan-400 to-transparent pointer-events-none z-10" />
-
-      {/* Holographic Scanline Overlay */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_50%,rgba(0,240,255,0.025)_51%)] bg-[length:100%_4px] pointer-events-none z-0" />
-
-      {/* 1. TOP HEADER & TAB BAR */}
-      <div className="relative z-10 flex items-center justify-between pb-2 border-b border-cyan-500/30">
-        <div className="flex items-center gap-1.5">
-          <MessageSquare className="w-3.5 h-3.5 text-cyan-300" />
-          <span className="font-heading font-black text-xs tracking-wider text-cyan-100">
-            SPLIT-SCREEN CHAT & HUD
-          </span>
+      {/* Top Header & Feed/Logs Switcher */}
+      <div className="flex items-center justify-between gap-2 pb-3 border-b border-cyan-500/25 shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <MessageSquare className="w-4 h-4 text-cyan-400 shrink-0" />
+          <h2 className="font-heading font-bold text-xs tracking-wider text-cyan-100 truncate">
+            Chat &amp; Voice HUD
+          </h2>
         </div>
-        <div className="flex items-center gap-1 p-0.5 rounded bg-slate-950/80 border border-cyan-500/30 font-mono text-[9px]">
+        <div className="flex items-center gap-1 p-0.5 rounded-lg bg-[#020814] border border-cyan-500/25 font-mono text-[11px] shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab('dialogue')}
-            className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
-              activeTab === 'dialogue' ? 'bg-cyan-500/40 text-cyan-100 font-bold' : 'text-slate-400 hover:text-cyan-300'
+            className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+              activeTab === 'dialogue' ? 'bg-cyan-500/30 text-white' : 'text-slate-400 hover:text-cyan-200'
             }`}
           >
-            FEED
+            Chat
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('logs')}
-            className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
-              activeTab === 'logs' ? 'bg-cyan-500/40 text-cyan-100 font-bold' : 'text-slate-400 hover:text-cyan-300'
+            className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+              activeTab === 'logs' ? 'bg-cyan-500/30 text-white' : 'text-slate-400 hover:text-cyan-200'
             }`}
           >
-            LOGS
+            Logs ({logs.length})
           </button>
         </div>
       </div>
 
-      {/* 2. CIRCULAR RADAR GAUGE & AUDIO EQUALIZER */}
-      <div className="relative z-10 my-2 p-2 rounded-xl bg-[#010918]/85 border border-cyan-500/30 shadow-inner flex items-center gap-2.5 shrink-0">
-        {/* Rotating Circular Target Radar Dial */}
-        <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
+      {/* Radar Gauge & Frequency Equalizer */}
+      <div className="my-2.5 p-2.5 rounded-xl bg-[#020816]/85 border border-cyan-500/25 flex items-center gap-3 shrink-0">
+        <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
           <canvas
             ref={radarCanvasRef}
-            width={80}
-            height={80}
-            className="w-20 h-20 block rounded-full"
+            width={64}
+            height={64}
+            className="w-16 h-16 block rounded-full"
           />
         </div>
 
-        {/* Dynamic Equalizer Bar Graph */}
-        <div className="flex-1 flex flex-col gap-1">
-          <div className="flex items-center justify-between text-[9px] font-mono text-cyan-400">
-            <span>FREQUENCY EQUALIZER</span>
-            <span className="text-cyan-300 font-bold">{isListening ? 'LISTENING' : 'ONLINE'}</span>
+        <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+          <div className="flex items-center justify-between text-[11px] font-mono">
+            <span className="text-slate-400 truncate">Voice Link</span>
+            <span
+              className={`font-semibold shrink-0 ${
+                isListening
+                  ? 'text-emerald-300'
+                  : isLoadingChat
+                  ? 'text-sky-300'
+                  : isSpeaking
+                  ? 'text-cyan-300'
+                  : 'text-slate-300'
+              }`}
+            >
+              {liveBadge}
+            </span>
           </div>
-          <div className="h-12 flex items-end justify-between gap-1 px-1 bg-slate-950/60 rounded border border-cyan-500/20 pt-1 pb-0.5">
+          <div className="h-10 flex items-end justify-between gap-1 px-1.5 bg-[#010510] rounded-lg border border-cyan-500/20 pt-1 pb-0.5">
             {equalizerBars.map((bH, bIdx) => (
               <div key={bIdx} className="flex-1 flex flex-col justify-end h-full">
                 <div
-                  className="w-full rounded-t-sm transition-all duration-150 shadow-[0_0_6px_rgba(0,240,255,0.5)]"
+                  className="w-full rounded-t-sm transition-all duration-150"
                   style={{
                     height: `${bH}%`,
                     background:
                       bIdx % 2 === 0
                         ? 'linear-gradient(to top, rgba(0,240,255,0.3), #00f0ff)'
-                        : 'linear-gradient(to top, rgba(0,240,255,0.4), #38bdf8)',
+                        : 'linear-gradient(to top, rgba(56,189,248,0.35), #38bdf8)',
                   }}
                 />
               </div>
@@ -280,87 +297,152 @@ export const CurvedVoiceLogsPanel: React.FC<CurvedVoiceLogsPanelProps> = ({
         </div>
       </div>
 
-      {/* 3. CONVERSATION DIALOGUE STREAM & LIVE TRANSCRIPT (Scrollable Center Area) */}
-      <div className="relative z-10 flex-1 min-h-0 flex flex-col overflow-hidden my-1">
+      {/* Voice Error Alert (if microphone permission / speech error occurs) */}
+      {voiceError && (
+        <div className="mb-2 px-3 py-2 rounded-xl bg-rose-950/80 border border-rose-500/50 text-rose-100 text-xs flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertCircle className="w-4 h-4 text-rose-300 shrink-0" />
+            <span className="truncate">{voiceError}</span>
+          </div>
+          {onDismissVoiceError && (
+            <button
+              type="button"
+              onClick={onDismissVoiceError}
+              className="p-0.5 text-rose-300 hover:text-white cursor-pointer shrink-0"
+              title="बंद करें"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Conversation Feed or Telemetry Logs */}
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden my-1">
         {activeTab === 'dialogue' ? (
           <div
             ref={chatScrollRef}
-            className="flex-1 overflow-y-auto no-scrollbar space-y-2 pr-1"
+            className="flex-1 overflow-y-auto no-scrollbar space-y-2.5 pr-1 select-text"
           >
-            {/* Live speech transcript alert banner */}
             {liveSpeechTranscript && (
-              <div className="p-2 rounded-xl bg-cyan-950/80 border border-cyan-400/80 text-cyan-100 text-[10px] font-mono animate-pulse shadow-[0_0_15px_rgba(0,240,255,0.3)]">
-                <span className="text-cyan-400 font-bold">🎤 आप बोल रहे हैं: </span>
+              <div className="px-3 py-2 rounded-xl bg-emerald-950/60 border border-emerald-400/60 text-emerald-100 text-xs animate-pulse">
+                <span className="text-emerald-300 font-semibold">आप बोल रहे हैं: </span>
                 <span>{liveSpeechTranscript}</span>
               </div>
             )}
 
-            {/* Conversation Messages */}
             {chatMessages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-3 text-cyan-300/60 font-mono text-[10px]">
-                <Radio className="w-6 h-6 mb-1 text-cyan-400/50 animate-pulse" />
-                <p>TARA न्यूरल वॉइस फीड सक्रिय है।</p>
-                <p className="text-[9px] text-slate-400 mt-0.5">बोलकर या नीचे किसी बटन पर क्लिक करके बात शुरू करें।</p>
+              <div className="h-full flex flex-col items-center justify-center text-center p-4 text-slate-400 text-xs">
+                <Radio className="w-6 h-6 mb-2 text-cyan-400/60" />
+                <p className="text-cyan-200 font-medium">TARA OS वॉयस और चैट तैयार है।</p>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  बोलकर या नीचे टाइप करके अपनी दोस्त TARA से बात करें।
+                </p>
               </div>
             ) : (
-              chatMessages.slice(-10).map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`p-2.5 rounded-xl text-[10px] font-mono leading-relaxed transition-all relative group ${
-                    msg.sender === 'user'
-                      ? 'bg-[#041a3a]/90 border border-cyan-500/50 text-cyan-100 ml-4 shadow-[0_0_10px_rgba(0,240,255,0.1)]'
-                      : 'bg-[#021128]/95 border border-cyan-400/60 text-cyan-200 mr-2 shadow-[0_0_15px_rgba(0,240,255,0.15)]'
-                  }`}
-                >
-                  <div className="flex items-center justify-between text-[8px] text-cyan-400/80 mb-1 font-bold pb-1 border-b border-cyan-500/20">
-                    <span className="flex items-center gap-1">
-                      {msg.sender === 'user' ? (
-                        <>
-                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                          <span>👤 BOSS</span>
-                        </>
-                      ) : (
-                        <>
-                          <Zap className="w-2.5 h-2.5 text-cyan-300 animate-pulse" />
-                          <span className="text-cyan-200 font-bold">⚡ TARA AI</span>
-                        </>
-                      )}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyText(msg.id, msg.text)}
-                        className="p-0.5 hover:text-white transition-colors"
-                        title="टेक्स्ट कॉपी करें"
-                      >
-                        {copiedId === msg.id ? <Check className="w-2.5 h-2.5 text-emerald-400" /> : <Copy className="w-2.5 h-2.5" />}
-                      </button>
-                      {msg.sender === 'assistant' && (
+              chatMessages.slice(-25).map((msg) => {
+                const cleanText =
+                  msg.sender === 'assistant'
+                    ? sanitizeChatBubbleText(msg.text)
+                    : msg.text;
+                const timeLabel = formatMessageTime(msg.timestamp);
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={`p-3 rounded-xl text-xs leading-relaxed transition-colors ${
+                      msg.sender === 'user'
+                        ? 'bg-[#082144]/90 border border-cyan-500/40 text-slate-100 ml-5'
+                        : 'bg-[#020d21]/95 border border-cyan-400/45 text-cyan-50 mr-2'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-[10px] font-mono text-cyan-300/80 mb-1.5 pb-1 border-b border-cyan-500/20">
+                      <span className="flex items-center gap-1.5 font-semibold">
+                        {msg.sender === 'user' ? (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                            <span>BOSS</span>
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="w-3 h-3 text-cyan-300" />
+                            <span className="text-cyan-200">TARA</span>
+                          </>
+                        )}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {timeLabel && <span className="tabular-nums text-slate-400">{timeLabel}</span>}
                         <button
                           type="button"
-                          onClick={() => speechEngine.speak(msg.text, true)}
-                          className="p-0.5 hover:text-cyan-200 transition-colors"
-                          title="आवाज़ सुनें"
+                          onClick={() => handleCopyText(msg.id, cleanText || msg.text)}
+                          className="p-0.5 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                          title="कॉपी करें"
                         >
-                          <Volume2 className="w-2.5 h-2.5 text-cyan-400" />
+                          {copiedId === msg.id ? (
+                            <Check className="w-3 h-3 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
                         </button>
-                      )}
+                        {msg.sender === 'assistant' && (cleanText || msg.text) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              speechEngine.unlockSpeech();
+                              speechEngine.speak(cleanText || msg.text, true);
+                            }}
+                            className="p-0.5 text-cyan-400 hover:text-cyan-200 transition-colors cursor-pointer"
+                            title="स्पीकर पर सुनें"
+                          >
+                            <Volume2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
+
+                    {msg.imageUrl && (
+                      <div className="mb-2">
+                        <img
+                          src={msg.imageUrl}
+                          alt="Uploaded"
+                          className="max-h-40 rounded-lg border border-cyan-500/30 object-cover"
+                        />
+                      </div>
+                    )}
+
+                    {cleanText && (
+                      <div className="prose prose-invert prose-sm max-w-none text-xs text-slate-100 leading-relaxed">
+                        <ReactMarkdown>{cleanText}</ReactMarkdown>
+                      </div>
+                    )}
+
+                    {msg.resultImageUrl && (
+                      <div className="mt-2 space-y-1.5">
+                        <img
+                          src={msg.resultImageUrl}
+                          alt="Generated visual"
+                          className="w-full max-h-48 rounded-lg border border-cyan-400/50 object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => downloadImageToDevice(msg.resultImageUrl!, `tara-${msg.id}.png`)}
+                          className="px-2.5 py-1 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-200 text-[11px] font-mono inline-flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Download className="w-3 h-3" />
+                          <span>इमेज डाउनलोड करें</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <div className="prose prose-invert max-w-none text-[10px] text-cyan-100 leading-relaxed">
-                    <ReactMarkdown>{msg.text}</ReactMarkdown>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
 
-            {/* HIGH-TECH CYBERNETIC TYPING INDICATOR */}
             {isLoadingChat && (
-              <div className="p-2.5 rounded-xl bg-[#021128]/95 border border-cyan-400/60 text-cyan-300 text-[10px] font-mono flex items-center justify-between shadow-[0_0_15px_rgba(0,240,255,0.25)] mr-2">
+              <div className="px-3 py-2.5 rounded-xl bg-[#020d21]/95 border border-sky-400/50 text-sky-200 text-xs flex items-center justify-between mr-2">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-300 animate-spin" />
-                  <span className="font-bold tracking-wider">TARA AI सोच रही है</span>
+                  <Sparkles className="w-3.5 h-3.5 text-sky-300 animate-spin" />
+                  <span>TARA सोच रही है...</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:0ms]" />
@@ -371,59 +453,90 @@ export const CurvedVoiceLogsPanel: React.FC<CurvedVoiceLogsPanelProps> = ({
             )}
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto no-scrollbar font-mono text-[9px] space-y-1.5 p-1 bg-slate-950/70 rounded-xl border border-cyan-500/20">
-            {logs.slice(-12).map((l, lIdx) => (
-              <div key={lIdx} className="text-slate-300">
-                <span className="text-cyan-400 font-bold">[{l.module}] </span>
-                <span>{l.message}</span>
-              </div>
-            ))}
+          <div className="flex-1 overflow-y-auto no-scrollbar font-mono text-[11px] space-y-1.5 p-2.5 bg-[#020714] rounded-xl border border-cyan-500/20 select-text">
+            {logs.length === 0 ? (
+              <div className="text-slate-500 text-center py-6">कोई सिस्टम लॉग नहीं है।</div>
+            ) : (
+              logs.slice(-30).map((l, lIdx) => (
+                <div key={l.id || lIdx} className="leading-snug border-b border-cyan-500/10 pb-1 last:border-b-0">
+                  <span className="text-slate-500 tabular-nums mr-1.5">[{l.timestamp}]</span>
+                  <span
+                    className={`font-semibold mr-1.5 ${
+                      l.level === 'warn'
+                        ? 'text-amber-300'
+                        : l.level === 'success'
+                        ? 'text-emerald-300'
+                        : l.level === 'exec'
+                        ? 'text-sky-300'
+                        : 'text-cyan-400'
+                    }`}
+                  >
+                    [{l.module}]
+                  </span>
+                  <span className="text-slate-200">{l.message}</span>
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>
 
-      {/* 4. QUICK PROMPT CHIPS */}
-      <div className="relative z-10 py-1.5 flex items-center gap-1 overflow-x-auto no-scrollbar shrink-0">
+      {/* Quick Prompt Chips */}
+      <div className="py-1.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
         {suggestedPrompts.map((p, pIdx) => (
           <button
             key={pIdx}
             type="button"
-            onClick={() => onSendMessage(p)}
-            className="px-2.5 py-1 rounded-lg bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 hover:text-white font-mono text-[9px] whitespace-nowrap cursor-pointer transition-colors shadow-sm"
+            onClick={() => {
+              speechEngine.unlockSpeech();
+              onSendMessage(p);
+            }}
+            className="px-2.5 py-1 rounded-lg bg-[#020816] hover:bg-cyan-950/70 border border-cyan-500/30 text-cyan-200 hover:text-white text-[11px] whitespace-nowrap shrink-0 cursor-pointer transition-colors"
           >
             {p}
           </button>
         ))}
       </div>
 
-      {/* 5. QUICK INPUT BAR */}
-      <form onSubmit={handleSubmit} className="relative z-10 pt-1.5 border-t border-cyan-500/25 shrink-0 flex items-center gap-1.5">
+      {/* Message & Mic Input Bar */}
+      <form
+        onSubmit={handleSubmit}
+        className="pt-2 border-t border-cyan-500/25 shrink-0 flex items-center gap-2"
+      >
         <input
           type="text"
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           placeholder="तारा से कुछ भी पूछें..."
-          className="flex-1 bg-[#010816]/90 border border-cyan-500/40 focus:border-cyan-400 text-cyan-100 placeholder:text-cyan-500/50 text-[10px] font-mono px-2.5 py-1.5 rounded-xl outline-none transition-all shadow-inner"
+          className="flex-1 min-w-0 bg-[#020816] border border-cyan-500/35 focus:border-cyan-400 text-slate-100 placeholder:text-slate-500 text-xs px-3 py-2 rounded-xl outline-none transition-colors"
         />
         <button
           type="button"
-          onClick={onToggleVoice}
-          className={`p-1.5 rounded-xl cursor-pointer transition-all ${
+          onClick={handleMicClick}
+          className={`p-2 rounded-xl cursor-pointer transition-colors shrink-0 ${
             isListening
-              ? 'bg-cyan-400 text-black animate-pulse shadow-[0_0_15px_rgba(0,240,255,0.9)] border border-cyan-200'
-              : 'bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/30'
+              ? 'bg-emerald-500 text-slate-950 shadow-[0_0_16px_rgba(16,225,178,0.65)]'
+              : isSpeaking && isHandsFreeMode
+              ? 'bg-cyan-500 text-slate-950'
+              : 'bg-[#020816] hover:bg-cyan-950 text-cyan-300 border border-cyan-500/35'
           }`}
-          title="माइक टॉगल करें"
+          title={
+            isSpeaking && isHandsFreeMode
+              ? 'बोलने के लिए टच करें'
+              : isHandsFreeMode
+              ? 'वॉयस कॉल बंद करें'
+              : 'वॉयस कॉल शुरू करें'
+          }
         >
-          {isListening ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
+          {isListening ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
         </button>
         <button
           type="submit"
           disabled={!inputText.trim() || isLoadingChat}
-          className="p-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white cursor-pointer transition-all shadow-[0_0_10px_rgba(0,240,255,0.4)]"
+          className="p-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 text-slate-950 font-semibold cursor-pointer transition-colors shrink-0"
           title="संदेश भेजें"
         >
-          <Send className="w-3.5 h-3.5" />
+          <Send className="w-4 h-4" />
         </button>
       </form>
     </aside>

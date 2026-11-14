@@ -1,74 +1,85 @@
 /**
  * CurvedDiagnosticPanel.tsx
- * Left Cylindrical Curved Holographic HUD Screen (Faithfully matching IMG_20261013_145133.jpg):
- * - Prominent animated vertical bar chart with glowing cyan bars.
- * - Live real-time audio oscilloscope waveform sine graph.
- * - Scrolling telemetry data stream & neural parameters table.
- * - Secondary frequency distribution bar graph.
- * - Authentic cylindrical concave curvature, cyan edge bloom, and subtle glass reflection.
+ * Left Sci-Fi OS Telemetry Panel:
+ * - Tabbed modular views: Architecture Map | Diagnostic Matrix | Agent & Room Nodes
+ * - Real-time Audio Oscilloscope Wave & Harmonic Bar Graph
+ * - Crisp tabular-nums telemetry and OS cognitive mode selector
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Activity, Cpu, Database, Radio, Sparkles, Orbit, Network } from 'lucide-react';
-import { SystemMode } from '../types';
+import { Activity, Cpu, Database, Network, Radio, Layers } from 'lucide-react';
+import { MindMapNode, SystemMode } from '../types';
 import { MiniArchitecturalMap } from './MiniArchitecturalMap';
+import { audioSynth } from '../utils/audio';
 
 interface CurvedDiagnosticPanelProps {
   isSpeaking: boolean;
   isListening: boolean;
+  isThinking?: boolean;
   systemMode: SystemMode;
   onSelectMode: (mode: SystemMode) => void;
+  nodes?: MindMapNode[];
+  onSelectNode?: (node: MindMapNode) => void;
+  memoriesCount?: number;
   className?: string;
 }
+
+const ROOM_TRACKING_NODES = [
+  { id: 'room-voice', name: 'Voice & Audio Bus', zone: 'Room 01 · Duplex Mic', load: 'Active' },
+  { id: 'room-neural', name: 'Neural Dialogue Core', zone: 'Room 02 · Gemini Stream', load: 'Synced' },
+  { id: 'room-vision', name: 'Visual Hub Studio', zone: 'Room 03 · Media & Imagen', load: 'Ready' },
+  { id: 'room-memory', name: 'Cognitive Vault', zone: 'Room 04 · Long-Term Memory', load: 'Indexed' },
+];
 
 export const CurvedDiagnosticPanel: React.FC<CurvedDiagnosticPanelProps> = ({
   isSpeaking,
   isListening,
+  isThinking = false,
   systemMode,
   onSelectMode,
+  nodes = [],
+  onSelectNode,
+  memoriesCount = 0,
   className = '',
 }) => {
   const waveCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [panelTab, setPanelTab] = useState<'map' | 'diagnostics'>('map');
+  const [panelTab, setPanelTab] = useState<'diagnostics' | 'map' | 'rooms'>('diagnostics');
 
-  // Animated bar chart data (16 bars with dynamic heights matching photo)
   const [barHeights, setBarHeights] = useState<number[]>([
-    25, 45, 30, 60, 40, 75, 55, 90, 70, 85, 45, 65, 35, 50, 80, 60,
+    28, 46, 34, 62, 42, 76, 54, 88, 68, 82, 48, 66, 38, 52, 78, 58,
   ]);
 
-  // Telemetry metrics
   const [metrics, setMetrics] = useState({
-    cpuLoad: 38,
-    memoryUsage: 16.8,
-    synapseBandwidth: 4.8,
+    cpuLoad: 36,
+    memoryUsage: 16.6,
     coherence: 99.8,
-    fps: 60,
   });
 
-  // Dynamic bar chart animation loop
   useEffect(() => {
     const interval = setInterval(() => {
       setBarHeights((prev) =>
-        prev.map((h, i) => {
-          const jitter = (Math.random() - 0.5) * (isSpeaking ? 30 : isListening ? 20 : 10);
-          const target = Math.max(15, Math.min(95, h + jitter));
-          return Math.round(target);
+        prev.map((h) => {
+          const jitter = (Math.random() - 0.5) * (isSpeaking ? 34 : isThinking ? 26 : isListening ? 22 : 10);
+          return Math.round(Math.max(16, Math.min(95, h + jitter)));
         })
       );
 
-      setMetrics((prev) => ({
-        cpuLoad: isSpeaking ? 62 + Math.floor(Math.random() * 12) : isListening ? 52 + Math.floor(Math.random() * 8) : 34 + Math.floor(Math.random() * 6),
-        memoryUsage: Number((16.4 + Math.random() * 0.8).toFixed(1)),
-        synapseBandwidth: Number((4.6 + Math.random() * 0.4).toFixed(2)),
+      setMetrics({
+        cpuLoad: isSpeaking
+          ? 64 + Math.floor(Math.random() * 12)
+          : isThinking
+          ? 72 + Math.floor(Math.random() * 10)
+          : isListening
+          ? 50 + Math.floor(Math.random() * 10)
+          : 32 + Math.floor(Math.random() * 6),
+        memoryUsage: Number((16.4 + Math.random() * 0.6).toFixed(1)),
         coherence: Number((99.6 + Math.random() * 0.3).toFixed(1)),
-        fps: 59 + Math.floor(Math.random() * 2),
-      }));
-    }, 1200);
+      });
+    }, 900);
 
     return () => clearInterval(interval);
-  }, [isSpeaking, isListening]);
+  }, [isSpeaking, isListening, isThinking]);
 
-  // Live Oscilloscope Waveform Canvas
   useEffect(() => {
     const canvas = waveCanvasRef.current;
     if (!canvas) return;
@@ -83,13 +94,12 @@ export const CurvedDiagnosticPanel: React.FC<CurvedDiagnosticPanelProps> = ({
       const height = canvas.height;
       ctx.clearRect(0, 0, width, height);
 
-      waveOffset += isSpeaking ? 0.08 : isListening ? 0.05 : 0.025;
+      waveOffset += isSpeaking ? 0.09 : isThinking ? 0.07 : isListening ? 0.05 : 0.025;
 
-      // 3 layered harmonic sine waves (exact oscilloscope look in photo)
       const waves = [
-        { freq: 0.04, amp: isSpeaking ? 16 : isListening ? 12 : 6, color: '#00f0ff', lineWidth: 1.8 },
-        { freq: 0.07, amp: isSpeaking ? 12 : isListening ? 8 : 4, color: '#38bdf8', lineWidth: 1.2 },
-        { freq: 0.11, amp: isSpeaking ? 8 : isListening ? 6 : 3, color: '#c084fc', lineWidth: 1.0 },
+        { freq: 0.04, amp: isSpeaking ? 15 : isThinking ? 12 : isListening ? 11 : 5, color: '#00f0ff', lineWidth: 1.8 },
+        { freq: 0.07, amp: isSpeaking ? 11 : isThinking ? 9 : isListening ? 7 : 3, color: '#38bdf8', lineWidth: 1.2 },
+        { freq: 0.11, amp: isSpeaking ? 7 : isListening ? 5 : 2.5, color: '#10b981', lineWidth: 1.0 },
       ];
 
       waves.forEach((w, wIdx) => {
@@ -103,8 +113,6 @@ export const CurvedDiagnosticPanel: React.FC<CurvedDiagnosticPanelProps> = ({
         }
         ctx.strokeStyle = w.color;
         ctx.lineWidth = w.lineWidth;
-        ctx.shadowColor = w.color;
-        ctx.shadowBlur = isSpeaking ? 8 : 3;
         ctx.stroke();
       });
 
@@ -113,177 +121,212 @@ export const CurvedDiagnosticPanel: React.FC<CurvedDiagnosticPanelProps> = ({
 
     renderWave();
     return () => cancelAnimationFrame(animId);
-  }, [isSpeaking, isListening]);
+  }, [isSpeaking, isListening, isThinking]);
+
+  const activeStateBadge = isListening
+    ? 'LISTENING'
+    : isThinking
+    ? 'THINKING'
+    : isSpeaking
+    ? 'SPEAKING'
+    : 'STANDBY';
 
   return (
     <aside
-      className={`h-full flex flex-col rounded-[22px] bg-[#020b1c]/80 border-[1.5px] border-cyan-400/60 backdrop-blur-md shadow-[0_0_35px_rgba(0,240,255,0.22),inset_0_0_20px_rgba(0,240,255,0.08)] p-3 sm:p-3.5 text-cyan-200 overflow-hidden relative select-none [transform:perspective(1000px)_rotateY(14deg)] transition-all hover:[transform:perspective(1000px)_rotateY(8deg)] duration-300 ${className}`}
-      style={{
-        boxShadow: '0 0 30px rgba(0, 240, 255, 0.25), inset 0 0 15px rgba(0, 240, 255, 0.06)',
-      }}
+      className={`h-full flex flex-col rounded-2xl bg-[#040d1e]/90 border border-cyan-400/40 backdrop-blur-md shadow-[0_0_28px_rgba(0,240,255,0.14)] p-4 text-slate-100 overflow-hidden relative select-none ${className}`}
     >
-      {/* Curved Screen Glowing Edge Accents (Matches cylindrical screen edge highlight in photo) */}
-      <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-300 to-transparent pointer-events-none z-10" />
-      <div className="absolute bottom-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-300 to-transparent pointer-events-none z-10" />
-      <div className="absolute inset-y-0 left-0 w-[2px] bg-gradient-to-b from-transparent via-cyan-400 to-transparent pointer-events-none z-10" />
-      <div className="absolute inset-y-0 right-0 w-[2px] bg-gradient-to-b from-transparent via-cyan-400/50 to-transparent pointer-events-none z-10" />
-
-      {/* Subtle Holographic Horizontal Scanline Texture */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_50%,rgba(0,240,255,0.025)_51%)] bg-[length:100%_4px] pointer-events-none z-0" />
-
-      {/* 1. TOP HEADER & METRIC IDENTIFIER */}
-      <div className="relative z-10 flex items-center justify-between pb-2 border-b border-cyan-500/30">
-        <div className="flex items-center gap-1.5">
-          <Activity className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
-          <span className="font-heading font-black text-xs tracking-wider text-cyan-100">
-            DIAGNOSTIC MATRIX
-          </span>
+      {/* Header & Module Switcher */}
+      <div className="flex items-center justify-between gap-2 pb-3 border-b border-cyan-500/25 shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <Activity className="w-4 h-4 text-cyan-400 shrink-0" />
+          <h2 className="font-heading font-bold text-xs tracking-wider text-cyan-100 truncate">
+            Diagnostic Matrix
+          </h2>
         </div>
-        <div className="flex items-center gap-1 p-0.5 rounded bg-slate-950/80 border border-cyan-500/30 font-mono text-[9px]">
-          <button
-            type="button"
-            onClick={() => setPanelTab('map')}
-            className={`px-2 py-0.5 rounded transition-all cursor-pointer flex items-center gap-1 ${
-              panelTab === 'map' ? 'bg-cyan-500/40 text-cyan-100 font-bold' : 'text-slate-400 hover:text-cyan-300'
-            }`}
-          >
-            <Network className="w-2.5 h-2.5 text-cyan-400" />
-            <span>ARCH MAP</span>
-          </button>
+
+        <div className="flex items-center gap-1 p-0.5 rounded-lg bg-[#020814] border border-cyan-500/25 font-mono text-[11px] shrink-0">
           <button
             type="button"
             onClick={() => setPanelTab('diagnostics')}
-            className={`px-2 py-0.5 rounded transition-all cursor-pointer flex items-center gap-1 ${
-              panelTab === 'diagnostics' ? 'bg-cyan-500/40 text-cyan-100 font-bold' : 'text-slate-400 hover:text-cyan-300'
+            className={`px-2 py-1 rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+              panelTab === 'diagnostics' ? 'bg-cyan-500/30 text-white' : 'text-slate-400 hover:text-cyan-200'
             }`}
           >
-            <Activity className="w-2.5 h-2.5 text-cyan-400" />
-            <span>METRICS</span>
+            Matrix
+          </button>
+          <button
+            type="button"
+            onClick={() => setPanelTab('map')}
+            className={`px-2 py-1 rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+              panelTab === 'map' ? 'bg-cyan-500/30 text-white' : 'text-slate-400 hover:text-cyan-200'
+            }`}
+          >
+            Arch Map
+          </button>
+          <button
+            type="button"
+            onClick={() => setPanelTab('rooms')}
+            className={`px-2 py-1 rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+              panelTab === 'rooms' ? 'bg-cyan-500/30 text-white' : 'text-slate-400 hover:text-cyan-200'
+            }`}
+          >
+            Nodes
           </button>
         </div>
       </div>
 
-      {/* 2. TOP CONTENT: EITHER MINI ARCHITECTURAL MAP OR PRIMARY VERTICAL BAR CHART */}
-      {panelTab === 'map' ? (
-        <div className="relative z-10 my-1.5 shrink-0 h-52">
-          <MiniArchitecturalMap isSpeaking={isSpeaking} isListening={isListening} className="w-full h-full" />
-        </div>
-      ) : (
-        <div className="relative z-10 my-2 p-2 rounded-xl bg-[#010918]/85 border border-cyan-500/30 shadow-inner flex flex-col gap-1.5 shrink-0">
-          <div className="flex items-center justify-between text-[9px] font-mono text-cyan-400">
-            <span>NEURAL HARMONICS SPECTRUM</span>
-            <span className="text-cyan-300 font-bold">{isSpeaking ? 'ACTIVE VOCAL' : 'RESONANCE 432Hz'}</span>
+      {/* Main Tabbed Content */}
+      <div className="flex-1 min-h-0 flex flex-col gap-3 pt-3 overflow-y-auto no-scrollbar">
+        {panelTab === 'map' && (
+          <div className="flex-1 min-h-[260px]">
+            <MiniArchitecturalMap isSpeaking={isSpeaking} isListening={isListening} className="w-full h-full" />
           </div>
+        )}
 
-          {/* 16 Vertical Glowing Bars */}
-          <div className="h-20 w-full flex items-end justify-between gap-1 px-1 pt-2 pb-0.5 border-b border-cyan-500/20 bg-slate-950/60 rounded">
-            {barHeights.map((h, idx) => (
-              <div
-                key={idx}
-                className="flex-1 flex flex-col justify-end items-center h-full group"
-              >
-                <div
-                  className="w-full rounded-t-sm transition-all duration-300 relative shadow-[0_0_8px_rgba(0,240,255,0.6)]"
-                  style={{
-                    height: `${h}%`,
-                    background:
-                      idx % 3 === 0
-                        ? 'linear-gradient(to top, rgba(0,240,255,0.4), #ffffff)'
-                        : 'linear-gradient(to top, rgba(0,240,255,0.3), #00f0ff)',
-                  }}
-                />
+        {panelTab === 'rooms' && (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between text-xs font-mono text-cyan-300">
+              <span className="flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5" />
+                <span>Agent & Room Tracking</span>
+              </span>
+              <span className="tabular-nums text-slate-400">{ROOM_TRACKING_NODES.length + nodes.length} Active</span>
+            </div>
+
+            <div className="divide-y divide-cyan-500/15 border border-cyan-500/25 rounded-xl bg-[#020816]/80">
+              {ROOM_TRACKING_NODES.map((room) => (
+                <div key={room.id} className="px-3 py-2.5 flex items-center justify-between gap-2 text-xs">
+                  <div className="min-w-0">
+                    <div className="font-medium text-cyan-100 truncate">{room.name}</div>
+                    <div className="text-[11px] font-mono text-slate-400 truncate">{room.zone}</div>
+                  </div>
+                  <span className="text-[11px] font-mono text-emerald-300 shrink-0">{room.load}</span>
+                </div>
+              ))}
+            </div>
+
+            {nodes.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <div className="text-[11px] font-mono text-slate-400">Workspace Nodes</div>
+                <div className="divide-y divide-cyan-500/15 border border-cyan-500/20 rounded-xl bg-[#020816]/70">
+                  {nodes.slice(0, 5).map((node) => (
+                    <button
+                      key={node.id}
+                      type="button"
+                      onClick={() => {
+                        audioSynth.playClick();
+                        onSelectNode?.(node);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-cyan-950/50 transition-colors flex items-center justify-between gap-2 cursor-pointer text-xs"
+                    >
+                      <span className="text-cyan-100 truncate">{node.label}</span>
+                      <span className="text-[11px] font-mono text-cyan-400 shrink-0">{node.status}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            ))}
+            )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* 3. OSCILLOSCOPE WAVEFORM SINE GRAPH (Matches middle wave in photo) */}
-      <div className="relative z-10 my-1 p-2 rounded-xl bg-[#010918]/85 border border-cyan-500/30 shadow-inner flex flex-col gap-1 shrink-0">
-        <div className="flex items-center justify-between text-[9px] font-mono text-cyan-400">
-          <div className="flex items-center gap-1">
-            <Radio className="w-2.5 h-2.5 text-cyan-300" />
-            <span>WAVE OSCILLOSCOPE</span>
-          </div>
-          <span className="text-slate-400 text-[8px]">12ms QUANTUM BUS</span>
-        </div>
-        <canvas
-          ref={waveCanvasRef}
-          width={280}
-          height={48}
-          className="w-full h-12 rounded block bg-[#010614]/90 border border-cyan-500/20"
-        />
-      </div>
+        {panelTab === 'diagnostics' && (
+          <>
+            {/* Harmonic Spectrum */}
+            <div className="p-3 rounded-xl bg-[#020816]/85 border border-cyan-500/25 flex flex-col gap-2 shrink-0">
+              <div className="flex items-center justify-between text-xs font-mono">
+                <span className="text-slate-400">Harmonic Spectrum</span>
+                <span className="text-cyan-300 font-semibold">{activeStateBadge}</span>
+              </div>
 
-      {/* 4. SCROLLABLE TELEMETRY PARAMETERS TABLE (Matches data readout in photo) */}
-      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto no-scrollbar py-1 flex flex-col gap-1.5 font-mono text-[9px]">
-        {/* Metric Row 1: Neural Load */}
-        <div className="p-1.5 rounded-lg bg-[#031129]/80 border border-cyan-500/20 flex items-center justify-between">
-          <span className="flex items-center gap-1 text-slate-300">
-            <Cpu className="w-3 h-3 text-cyan-400" />
-            <span>NEURAL LOAD</span>
-          </span>
-          <div className="flex items-center gap-1.5">
-            <div className="w-16 h-1.5 bg-slate-900 rounded-full overflow-hidden border border-cyan-500/30">
-              <div
-                className="h-full bg-cyan-400 transition-all duration-500 rounded-full"
-                style={{ width: `${metrics.cpuLoad}%` }}
+              <div className="h-20 w-full flex items-end justify-between gap-1 px-1 pt-2 border-b border-cyan-500/20">
+                {barHeights.map((h, idx) => (
+                  <div key={idx} className="flex-1 flex flex-col justify-end h-full">
+                    <div
+                      className="w-full rounded-t-sm transition-all duration-300"
+                      style={{
+                        height: `${h}%`,
+                        background:
+                          idx % 3 === 0
+                            ? 'linear-gradient(to top, rgba(0,240,255,0.35), #e0f2fe)'
+                            : 'linear-gradient(to top, rgba(0,240,255,0.25), #00f0ff)',
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Oscilloscope Waveform */}
+            <div className="p-3 rounded-xl bg-[#020816]/85 border border-cyan-500/25 flex flex-col gap-1.5 shrink-0">
+              <div className="flex items-center justify-between text-xs font-mono">
+                <span className="flex items-center gap-1.5 text-slate-400">
+                  <Radio className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Audio Oscilloscope</span>
+                </span>
+                <span className="text-cyan-300 tabular-nums">48 kHz</span>
+              </div>
+              <canvas
+                ref={waveCanvasRef}
+                width={280}
+                height={52}
+                className="w-full h-13 rounded-lg block bg-[#010510] border border-cyan-500/20"
               />
             </div>
-            <span className="text-cyan-200 font-bold">{metrics.cpuLoad}%</span>
-          </div>
-        </div>
 
-        {/* Metric Row 2: Quantum Memory */}
-        <div className="p-1.5 rounded-lg bg-[#031129]/80 border border-cyan-500/20 flex items-center justify-between">
-          <span className="flex items-center gap-1 text-slate-300">
-            <Database className="w-3 h-3 text-cyan-400" />
-            <span>QUANTUM RAM</span>
-          </span>
-          <span className="text-cyan-200 font-bold">{metrics.memoryUsage} GB / 32 GB</span>
-        </div>
+            {/* Mini Architecture Preview */}
+            <div className="h-48 shrink-0">
+              <MiniArchitecturalMap isSpeaking={isSpeaking} isListening={isListening} className="w-full h-full" />
+            </div>
 
-        {/* Metric Row 3: Synapse Coherence */}
-        <div className="p-1.5 rounded-lg bg-[#031129]/80 border border-cyan-500/20 flex items-center justify-between">
-          <span className="flex items-center gap-1 text-slate-300">
-            <Sparkles className="w-3 h-3 text-cyan-400" />
-            <span>COHERENCE</span>
-          </span>
-          <span className="text-emerald-300 font-bold">{metrics.coherence}%</span>
-        </div>
-
-        {/* Metric Row 4: VAD Silence Window */}
-        <div className="p-1.5 rounded-lg bg-[#031129]/80 border border-cyan-500/20 flex items-center justify-between">
-          <span className="text-slate-300">VAD THRESHOLD</span>
-          <span className="text-cyan-300 font-bold">2.6 SEC (OPTIMAL)</span>
-        </div>
-
-        {/* Metric Row 5: Gemini Stream SSE */}
-        <div className="p-1.5 rounded-lg bg-[#031129]/80 border border-cyan-500/20 flex items-center justify-between">
-          <span className="text-slate-300">GEMINI ENGINE</span>
-          <span className="text-cyan-300 font-bold">FLASH DUAL-SPEED</span>
-        </div>
+            {/* Tabular Telemetry Readout */}
+            <div className="divide-y divide-cyan-500/15 border border-cyan-500/20 rounded-xl bg-[#020816]/80 font-mono text-xs shrink-0">
+              <div className="px-3 py-2 flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-slate-400">
+                  <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Neural Load</span>
+                </span>
+                <span className="text-cyan-200 font-semibold tabular-nums">{metrics.cpuLoad}%</span>
+              </div>
+              <div className="px-3 py-2 flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-slate-400">
+                  <Database className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Memory Pool</span>
+                </span>
+                <span className="text-cyan-200 font-semibold tabular-nums">
+                  {metrics.memoryUsage} GB · {memoriesCount} Saved
+                </span>
+              </div>
+              <div className="px-3 py-2 flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-slate-400">
+                  <Network className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Sync Stability</span>
+                </span>
+                <span className="text-emerald-300 font-semibold tabular-nums">{metrics.coherence}%</span>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* 5. SECONDARY FREQUENCY DISTRIBUTION BAR GRAPH (Matches bottom bar chart in photo) */}
-      <div className="relative z-10 pt-2 border-t border-cyan-500/25 shrink-0 flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          <Orbit className="w-3 h-3 text-cyan-400 animate-spin" />
-          <span className="font-mono text-[9px] text-cyan-300 font-bold">MODE: {systemMode}</span>
-        </div>
-        <div className="flex items-center gap-1">
+      {/* Footer OS Mode Selector */}
+      <div className="pt-3 mt-2 border-t border-cyan-500/25 shrink-0 flex items-center justify-between gap-2">
+        <span className="font-mono text-[11px] text-slate-400 shrink-0">OS Mode</span>
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
           {(['NEURAL_FOCUS', 'OVERCLOCK', 'STEALTH', 'DIAGNOSTIC'] as SystemMode[]).map((mode) => (
             <button
               key={mode}
               type="button"
-              onClick={() => onSelectMode(mode)}
-              className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold cursor-pointer transition-all ${
+              onClick={() => {
+                audioSynth.playClick();
+                onSelectMode(mode);
+              }}
+              className={`px-2 py-1 rounded-md text-[10px] font-mono cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
                 systemMode === mode
-                  ? 'bg-cyan-500/40 text-cyan-100 border border-cyan-400 shadow-[0_0_8px_rgba(0,240,255,0.4)]'
-                  : 'text-slate-400 hover:text-cyan-300 bg-slate-900/60'
+                  ? 'bg-cyan-500/35 text-white border border-cyan-400/60'
+                  : 'text-slate-400 hover:text-cyan-200 bg-[#020816]'
               }`}
             >
-              {mode}
+              {mode.replace('_', ' ')}
             </button>
           ))}
         </div>

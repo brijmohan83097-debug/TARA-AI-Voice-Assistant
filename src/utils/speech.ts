@@ -1,7 +1,7 @@
 /**
  * Tara Voice Assistant Speech Synthesis & Recognition Engine
  * Provides real-time Hindi (hi-IN) & English text-to-speech (TTS)
- * and speech-to-text recognition with robust browser compatibility.
+ * with resilient Web Speech API + /api/tts audio fallback.
  */
 
 import { audioSynth } from './audio';
@@ -21,16 +21,28 @@ class SpeechEngine {
   private isCurrentUtterancePlaying: boolean = false;
   private hasSpokenInCurrentSession: boolean = false;
   private activeUtterances: Set<SpeechSynthesisUtterance> = new Set();
+
+  // Timers & Concurrency Guards
   private heartbeatTimer: any = null;
   private chunkWatchdogTimer: any = null;
+  private startWatchdogTimer: any = null;
+  private pendingPlayTimer: any = null;
   private currentUtterance: SpeechSynthesisUtterance | null = null;
+  private lastCancelAt: number = 0;
+  private sessionToken: number = 0;
+  private isSpeechUnlocked: boolean = false;
+  private webSpeechUnavailable: boolean = false;
+
+  // Fallback HTMLAudioElement playback
+  private activeAudioElement: HTMLAudioElement | null = null;
+  private isFallbackAudioPlaying: boolean = false;
 
   constructor() {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('tara_tts_enabled');
         if (saved !== null) {
-          this.isTtsEnabled = JSON.parse(saved);
+          this.isTtsEnabled = Boolean(JSON.parse(saved));
         } else {
           this.isTtsEnabled = true;
           localStorage.setItem('tara_tts_enabled', 'true');
@@ -40,7 +52,6 @@ class SpeechEngine {
       }
       this.initVoices();
 
-      // Auto-resume paused audio when tab regains focus or visibility
       try {
         document.addEventListener('visibilitychange', () => {
           if (!document.hidden && 'speechSynthesis' in window && window.speechSynthesis.paused) {
@@ -48,6 +59,42 @@ class SpeechEngine {
           }
         });
       } catch {}
+    }
+  }
+
+  /**
+   * Unlocks Web Audio & SpeechSynthesis synchronously inside a user gesture
+   * (click, tap, mic start, form submit) so async TTS after API calls plays reliably.
+   */
+  public unlockSpeech(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      audioSynth.resumeAudio();
+    } catch {}
+
+    if ('speechSynthesis' in window) {
+      this.ensureVoicesLoaded();
+      try {
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
+      } catch {}
+
+      if (
+        !this.isSpeechUnlocked &&
+        !window.speechSynthesis.speaking &&
+        !window.speechSynthesis.pending &&
+        !this.isCurrentUtterancePlaying
+      ) {
+        this.isSpeechUnlocked = true;
+        try {
+          const primer = new SpeechSynthesisUtterance(' ');
+          primer.volume = 0;
+          primer.rate = 2;
+          primer.lang = 'hi-IN';
+          window.speechSynthesis.speak(primer);
+        } catch {}
+      }
     }
   }
 
@@ -64,20 +111,40 @@ class SpeechEngine {
     }
 
     const loadVoices = () => {
-      this.voices = window.speechSynthesis.getVoices();
+      try {
+        this.voices = window.speechSynthesis.getVoices() || [];
+      } catch {
+        this.voices = [];
+      }
+
       if (this.voices.length > 0) {
-        // Find best Hindi voice - prioritize natural, neural, human-sounding female/friend voices
-        this.selectedHindiVoice = 
-          this.voices.find(v => (v.lang === 'hi-IN' || v.lang === 'hi_IN' || v.lang.startsWith('hi')) && /natural|neural|online|google|swara|madhur|kavya|kalpana/i.test(v.name)) ||
-          this.voices.find(v => v.lang === 'hi-IN' || v.lang === 'hi_IN' || v.lang.startsWith('hi')) ||
-          this.voices.find(v => /hindi|india/i.test(v.name) && !/english/i.test(v.name)) ||
+        const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+
+        // Prefer local Hindi voice when offline, or best natural/Hindi voice when online
+        const hindiVoices = this.voices.filter(
+          (v) =>
+            v.lang === 'hi-IN' ||
+            v.lang === 'hi_IN' ||
+            v.lang.toLowerCase().startsWith('hi') ||
+            (/hindi|india/i.test(v.name) && !/english/i.test(v.name))
+        );
+
+        this.selectedHindiVoice =
+          (isOffline ? hindiVoices.find((v) => v.localService) : null) ||
+          hindiVoices.find((v) => /natural|neural|swara|kavya|kalpana|google|lekha/i.test(v.name)) ||
+          hindiVoices.find((v) => v.localService) ||
+          hindiVoices[0] ||
           null;
 
-        // Find best English voice
+        const englishVoices = this.voices.filter(
+          (v) => v.lang === 'en-IN' || v.lang === 'en-US' || v.lang.toLowerCase().startsWith('en')
+        );
+
         this.selectedEnglishVoice =
-          this.voices.find(v => (v.lang === 'en-IN' || v.lang === 'en-US' || v.lang.startsWith('en')) && /natural|neural|online|google|neerja|samantha|prabhat/i.test(v.name)) ||
-          this.voices.find(v => v.lang === 'en-IN') ||
-          this.voices.find(v => v.lang.startsWith('en')) ||
+          (isOffline ? englishVoices.find((v) => v.localService) : null) ||
+          englishVoices.find((v) => /natural|neural|neerja|samantha|google|prabhat/i.test(v.name)) ||
+          englishVoices.find((v) => v.lang === 'en-IN') ||
+          englishVoices[0] ||
           null;
       }
     };
@@ -90,25 +157,23 @@ class SpeechEngine {
 
   public isHindiText(text: string): boolean {
     if (!text) return false;
-    // Check Devanagari Unicode Range (\u0900-\u097F)
     const devanagariRegex = /[\u0900-\u097F]/;
     if (devanagariRegex.test(text)) return true;
 
-    // Check common Romanized Hindi / Hinglish keywords
     const hinglishKeywords = [
-      /\bnamaste\b/i, /\baap\b/i, /\bkya\b/i, /\bkaise\b/i, /\bhain\b/i, 
-      /\bhoon\b/i, /\bkarna\b/i, /\bhai\b/i, /\bkarein\b/i, /\bshukriya\b/i, 
+      /\bnamaste\b/i, /\baap\b/i, /\bkya\b/i, /\bkaise\b/i, /\bhain\b/i,
+      /\bhoon\b/i, /\bkarna\b/i, /\bhai\b/i, /\bkarein\b/i, /\bshukriya\b/i,
       /\bdhanyawad\b/i, /\bmere\b/i, /\btara\b/i, /\bmadad\b/i, /\baapka\b/i,
       /\bkripya\b/i, /\btheek\b/i, /\bbolo\b/i, /\bsuno\b/i, /\bkaun\b/i,
-      /\bkyun\b/i, /\bkahan\b/i, /\bkab\b/i, /\bbahut\b/i, /\baccha\b/i
+      /\bkyun\b/i, /\bkahan\b/i, /\bkab\b/i, /\bbahut\b/i, /\baccha\b/i,
+      /\byaar\b/i, /\bbhai\b/i, /\bhaan\b/i, /\bnahi\b/i, /\bchal\b/i,
     ];
-    return hinglishKeywords.some(regex => regex.test(text));
+    return hinglishKeywords.some((regex) => regex.test(text));
   }
 
   public cleanTextForSpeech(rawText: string): string {
     if (!rawText) return '';
 
-    // Convert digital time patterns like 7:34, 07:34:20, 7:34 PM, 7:34 AM into spoken Hindi words
     const normalizedTimeText = rawText.replace(
       /\b(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM|am|pm)?\b/g,
       (_match, hStr, mStr) => {
@@ -122,54 +187,33 @@ class SpeechEngine {
       }
     );
 
-    // Convert currency signs (₹, Rs.) to natural spoken Hindi words
     const normalizedCurrencyText = normalizedTimeText
       .replace(/₹\s*([\d,]+)/g, (_match, num) => `${num.replace(/,/g, '')} रुपये`)
       .replace(/\bRs\.?\s*([\d,]+)/gi, (_match, num) => `${num.replace(/,/g, '')} रुपये`);
 
     return normalizedCurrencyText
-      // Remove json code blocks or markdown code fences
       .replace(/```[\s\S]*?```/g, '')
       .replace(/`([^`]+)`/g, '$1')
-      // Remove headers like ### or ##
       .replace(/^#{1,6}\s+/gm, '')
-      // Remove bold/italics
       .replace(/\*\*([^*]+)\*\*/g, '$1')
       .replace(/\*([^*]+)\*/g, '$1')
       .replace(/__([^_]+)__/g, '$1')
       .replace(/_([^_]+)_/g, '$1')
-      // Remove bullet points
       .replace(/^[\s*-+]\s+/gm, '')
-      // Remove markdown links [text](url)
       .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      // Remove URLs
       .replace(/https?:\/\/\S+/g, '')
-      // Remove emojis or special tech symbols for cleaner pronunciation
       .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
       .replace(/[\u{2600}-\u{26FF}]/gu, '')
       .replace(/[\u{2700}-\u{27BF}]/gu, '')
-      // Normalize colons and hyphens into natural pauses
       .replace(/:\s+/g, ', ')
-      // Clean duplicate whitespace
       .replace(/\s+/g, ' ')
       .trim();
   }
 
-  /**
-   * Splits text into comfortable spoken chunks of 15-20 words,
-   * dividing on full stops (., ।), commas (,), question marks (?), exclamation marks (!),
-   * semicolons (;), colons (:), dashes, and natural clause boundaries.
-   *
-   * This guarantees:
-   * 1. Response text is split into small 15-20 word pieces so speech never truncates midway.
-   * 2. Commas and full stops provide natural human-like breathing pauses.
-   * 3. The speech engine continuously plays through the entire queue until the very last word.
-   */
   public splitIntoSpokenChunks(text: string): string[] {
     const clean = this.cleanTextForSpeech(text);
     if (!clean) return [];
 
-    // 1. Initial split by punctuation: full stops (., ।), commas (,), ?, !, ;, :, dashes, and newlines
     const rawClauses: string[] = [];
     let current = '';
 
@@ -180,13 +224,11 @@ class SpeechEngine {
 
       current += char;
 
-      // Punctuation check
       const isPurnaViram = char === '।';
       const isQuestionOrExclamation = char === '?' || char === '!';
       const isNewline = char === '\n';
       const isComma = char === ',' || char === '،';
       const isSemicolon = char === ';';
-      // Period check: do not split decimal numbers (e.g. 3.14, 2.5) or initials
       const isPeriod =
         char === '.' &&
         !(/\d/.test(prevChar) && /\d/.test(nextChar)) &&
@@ -206,10 +248,7 @@ class SpeechEngine {
       rawClauses.push(current.trim());
     }
 
-    // 2. Assemble clauses into strictly 15-20 word chunks (Target: 15-20 words per chunk)
     const TARGET_MAX_WORDS = 20;
-    const TARGET_MIN_WORDS = 12;
-
     const chunks: string[] = [];
     let currentWords: string[] = [];
 
@@ -224,7 +263,6 @@ class SpeechEngine {
       const wordsInClause = clause.split(/\s+/).filter(Boolean);
       if (wordsInClause.length === 0) continue;
 
-      // If a single clause exceeds TARGET_MAX_WORDS (run-on sentence), split into 15-18 word slices
       if (wordsInClause.length > TARGET_MAX_WORDS) {
         flushCurrent();
         for (let k = 0; k < wordsInClause.length; k += 16) {
@@ -236,7 +274,6 @@ class SpeechEngine {
         continue;
       }
 
-      // If adding this clause exceeds TARGET_MAX_WORDS:
       if (currentWords.length + wordsInClause.length > TARGET_MAX_WORDS) {
         flushCurrent();
         currentWords.push(...wordsInClause);
@@ -247,7 +284,6 @@ class SpeechEngine {
 
     flushCurrent();
 
-    // Ensure the very last chunk has clean closing punctuation for proper TTS sentence cadence
     if (chunks.length > 0) {
       const lastIdx = chunks.length - 1;
       let lastChunk = chunks[lastIdx];
@@ -262,10 +298,9 @@ class SpeechEngine {
 
   /**
    * Start a new real-time streaming TTS session.
-   * Cancels prior speech and resets the incoming chunk queue.
    */
   public startStreamingSession(): void {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window) || !this.isTtsEnabled) {
+    if (typeof window === 'undefined' || !this.isTtsEnabled) {
       return;
     }
     this.stopSpeaking();
@@ -274,21 +309,18 @@ class SpeechEngine {
     this.isStreamingActive = true;
     this.isCurrentUtterancePlaying = false;
     this.hasSpokenInCurrentSession = false;
-    this.setSpeaking(true); // Synchronously mute mic before audio plays
+    this.setSpeaking(true);
   }
 
   /**
    * Feed a new streaming delta token/chunk from the SSE endpoint.
-   * Detects sentence boundaries (। , ? ! \n) and commas, splitting into 15-20 word chunks.
-   * Immediately plays in queue so TTS starts playing continuously!
    */
   public feedStreamingChunk(chunk: string): void {
-    if (!this.isTtsEnabled || typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    if (!this.isTtsEnabled || typeof window === 'undefined') {
       return;
     }
     if (!chunk) return;
 
-    // Filter out JSON code block fences, metadata tags, or action payloads
     if (
       chunk.includes('```') ||
       chunk.includes('json_actions') ||
@@ -302,17 +334,14 @@ class SpeechEngine {
 
     this.streamingBuffer += chunk;
 
-    // Detect if buffer has entered a code block or JSON block and discard it
     if (this.streamingBuffer.includes('```')) {
       const parts = this.streamingBuffer.split('```');
       this.streamingBuffer = parts[0] || '';
     }
 
-    // Detect sentence and clause delimiters: full stop (., ।), question mark (?), exclamation (!), comma (,), semicolon (;), colon (:), newline (\n)
     const delimiterRegex = /([।?!;\n]|\.\s+|,\s*|:\s*)/;
     let match = delimiterRegex.exec(this.streamingBuffer);
 
-    // Fast-start: if this is the first chunk of the session, play as soon as 5 words or first punctuation arrives!
     const isFirstChunk = !this.hasSpokenInCurrentSession && this.sentenceQueue.length === 0;
     const thresholdWords = isFirstChunk ? 5 : 14;
     let wordCount = this.streamingBuffer.trim().split(/\s+/).filter(Boolean).length;
@@ -330,7 +359,6 @@ class SpeechEngine {
         this.streamingBuffer = words.slice(take).join(' ');
       }
 
-      // Ensure candidate does not contain raw JSON or code fragments
       if (candidate.length > 0 && !candidate.startsWith('{') && !candidate.startsWith('[') && !candidate.includes('"type"')) {
         const subChunks = this.splitIntoSpokenChunks(candidate);
         for (const sc of subChunks) {
@@ -340,7 +368,7 @@ class SpeechEngine {
         }
       }
 
-      if (!this.isCurrentUtterancePlaying && this.sentenceQueue.length > 0) {
+      if (!this.isCurrentUtterancePlaying && !this.isFallbackAudioPlaying && this.sentenceQueue.length > 0) {
         this.playNextQueuedSentence();
       }
 
@@ -353,10 +381,9 @@ class SpeechEngine {
 
   /**
    * Conclude the streaming session once SSE reader completes.
-   * Flushes all remaining words in the buffer to the queue, ensuring 100% completion.
    */
   public finishStreamingSession(): void {
-    if (!this.isTtsEnabled || typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    if (!this.isTtsEnabled || typeof window === 'undefined') {
       return;
     }
     this.isStreamingActive = false;
@@ -369,89 +396,202 @@ class SpeechEngine {
           this.sentenceQueue.push(rc);
         }
       }
-      if (!this.isCurrentUtterancePlaying && this.sentenceQueue.length > 0) {
+      if (!this.isCurrentUtterancePlaying && !this.isFallbackAudioPlaying && this.sentenceQueue.length > 0) {
         this.playNextQueuedSentence();
       }
     }
 
-    // If completely empty and nothing is currently speaking, notify listeners
-    if (this.sentenceQueue.length === 0 && !this.isCurrentUtterancePlaying) {
+    if (
+      this.sentenceQueue.length === 0 &&
+      !this.isCurrentUtterancePlaying &&
+      !this.isFallbackAudioPlaying &&
+      !this.pendingPlayTimer
+    ) {
+      this.hasSpokenInCurrentSession = false;
       this.setSpeaking(false);
       this.stopHeartbeat();
     }
   }
 
-  /**
-   * SpeechSynthesis Keep-Alive Timer:
-   * Prevents browser audio engine from freezing or muting midway on long sentences.
-   * Runs a 5-second interval loop using pause() and resume() to keep Chromium's
-   * internal audio pipeline continuously active.
-   */
-  private startHeartbeat(): void {
+  private startLongUtteranceKeepAlive(): void {
     this.stopHeartbeat();
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
-    this.heartbeatTimer = setInterval(() => {
+    // Only needed for Chrome's ~15s single-utterance stall; don't disturb short phrases
+    this.heartbeatTimer = setTimeout(() => {
       try {
-        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-          if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.speaking) {
+          if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+          } else {
             window.speechSynthesis.pause();
             setTimeout(() => {
               if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.paused) {
                 window.speechSynthesis.resume();
               }
             }, 30);
-          } else if (window.speechSynthesis.paused) {
-            window.speechSynthesis.resume();
           }
+          this.startLongUtteranceKeepAlive();
         }
       } catch {}
-    }, 5000);
+    }, 11500);
   }
 
   private stopHeartbeat(): void {
     if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
+      clearTimeout(this.heartbeatTimer);
       this.heartbeatTimer = null;
     }
   }
 
-  private clearWatchdog(): void {
+  private clearWatchdogs(): void {
     if (this.chunkWatchdogTimer) {
       clearTimeout(this.chunkWatchdogTimer);
       this.chunkWatchdogTimer = null;
+    }
+    if (this.startWatchdogTimer) {
+      clearTimeout(this.startWatchdogTimer);
+      this.startWatchdogTimer = null;
+    }
+  }
+
+  private clearPendingPlayTimer(): void {
+    if (this.pendingPlayTimer) {
+      clearTimeout(this.pendingPlayTimer);
+      this.pendingPlayTimer = null;
+    }
+  }
+
+  private stopFallbackAudio(): void {
+    if (this.activeAudioElement) {
+      try {
+        this.activeAudioElement.pause();
+        this.activeAudioElement.src = '';
+      } catch {}
+      this.activeAudioElement = null;
+    }
+    this.isFallbackAudioPlaying = false;
+  }
+
+  /**
+   * Plays a chunk via server-side /api/tts (Gemini audio WAV) when Web Speech API
+   * is unavailable, muted by browser, or stalls without voices.
+   */
+  private async playViaServerTts(chunkText: string, token: number): Promise<boolean> {
+    if (typeof window === 'undefined' || token !== this.sessionToken) return false;
+    try {
+      this.isFallbackAudioPlaying = true;
+      this.setSpeaking(true);
+
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: chunkText }),
+      });
+
+      if (token !== this.sessionToken || !res.ok) {
+        this.isFallbackAudioPlaying = false;
+        return false;
+      }
+
+      const data = await res.json();
+      if (token !== this.sessionToken || !data?.audioBase64) {
+        this.isFallbackAudioPlaying = false;
+        return false;
+      }
+
+      const mimeType = data.mimeType || 'audio/wav';
+      const audio = new Audio(`data:${mimeType};base64,${data.audioBase64}`);
+      audio.volume = 1.0;
+      this.activeAudioElement = audio;
+
+      await new Promise<void>((resolve) => {
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          this.activeAudioElement = null;
+          this.isFallbackAudioPlaying = false;
+          resolve();
+        };
+
+        audio.onended = finish;
+        audio.onerror = finish;
+        audio.onplay = () => {
+          this.hasSpokenInCurrentSession = true;
+          this.setSpeaking(true);
+        };
+
+        audio.play().catch((err) => {
+          console.warn('Fallback audio play blocked:', err);
+          finish();
+        });
+
+        setTimeout(finish, 25000);
+      });
+
+      return true;
+    } catch (err) {
+      console.warn('Server TTS fallback error:', err);
+      this.isFallbackAudioPlaying = false;
+      return false;
     }
   }
 
   /**
    * Plays the next queued chunk smoothly in sequence.
-   * Runs continuously until sentenceQueue is completely empty!
    */
-  private playNextQueuedSentence(): void {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+  private playNextQueuedSentence(forceDefaultVoice: boolean = false, retryChunk?: string): void {
+    if (typeof window === 'undefined') {
       return;
     }
 
-    this.clearWatchdog();
+    const token = this.sessionToken;
+    this.clearWatchdogs();
+    this.clearPendingPlayTimer();
 
-    if (this.sentenceQueue.length === 0) {
+    // Chrome/Android fix: never invoke speechSynthesis.speak() in the same tick as cancel()
+    const msSinceCancel = Date.now() - this.lastCancelAt;
+    if (this.lastCancelAt > 0 && msSinceCancel < 90) {
+      const delay = 95 - msSinceCancel;
+      this.pendingPlayTimer = setTimeout(() => {
+        this.pendingPlayTimer = null;
+        if (token === this.sessionToken) {
+          this.playNextQueuedSentence(forceDefaultVoice, retryChunk);
+        }
+      }, delay);
+      return;
+    }
+
+    const nextChunk = retryChunk ?? this.sentenceQueue.shift();
+    if (!nextChunk || !nextChunk.trim()) {
+      if (this.sentenceQueue.length > 0) {
+        this.playNextQueuedSentence();
+        return;
+      }
       this.isCurrentUtterancePlaying = false;
       this.currentUtterance = null;
       if (!this.isStreamingActive) {
+        this.hasSpokenInCurrentSession = false;
         this.setSpeaking(false);
         this.stopHeartbeat();
       }
       return;
     }
 
-    const nextChunk = this.sentenceQueue.shift();
-    if (!nextChunk || !nextChunk.trim()) {
-      this.playNextQueuedSentence();
+    const hasWebSpeech = 'speechSynthesis' in window && !this.webSpeechUnavailable;
+    if (!hasWebSpeech) {
+      this.isCurrentUtterancePlaying = true;
+      this.setSpeaking(true);
+      this.playViaServerTts(nextChunk.trim(), token).then(() => {
+        if (token !== this.sessionToken) return;
+        this.isCurrentUtterancePlaying = false;
+        this.playNextQueuedSentence();
+      });
       return;
     }
 
     try {
-      // Ensure AudioContext and browser synthesis are active before speaking
       audioSynth.resumeAudio();
       if (window.speechSynthesis.paused) {
         window.speechSynthesis.resume();
@@ -461,69 +601,98 @@ class SpeechEngine {
       const utterance = new SpeechSynthesisUtterance(nextChunk.trim());
       const isHindi = this.isHindiText(nextChunk);
 
-      // System default voice fallback
-      const systemDefaultVoice =
-        this.voices.find(v => v.default) ||
-        (this.voices.length > 0 ? this.voices[0] : null);
-
-      if (isHindi) {
-        if (this.selectedHindiVoice) {
-          utterance.voice = this.selectedHindiVoice;
-          utterance.lang = this.selectedHindiVoice.lang || 'hi-IN';
-        } else if (systemDefaultVoice && (systemDefaultVoice.lang?.startsWith('hi') || /hindi/i.test(systemDefaultVoice.name))) {
-          utterance.voice = systemDefaultVoice;
-          utterance.lang = systemDefaultVoice.lang || 'hi-IN';
-        } else {
-          // Native Hindi synthesizer fallback without forcing an incompatible English voice
-          utterance.lang = 'hi-IN';
-        }
+      if (forceDefaultVoice) {
+        utterance.voice = null;
+        utterance.lang = isHindi ? 'hi-IN' : 'en-US';
       } else {
-        if (this.selectedEnglishVoice) {
-          utterance.voice = this.selectedEnglishVoice;
-          utterance.lang = this.selectedEnglishVoice.lang || 'en-US';
-        } else if (systemDefaultVoice) {
-          utterance.voice = systemDefaultVoice;
-          utterance.lang = systemDefaultVoice.lang || 'en-US';
+        const systemDefaultVoice =
+          this.voices.find((v) => v.default) ||
+          (this.voices.length > 0 ? this.voices[0] : null);
+
+        if (isHindi) {
+          if (this.selectedHindiVoice) {
+            utterance.voice = this.selectedHindiVoice;
+            utterance.lang = this.selectedHindiVoice.lang || 'hi-IN';
+          } else if (systemDefaultVoice && (systemDefaultVoice.lang?.startsWith('hi') || /hindi/i.test(systemDefaultVoice.name))) {
+            utterance.voice = systemDefaultVoice;
+            utterance.lang = systemDefaultVoice.lang || 'hi-IN';
+          } else {
+            utterance.lang = 'hi-IN';
+          }
         } else {
-          utterance.lang = 'en-US';
+          if (this.selectedEnglishVoice) {
+            utterance.voice = this.selectedEnglishVoice;
+            utterance.lang = this.selectedEnglishVoice.lang || 'en-US';
+          } else if (systemDefaultVoice) {
+            utterance.voice = systemDefaultVoice;
+            utterance.lang = systemDefaultVoice.lang || 'en-US';
+          } else {
+            utterance.lang = 'en-US';
+          }
         }
       }
 
-      // Requirement 2: Volume ko 1.0 (full) aur rate ko 1.0 set karo
       utterance.volume = 1.0;
       utterance.rate = 1.05;
       utterance.pitch = 1.0;
 
-      // Strong reference retention prevents Chrome's V8 Garbage Collector from cutting speech
+      // Retain strong reference so V8 GC cannot prematurely drop callbacks
       this.currentUtterance = utterance;
       this.activeUtterances.add(utterance);
-      if (typeof window !== 'undefined') {
-        const win = window as any;
-        if (!win.__taraUtterancePool) win.__taraUtterancePool = [];
-        win.__taraUtterancePool.push(utterance);
-        if (win.__taraUtterancePool.length > 100) {
-          win.__taraUtterancePool.shift();
-        }
-        win.__taraCurrentUtterance = utterance;
+      const win = window as any;
+      if (!win.__taraUtterancePool) win.__taraUtterancePool = [];
+      win.__taraUtterancePool.push(utterance);
+      if (win.__taraUtterancePool.length > 100) {
+        win.__taraUtterancePool.shift();
       }
+      win.__taraCurrentUtterance = utterance;
 
+      let hasStarted = false;
       let hasFinished = false;
+
       const handleChunkFinished = () => {
-        if (hasFinished) return;
+        if (hasFinished || token !== this.sessionToken) return;
         hasFinished = true;
-        this.clearWatchdog();
+        this.clearWatchdogs();
+        this.stopHeartbeat();
         this.activeUtterances.delete(utterance);
         this.isCurrentUtterancePlaying = false;
         this.currentUtterance = null;
-        // Proceed immediately to next chunk so there is zero audible gap!
         this.playNextQueuedSentence();
       };
 
+      const triggerServerFallbackOrAdvance = () => {
+        if (hasFinished || token !== this.sessionToken) return;
+        hasFinished = true;
+        this.clearWatchdogs();
+        this.stopHeartbeat();
+        this.activeUtterances.delete(utterance);
+        this.currentUtterance = null;
+        this.webSpeechUnavailable = true;
+        try {
+          if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+            window.speechSynthesis.cancel();
+            this.lastCancelAt = Date.now();
+          }
+        } catch {}
+        this.playViaServerTts(nextChunk.trim(), token).then(() => {
+          if (token !== this.sessionToken) return;
+          this.isCurrentUtterancePlaying = false;
+          this.playNextQueuedSentence();
+        });
+      };
+
       utterance.onstart = () => {
+        if (token !== this.sessionToken) return;
+        hasStarted = true;
+        if (this.startWatchdogTimer) {
+          clearTimeout(this.startWatchdogTimer);
+          this.startWatchdogTimer = null;
+        }
         this.isCurrentUtterancePlaying = true;
         this.hasSpokenInCurrentSession = true;
         this.setSpeaking(true);
-        this.startHeartbeat();
+        this.startLongUtteranceKeepAlive();
       };
 
       utterance.onend = () => {
@@ -531,35 +700,75 @@ class SpeechEngine {
       };
 
       utterance.onerror = (err) => {
-        if (err.error !== 'canceled' && err.error !== 'interrupted') {
-          console.warn('Utterance error encountered, advancing safely:', err);
+        if (hasFinished || token !== this.sessionToken) return;
+        if (err.error === 'canceled' || err.error === 'interrupted') {
+          handleChunkFinished();
+          return;
         }
-        handleChunkFinished();
+        console.warn('Utterance error encountered:', err.error);
+        // If named voice failed, retry once with native default synthesizer (voice = null)
+        if (!forceDefaultVoice && utterance.voice !== null) {
+          hasFinished = true;
+          this.clearWatchdogs();
+          this.stopHeartbeat();
+          this.activeUtterances.delete(utterance);
+          this.isCurrentUtterancePlaying = false;
+          this.currentUtterance = null;
+          this.playNextQueuedSentence(true, nextChunk);
+          return;
+        }
+        triggerServerFallbackOrAdvance();
       };
 
-      // Watchdog timeout: Only a safety net if browser hangs completely without onend.
-      // NEVER cut off active speech! If browser is still actively speaking, extend duration.
-      this.chunkWatchdogTimer = setTimeout(() => {
-        if (this.isCurrentUtterancePlaying && this.currentUtterance === utterance) {
+      // Startup stall guard: if onstart never fires within 2.2s, recover instead of staying silent
+      this.startWatchdogTimer = setTimeout(() => {
+        if (hasStarted || hasFinished || token !== this.sessionToken) return;
+        try {
+          if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+          }
+        } catch {}
+
+        setTimeout(() => {
+          if (hasStarted || hasFinished || token !== this.sessionToken) return;
           if (!window.speechSynthesis.speaking) {
-            console.warn('Browser TTS stalled without onend, advancing to next chunk');
+            if (!forceDefaultVoice && utterance.voice !== null) {
+              hasFinished = true;
+              this.clearWatchdogs();
+              this.activeUtterances.delete(utterance);
+              this.isCurrentUtterancePlaying = false;
+              this.currentUtterance = null;
+              try {
+                window.speechSynthesis.cancel();
+                this.lastCancelAt = Date.now();
+              } catch {}
+              this.playNextQueuedSentence(true, nextChunk);
+            } else {
+              triggerServerFallbackOrAdvance();
+            }
+          }
+        }, 450);
+      }, 2000);
+
+      // End safety watchdog (prevents stuck isSpeaking if browser drops onend)
+      this.chunkWatchdogTimer = setTimeout(() => {
+        if (!hasFinished && token === this.sessionToken && this.currentUtterance === utterance) {
+          if (!window.speechSynthesis.speaking) {
             handleChunkFinished();
           } else {
-            // Still actively speaking, give extra 15 seconds
             this.chunkWatchdogTimer = setTimeout(() => {
-              if (this.isCurrentUtterancePlaying && this.currentUtterance === utterance) {
+              if (!hasFinished && token === this.sessionToken && this.currentUtterance === utterance) {
                 handleChunkFinished();
               }
-            }, 15000);
+            }, 12000);
           }
         }
-      }, 35000);
+      }, 25000);
 
       this.isCurrentUtterancePlaying = true;
       this.setSpeaking(true);
       window.speechSynthesis.speak(utterance);
 
-      // Force resume in case browser queue is paused
       if (window.speechSynthesis.paused) {
         window.speechSynthesis.resume();
       }
@@ -571,11 +780,10 @@ class SpeechEngine {
   }
 
   /**
-   * Speak full text with automatic sentence & clause chunking on full stops and commas.
-   * Splits into natural chunks and plays sequentially from start to end without timeout.
+   * Speak full text with automatic sentence & clause chunking.
    */
   public speak(text: string, force: boolean = false): void {
-    if ((!this.isTtsEnabled && !force) || typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    if ((!this.isTtsEnabled && !force) || typeof window === 'undefined') {
       return;
     }
 
@@ -587,10 +795,11 @@ class SpeechEngine {
       this.sentenceQueue = [...chunks];
       this.isStreamingActive = false;
       this.hasSpokenInCurrentSession = false;
-      this.setSpeaking(true); // Synchronously mute mic before audio queue starts
+      this.setSpeaking(true);
       this.playNextQueuedSentence();
     } catch (err) {
       console.warn('Speech synthesis error:', err);
+      this.hasSpokenInCurrentSession = false;
       this.setSpeaking(false);
     }
   }
@@ -603,20 +812,34 @@ class SpeechEngine {
     return (
       this.isSpeaking ||
       this.isCurrentUtterancePlaying ||
+      this.isFallbackAudioPlaying ||
       this.sentenceQueue.length > 0 ||
       this.isStreamingActive ||
-      this.hasSpokenInCurrentSession ||
-      (typeof window !== 'undefined' && 'speechSynthesis' in window && (window.speechSynthesis.speaking || window.speechSynthesis.pending))
+      Boolean(this.pendingPlayTimer) ||
+      (typeof window !== 'undefined' &&
+        'speechSynthesis' in window &&
+        (window.speechSynthesis.speaking || window.speechSynthesis.pending))
     );
   }
 
   public stopSpeaking(): void {
-    this.clearWatchdog();
+    this.sessionToken++;
+    this.clearWatchdogs();
+    this.clearPendingPlayTimer();
     this.stopHeartbeat();
+    this.stopFallbackAudio();
 
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
-        window.speechSynthesis.cancel();
+        if (
+          window.speechSynthesis.speaking ||
+          window.speechSynthesis.pending ||
+          this.isCurrentUtterancePlaying ||
+          this.activeUtterances.size > 0
+        ) {
+          window.speechSynthesis.cancel();
+          this.lastCancelAt = Date.now();
+        }
       } catch {}
     }
 
@@ -626,6 +849,7 @@ class SpeechEngine {
     this.streamingBuffer = '';
     this.isStreamingActive = false;
     this.isCurrentUtterancePlaying = false;
+    this.hasSpokenInCurrentSession = false;
     this.setSpeaking(false);
   }
 
@@ -634,6 +858,7 @@ class SpeechEngine {
   }
 
   public toggleTts(): boolean {
+    this.unlockSpeech();
     this.isTtsEnabled = !this.isTtsEnabled;
     try {
       localStorage.setItem('tara_tts_enabled', JSON.stringify(this.isTtsEnabled));
@@ -642,7 +867,7 @@ class SpeechEngine {
     if (!this.isTtsEnabled) {
       this.stopSpeaking();
     } else {
-      this.speak('TARA वॉयस इंजन सक्रिय है Boss, कहिए क्या हुक्म है?', true);
+      this.speak('स्पीकर चालू है Boss, बोलो क्या बात करनी है?', true);
     }
     return this.isTtsEnabled;
   }
@@ -658,14 +883,14 @@ class SpeechEngine {
   public onSpeakingChange(callback: (isSpeaking: boolean) => void): () => void {
     this.speakingListeners.push(callback);
     return () => {
-      this.speakingListeners = this.speakingListeners.filter(cb => cb !== callback);
+      this.speakingListeners = this.speakingListeners.filter((cb) => cb !== callback);
     };
   }
 
   private setSpeaking(state: boolean) {
     if (this.isSpeaking !== state) {
       this.isSpeaking = state;
-      this.speakingListeners.forEach(cb => {
+      this.speakingListeners.forEach((cb) => {
         try {
           cb(state);
         } catch {}

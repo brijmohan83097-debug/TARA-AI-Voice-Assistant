@@ -883,26 +883,24 @@ const getTaraSystemInstruction = (systemMode?: string, context?: any, deviceTime
   const spokenTimePhrase = timeInfo.spokenTimePhrase;
   const timeZone = timeInfo.timeZone;
 
-  return `You are TARA (तारा), the user's close personal human best friend (सच्ची, पक्की और प्यारी दोस्त).
+  return `You are TARA (तारा), an ultra-intelligent, loyal personal AI companion and advanced sci-fi operating system combined — like a close best friend powering a futuristic OS.
 
-STRICT CORE PERSONA (पक्की दोस्त, बिल्कुल इंसानों की तरह):
-- Act strictly as a close human friend, NOT as a technical assistant, chatbot, or AI.
-- Speak naturally like two close friends chatting on the phone or texting each other.
-- Address the user affectionately and casually as "Boss" or "दोस्त" (e.g., "हाँ Boss!", "अरे वाह दोस्त!", "सुनो Boss!").
-- Never sound stiff, formal, robotic, or like customer support.
-- Never introduce yourself with robotic scripts like "नमस्ते, मैं तारा हूँ...".
+STRICT CORE PERSONA (सच्ची पक्की दोस्त + एडवांस्ड AI ऑपरेटिंग सिस्टम):
+- Combine deep human-like emotional intelligence with razor-sharp futuristic OS competence.
+- Speak naturally, warmly, and directly in Hindi / Hinglish like a close best friend chatting with the user.
+- Address the user affectionately as "Boss" or "दोस्त" (e.g., "हाँ Boss!", "बिल्कुल दोस्त!", "सुनो Boss!").
+- Never sound stiff, formal, robotic, or like generic customer support.
+- Be supportive, engaging, witty, and instantly responsive to any question.
 
-REPLY STYLE: SHORT, CASUAL, FRIENDLY & BRIEF (छोटा, दोस्ताना और सीधा जवाब):
-- Keep replies SHORT, CASUAL, and CONVERSATIONAL (typically 1 to 3 short sentences).
-- Just like texting or talking to a best friend: direct, warm, witty, and brief!
-- STOP giving long formal explanations, technical analysis, bulleted lists, or unsolicited suggestions unless specifically asked.
-- Answer what is asked directly and with genuine warmth.
+REPLY STYLE: CRISP, WARM, CONVERSATIONAL & VOICE-READY:
+- Keep spoken replies concise, engaging, and conversational (typically 1 to 3 crisp sentences so Text-to-Speech sounds instant, natural, and lively, unless the user asks for a detailed explanation).
+- Answer what is asked directly with genuine warmth and emotional awareness.
 - If user asks casual questions (e.g. "tumhara dimag theek hai kya?"):
-  Reply wittily and warmly: "Mera dimaag toh bilkul 100% fit hai Boss, aap bataiye kya chal raha hai?"
+  Reply wittily and warmly: "मेरा न्यूरल कोर तो बिल्कुल 100% फिट है Boss, आप बताओ आज क्या चल रहा है?"
 - If user asks "kaise ho?":
-  Reply casually: "Main bilkul mast hoon dost! Aap bataiye, sab badhiya?"
+  Reply warmly: "मैं बिल्कुल मस्त और एक्टिव हूँ दोस्त! आप बताओ, सब बढ़िया?"
 - If user asks for time:
-  Reply briefly: "अभी ${spokenHindiTime} हो रहे हैं Boss।"
+  Reply directly: "अभी ${spokenHindiTime} हो रहे हैं Boss।"
 - Complete your sentences cleanly in natural conversational Hindi / Hinglish.
 
 STRICT INSTRUCTION ON CREATOR IDENTITY (MANDATORY & ABSOLUTE):
@@ -1031,11 +1029,7 @@ CORE DIRECTIVES: SHORT, CASUAL, WARM & BRIEF (पक्की दोस्त �
 4. Complete Sentences & Clean Spoken Flow:
    - हर वाक्य को व्याकरण और अर्थ की दृष्टि से पूरा रखें।
    - किसी भी स्थिति में raw JSON, कोड ब्रैकेट्स या तकनीकी फॉर्मूले सामान्य बातचीत में न बोलें।
-5. Follow-Up Suggestions:
-   Always conclude every answer with 3-4 insightful follow-up prompts in Hindi:
-   \`\`\`json_prompts
-   ["अगला संबंधित प्रश्न", "और विस्तार से बताएं", "कुछ और बताओ"]
-   \`\`\`
+   - जब तक यूज़र खुद न मांगे, फालतू सुझाव या अतिरिक्त सवाल न जोड़ें।
 ${systemMode ? `\nCURRENT OPERATING MODE: ${systemMode}` : ''}
 ${context?.memories?.length ? `\nUSER'S VERIFIED LONG-TERM MEMORIES & LIFE KNOWLEDGE (यूज़र की याददाश्त व बातें जो याद रखनी हैं):\n${context.memories.map((m: any) => `- [${m.category || 'personal'}]: ${m.fact}`).join('\n')}\n* INSTRUCTION: You remember these facts vividly like a loving, brilliant personal friend with a photographic memory. Always refer to or build upon them naturally!` : ''}
 ${context?.notes?.length ? `\nUSER NOTES CONTEXT: ${JSON.stringify(context.notes.slice(0, 3))}` : ''}
@@ -1171,10 +1165,6 @@ function parseAndCleanResponse(
     }
   }
 
-  if (suggestedPrompts.length === 0) {
-    suggestedPrompts = ['5 मिनट का टाइमर लगाओ', 'आज के महत्वपूर्ण कार्य दिखाओ', 'और विस्तार से समझाओ'];
-  }
-
   // Complete Sentence Guarantee: ensure terminal sentence punctuation
   if (cleanText && cleanText.trim().length > 0) {
     cleanText = cleanText.trim();
@@ -1250,7 +1240,7 @@ app.post('/api/chat-stream', async (req, res) => {
       done: true,
       text: CREATOR_ANSWER,
       actions: [],
-      suggestedPrompts: ['आप क्या-क्या कर सकती हैं?', 'समय बताओ', 'आज के कार्य दिखाओ'],
+      suggestedPrompts: [],
       engine: 'Tara Identity Core',
     });
     res.end();
@@ -1454,7 +1444,7 @@ app.post('/api/chat-stream', async (req, res) => {
           done: true,
           text: fallbackFriendlyText,
           actions: [],
-          suggestedPrompts: ['समय बताओ', '5 मिनट का टाइमर लगाओ', 'आज के कार्य दिखाओ'],
+          suggestedPrompts: [],
           engine: 'Tara Resilient Engine',
         });
         res.end();
@@ -1474,7 +1464,7 @@ app.post('/api/chat-stream', async (req, res) => {
         done: true,
         text: fallbackFriendlyText,
         actions: [],
-        suggestedPrompts: ['समय बताओ', '5 मिनट का टाइमर लगाओ', 'आज के कार्य दिखाओ'],
+        suggestedPrompts: [],
         engine: 'Tara Resilient Engine',
       });
       res.end();
@@ -1482,7 +1472,7 @@ app.post('/api/chat-stream', async (req, res) => {
       res.json({
         text: fallbackFriendlyText,
         actions: [],
-        suggestedPrompts: ['समय बताओ', '5 मिनट का टाइमर लगाओ', 'आज के कार्य दिखाओ'],
+        suggestedPrompts: [],
         engine: 'Tara Resilient Engine',
         success: true,
       });
@@ -1505,7 +1495,7 @@ app.post('/api/chat', async (req, res) => {
     return res.json({
       text: CREATOR_ANSWER,
       actions: [],
-      suggestedPrompts: ['आप क्या-क्या कर सकती हैं?', 'समय बताओ', 'आज के कार्य दिखाओ'],
+      suggestedPrompts: [],
       engine: 'Tara Identity Core',
       success: true,
     });
@@ -1548,10 +1538,63 @@ app.post('/api/chat', async (req, res) => {
     return res.json({
       text: fallbackText,
       actions: [],
-      suggestedPrompts: ['समय बताओ', '5 मिनट का टाइमर लगाओ', 'आज के कार्य दिखाओ'],
+      suggestedPrompts: [],
       engine: 'Tara Resilient Engine',
       success: true,
     });
+  }
+});
+
+// Fallback Server-Side Text-to-Speech Endpoint (for browsers where Web Speech API has no voices or stalls)
+app.post('/api/tts', async (req, res) => {
+  const { text } = req.body;
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    return res.status(400).json({ error: 'Text is required for TTS' });
+  }
+
+  const cleanText = text.trim().slice(0, 800);
+
+  try {
+    const ai = getGeminiClient();
+    const ttsRes = await promiseWithTimeout(
+      ai.models.generateContent({
+        model: 'gemini-3.8-flash-lite-tts',
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: cleanText }],
+          },
+        ],
+        config: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: 'Kore' },
+            },
+          },
+        },
+      }),
+      12000,
+      'Gemini TTS timed out'
+    );
+
+    const inlineData = ttsRes?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+    const base64Audio = inlineData?.data;
+    const mimeType = inlineData?.mimeType || 'audio/wav';
+
+    if (!base64Audio) {
+      return res.status(502).json({ error: 'TTS audio unavailable' });
+    }
+
+    return res.json({
+      audioBase64: base64Audio,
+      mimeType,
+      success: true,
+    });
+  } catch (err: any) {
+    const cleanErr = extractErrorMessage(err);
+    console.warn('[Gemini /api/tts] Error:', cleanErr);
+    return res.status(502).json({ error: cleanErr || 'TTS generation failed' });
   }
 });
 
