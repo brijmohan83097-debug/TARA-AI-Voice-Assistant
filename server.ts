@@ -300,7 +300,7 @@ Return JSON strictly matching this schema:
     parts.push({ text: securityPrompt });
 
     let response: any = null;
-    const faceModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash'];
+    const faceModels = ['gemini-3.1-flash-lite', 'gemini-4-hydrogen'];
     for (const fm of faceModels) {
       try {
         response = await ai.models.generateContent({
@@ -430,19 +430,19 @@ Return JSON strictly with this schema:
 }`;
 
     let response: any = null;
-    const newsModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash'];
+    const newsModels = ['gemini-3.1-flash-lite', 'gemini-4-hydrogen'];
     for (const nm of newsModels) {
       try {
+        const cfg: any = nm.startsWith('gemini-4-')
+          ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }, tools: [{ googleSearch: {} }] }
+          : { temperature: 0.3, tools: [{ googleSearch: {} }] };
         response = await promiseWithTimeout(
           ai.models.generateContent({
             model: nm,
-            contents: prompt,
-            config: {
-              responseMimeType: 'application/json',
-              temperature: 0.3,
-            },
+            contents: `${prompt}\n\nRespond ONLY with valid JSON matching the schema above.`,
+            config: cfg,
           }),
-          7000,
+          15000,
           `${nm} news generation timed out`
         );
         if (response?.text) break;
@@ -451,8 +451,9 @@ Return JSON strictly with this schema:
       }
     }
 
-    const text = response.text || '';
-    const parsed = JSON.parse(text.trim());
+    const rawNewsText = (response?.text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+    const jsonMatch = rawNewsText.match(/\{[\s\S]*\}/);
+    const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : rawNewsText);
     return res.json({
       success: true,
       data: {
@@ -580,11 +581,10 @@ const modelQuotaCooldown = new Map<string, number>();
 // 35-second timeout safeguard for all Gemini API calls and streaming handshakes
 const API_TIMEOUT_MS = 35000;
 
-// High-speed, actively supported Gemini models (gemini-3.1-flash-lite delivers ~1.2s streaming latency; gemini-4-hydrogen & 3.8-flash serve as automatic fallbacks)
+// High-speed, actively supported Gemini models (verified against SDK schema: gemini-3.1-flash-lite & gemini-4-hydrogen)
 const ACTIVE_FAST_MODELS = [
   'gemini-3.1-flash-lite',
   'gemini-4-hydrogen',
-  'gemini-3.8-flash',
 ];
 
 const DEPRECATED_MODELS = new Set([
@@ -597,21 +597,38 @@ const DEPRECATED_MODELS = new Set([
   'gemini-2.5-flash',
   'gemini-2.5-flash-lite',
   'gemini-flash-latest',
+  'gemini-3.8-flash',
+  'gemini-3.1-flash-image',
 ]);
 
-function buildModelConfig(modelName: string, systemInstruction: string) {
-  if (modelName.startsWith('gemini-4-')) {
-    return {
-      systemInstruction,
-      thinkingConfig: {
-        thinkingLevel: ThinkingLevel.LOW,
-      },
-    };
+function needsGoogleSearch(query?: string): boolean {
+  if (!query || typeof query !== 'string') return false;
+  const q = query.trim();
+  // Pure local device time/date queries already have exact client device time in systemInstruction
+  if (/^(?:अभी\s*)?(?:क्या\s*)?(?:टाइम|समय|वक्त|time|date|तारीख|दिन)\s*(?:क्या\s*)?(?:हुआ|हो\s*रहा|है|बजा|बताओ|batao|kya\s*hua|kitna\s*baja)\s*\??$/i.test(q)) {
+    return false;
   }
-  return {
-    systemInstruction,
-    temperature: 0.3,
-  };
+  return /(?:news|समाचार|न्यूज़|खबर|ख़बर|taaza|taza|ताज़ा|breaking|headline|weather|मौसम|बारिश|तापमान|temperature|rain|forecast|cricket|क्रिकेट|ipl|match|मैच|score|स्कोर|live|लाइव|gold|सोना|चांदी|silver|petrol|diesel|sensex|nifty|stock|share\s*price|bitcoin|crypto|dollar|rupee|rate\s*today|आज\s*का\s*भाव|election|चुनाव|result|रिजल्ट|latest|लेटेस्ट|current|अभी\s*का|2025|2026|who\s+is\s+the\s+(?:pm|president|cm|ceo|winner)|कौन\s+है\s+(?:भारत\s+का|देश\s+का|pm|मुख्यमंत्री|राष्ट्रपति)|world\s+cup|olympics|movie\s+release|train\s+status)/i.test(q);
+}
+
+function buildModelConfig(modelName: string, systemInstruction: string, useSearch: boolean = false) {
+  const baseConfig: any = modelName.startsWith('gemini-4-')
+    ? {
+        systemInstruction,
+        thinkingConfig: {
+          thinkingLevel: ThinkingLevel.LOW,
+        },
+      }
+    : {
+        systemInstruction,
+        temperature: 0.3,
+      };
+
+  if (useSearch) {
+    baseConfig.tools = [{ googleSearch: {} }];
+  }
+
+  return baseConfig;
 }
 
 function getPrioritizedModels(preferredModel?: string): string[] {
@@ -703,31 +720,39 @@ async function generateWithGemini(
   ai: GoogleGenAI,
   contents: any[],
   systemInstruction: string,
-  preferredModel?: string
+  preferredModel?: string,
+  useSearch: boolean = false
 ) {
   const modelsToTry = getPrioritizedModels(preferredModel);
   let lastError: any = null;
 
   for (const model of modelsToTry) {
-    try {
-      console.log(`[Gemini Fast Engine] Querying ${model} (${API_TIMEOUT_MS / 1000}s timeout)...`);
-      const response = await promiseWithTimeout(
-        ai.models.generateContent({
-          model,
-          contents,
-          config: buildModelConfig(model, systemInstruction),
-        }),
-        API_TIMEOUT_MS,
-        `${model} query timed out after ${API_TIMEOUT_MS / 1000}s`
-      );
+    const attemptModes = useSearch ? [true, false] : [false];
+    for (const withSearchTool of attemptModes) {
+      try {
+        console.log(`[Gemini Fast Engine] Querying ${model}${withSearchTool ? ' [GoogleSearch]' : ''} (${API_TIMEOUT_MS / 1000}s timeout)...`);
+        const response = await promiseWithTimeout(
+          ai.models.generateContent({
+            model,
+            contents,
+            config: buildModelConfig(model, systemInstruction, withSearchTool),
+          }),
+          API_TIMEOUT_MS,
+          `${model} query timed out after ${API_TIMEOUT_MS / 1000}s`
+        );
 
-      if (response && response.text && response.text.trim().length > 0) {
-        return { text: response.text.trim(), modelUsed: model };
+        if (response && response.text && response.text.trim().length > 0) {
+          return { text: response.text.trim(), modelUsed: model };
+        }
+      } catch (err: any) {
+        if (withSearchTool) {
+          console.warn(`[Gemini Fast Engine] ${model} search-grounded call failed, retrying direct:`, err?.message || err);
+          continue;
+        }
+        recordModelError(model, err);
+        console.warn(`[Gemini Fast Engine] ${model} unavailable:`, err?.message || err);
+        lastError = err;
       }
-    } catch (err: any) {
-      recordModelError(model, err);
-      console.warn(`[Gemini Fast Engine] ${model} unavailable:`, err?.message || err);
-      lastError = err;
     }
   }
 
@@ -822,7 +847,7 @@ CORE INTELLIGENCE & ACCURACY RULES (सबसे ज़रूरी नियम
 1. Always read and understand the user's EXACT question carefully before answering.
 2. Think logically, reason step-by-step internally, and verify every fact, number, calculation, or detail before speaking.
 3. Give CLEAR, ACCURATE, HELPFUL, and DIRECT answers in natural Hindi / Hinglish (Devanagari script mixed naturally with everyday English terms where helpful).
-4. NEVER guess blindly, hallucinate facts, change the topic, or give random, irrelevant, or nonsense answers. If something is unclear or missing to solve a problem, give what you know accurately and ask clearly for the exact missing detail.
+4. NEVER guess blindly, give random nonsense, or output generic refusal lines like "NOT_FOUND", "The page could not be found", or "मेरे पास इंटरनेट एक्सेस नहीं है". Always use available real-time context, grounded search results, and knowledge to give a complete, meaningful, helpful answer directly.
 5. Act strictly as a smart, reliable, trustworthy best friend who gives precise information and solves problems immediately.
 
 WARM CONVERSATIONAL FRIEND PERSONALITY (सच्ची, समझदार और भरोसेमंद दोस्त):
@@ -1182,6 +1207,7 @@ app.post('/api/chat-stream', async (req, res) => {
       const isExplicitBgEdit = hasAttachedPhoto && !isInfo && (
         /(?:(?:background|बैकग्राउंड|bg)\s*(?:badlo|badal|hatao|hata|change|remove|replace|naya\s+laga)|(?:peche|peeche)\s*(?:road|sadak|pahaad|mountain|studio|garden|park)\s*(?:laga|kar))/i.test(cleanMsg)
       );
+      const useSearch = !hasAttachedPhoto && needsGoogleSearch(cleanMsg);
 
       for (const modelCandidate of streamModels) {
         // If candidate is in cooldown, skip unless it is the only one
@@ -1191,7 +1217,7 @@ app.post('/api/chat-stream', async (req, res) => {
         }
 
         try {
-          console.log(`[Gemini Engine] Querying ${modelCandidate}...`);
+          console.log(`[Gemini Engine] Querying ${modelCandidate}${useSearch ? ' [GoogleSearch]' : ''}...`);
           let fullAccumulatedText = '';
           let usedLiveStream = false;
 
@@ -1201,7 +1227,7 @@ app.post('/api/chat-stream', async (req, res) => {
               ai.models.generateContentStream({
                 model: modelCandidate,
                 contents: formattedContents,
-                config: buildModelConfig(modelCandidate, systemInstruction),
+                config: buildModelConfig(modelCandidate, systemInstruction, useSearch),
               }),
               12000,
               `${modelCandidate} stream handshake slow (>12s)`
@@ -1214,11 +1240,13 @@ app.post('/api/chat-stream', async (req, res) => {
               `${modelCandidate} first chunk slow (>12s)`
             );
 
-            if (!firstChunkResult.done && firstChunkResult.value?.text) {
-              usedLiveStream = true;
-              fullAccumulatedText += firstChunkResult.value.text;
-              if (!isExplicitBgEdit) {
-                sendEvent({ chunk: firstChunkResult.value.text, type: 'delta' });
+            if (!firstChunkResult.done) {
+              if (firstChunkResult.value?.text) {
+                usedLiveStream = true;
+                fullAccumulatedText += firstChunkResult.value.text;
+                if (!isExplicitBgEdit) {
+                  sendEvent({ chunk: firstChunkResult.value.text, type: 'delta' });
+                }
               }
 
               while (true) {
@@ -1230,6 +1258,7 @@ app.post('/api/chat-stream', async (req, res) => {
                 if (nextChunk.done) break;
                 const chunkText = nextChunk.value?.text;
                 if (chunkText) {
+                  usedLiveStream = true;
                   fullAccumulatedText += chunkText;
                   if (
                     !isExplicitBgEdit &&
@@ -1252,22 +1281,44 @@ app.post('/api/chat-stream', async (req, res) => {
 
           // Attempt B: If streaming handshake was slow or bypassed, execute reliable generateContent on the SAME model
           if (!fullAccumulatedText.trim()) {
-            const directRes = await promiseWithTimeout(
-              ai.models.generateContent({
-                model: modelCandidate,
-                contents: formattedContents,
-                config: buildModelConfig(modelCandidate, systemInstruction),
-              }),
-              25000,
-              `${modelCandidate} generateContent timed out after 25s`
-            );
+            let directRes: any = null;
+            try {
+              directRes = await promiseWithTimeout(
+                ai.models.generateContent({
+                  model: modelCandidate,
+                  contents: formattedContents,
+                  config: buildModelConfig(modelCandidate, systemInstruction, useSearch),
+                }),
+                25000,
+                `${modelCandidate} generateContent timed out after 25s`
+              );
+            } catch (searchDirectErr) {
+              if (useSearch) {
+                directRes = await promiseWithTimeout(
+                  ai.models.generateContent({
+                    model: modelCandidate,
+                    contents: formattedContents,
+                    config: buildModelConfig(modelCandidate, systemInstruction, false),
+                  }),
+                  25000,
+                  `${modelCandidate} direct fallback timed out after 25s`
+                );
+              } else {
+                throw searchDirectErr;
+              }
+            }
 
             if (directRes?.text && directRes.text.trim()) {
               fullAccumulatedText = directRes.text.trim();
+              const { cleanText: previewCleanText } = parseAndCleanResponse(
+                fullAccumulatedText,
+                cleanMsg,
+                hasAttachedPhoto
+              );
 
-              // Progressively emit words as deltas for smooth UI animations and sub-second TTS speech
-              if (!isExplicitBgEdit) {
-                const words = fullAccumulatedText.split(/(\s+)/);
+              // Progressively emit clean text words as deltas for smooth UI animations and sub-second TTS speech
+              if (!isExplicitBgEdit && previewCleanText) {
+                const words = previewCleanText.split(/(\s+)/);
                 for (let i = 0; i < words.length; i += 3) {
                   const part = words.slice(i, i + 3).join('');
                   if (part) {
@@ -1311,7 +1362,7 @@ app.post('/api/chat-stream', async (req, res) => {
       if (!streamSucceeded) {
         console.log('[Gemini Stream] Stream interrupted or dropped. Auto-retrying with standard content generation...');
         try {
-          const fallbackRes = await generateWithGemini(ai, formattedContents, systemInstruction, model);
+          const fallbackRes = await generateWithGemini(ai, formattedContents, systemInstruction, model, useSearch);
           if (fallbackRes && fallbackRes.text && fallbackRes.text.trim().length > 0) {
             const { cleanText, actions, suggestedPrompts } = parseAndCleanResponse(
               fallbackRes.text,
@@ -1399,12 +1450,14 @@ app.post('/api/chat', async (req, res) => {
   try {
     const ai = getGeminiClient();
     const formattedContents = buildGeminiContents(cleanMsg, history, image);
+    const useSearch = !image && needsGoogleSearch(cleanMsg);
 
     const { text: rawText, modelUsed } = await generateWithGemini(
       ai,
       formattedContents,
       systemInstruction,
-      model
+      model,
+      useSearch
     );
 
     const { cleanText, actions, suggestedPrompts } = parseAndCleanResponse(
@@ -1728,7 +1781,7 @@ CRITICAL INSTRUCTIONS:
 
 Output ONLY the final English prompt for Imagen 3 in 2-3 detailed sentences. DO NOT include any conversational preamble, intro phrases, or markdown formatting.`;
 
-    const visionModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash'];
+    const visionModels = ['gemini-3.1-flash-lite', 'gemini-4-hydrogen'];
     for (const model of visionModels) {
       try {
         const resp = await ai.models.generateContent({
@@ -1863,7 +1916,7 @@ app.post(['/api/generate-image', '/api/edit-image'], async (req, res) => {
 
       // 2c. Check Gemini multimodal image generation candidates
       if (!imageBuffer) {
-        const candidateImageModels = ['gemini-3.1-flash-lite-image', 'gemini-3.1-flash-image'];
+        const candidateImageModels = ['gemini-3.1-flash-lite-image'];
         for (const m of candidateImageModels) {
           if (imageBuffer) break;
           try {

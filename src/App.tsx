@@ -702,14 +702,14 @@ export default function App() {
         if (Notification.permission === 'granted') {
           new Notification(`TARA • ${newNote.title}`, {
             body: newNote.content,
-            icon: '/vite.svg',
+            icon: '/icons/icon-192.png',
           });
         } else if (Notification.permission !== 'denied') {
           Notification.requestPermission().then((perm) => {
             if (perm === 'granted') {
               new Notification(`TARA • ${newNote.title}`, {
                 body: newNote.content,
-                icon: '/vite.svg',
+                icon: '/icons/icon-192.png',
               });
             }
           });
@@ -904,42 +904,6 @@ export default function App() {
     // Reset attached media input state for subsequent prompts
     if (attachedMedia) {
       setAttachedMedia(null);
-    }
-
-    // --- NON-STOP SAMACHAR: strict command only ---
-    const isIndiaNewsQuery = /^(?:मुझे\s*)?(?:आज\s*के\s*|ताज़ा\s*|इंडिया\s*|भारत\s*|देश\s*के\s*|national\s*|india\s*)?(?:समाचार|न्यूज़|ख़बरें|खबरें|samachar|news)\s*(?:बताओ|सुनाओ|दिखाओ|बोलो|चलाओ|batao|sunao|dikhao|start|play)?$/i.test(effectiveText.trim());
-
-    if (isIndiaNewsQuery) {
-      const spokenNews = 'नमस्कार। पेश हैं देश के ताज़ा राष्ट्रीय समाचार। पहली बड़ी खबर, भारत ने हाई-स्पीड कनेक्टिविटी, हाईवे नेटवर्क और आधुनिक रेलवे बुनियादी ढांचे में ऐतिहासिक प्रगति दर्ज की है। दूसरी बड़ी खबर, भारतीय अंतरिक्ष अनुसंधान संगठन यानी इसरो ने गगनयान मानव अंतरिक्ष मिशन और नए उपग्रह प्रक्षेपण की तैयारियों को अंतिम रूप दे दिया है। तीसरी खबर, डिजिटल इंडिया और यूपीआई भुगतान में रिकॉर्ड उछाल आया है, जिससे आत्मनिर्भर भारत अभियान के तहत घरेलू व्यापार और विनिर्माण को नई गति मिली है। चौथी खबर, भारतीय रक्षा बलों ने सीमा सुरक्षा को सशक्त करने के लिए उन्नत स्वदेशी निगरानी तकनीक का सफल परीक्षण किया है। पांचवी खबर, भारत ने सौर ऊर्जा और ग्रीन एनर्जी उत्पादन क्षमता में वैश्विक स्तर पर नया कीर्तिमान स्थापित किया है। यह थे देश के आज के मुख्य राष्ट्रीय समाचार।';
-
-      const newsDisplayMarkdown = `🔴 **ऑल इंडिया राष्ट्रीय समाचार बुलेटिन (Live National Hindi News)**\n\n` +
-        `१. 🇮🇳 **राष्ट्रीय विकास व कनेक्टिविटी:** भारत में हाई-स्पीड एक्सप्रेसवे नेटवर्क, आधुनिक रेलवे और इंफ्रास्ट्रक्चर में ऐतिहासिक प्रगति दर्ज।\n` +
-        `२. 🚀 **इसरो व अंतरिक्ष (ISRO):** भारतीय अंतरिक्ष अनुसंधान संगठन ने गगनयान मानव अंतरिक्ष मिशन की तैयारियों को अंतिम रूप दिया।\n` +
-        `३. 📈 **अर्थव्यवस्था व डिजिटल भारत:** यूपीआई डिजिटल लेनदेन में रिकॉर्ड वृद्धि, मेक इन इंडिया व घरेलू विनिर्माण को नया उछाल।\n` +
-        `४. 🛡️ **राष्ट्रीय सुरक्षा व रक्षा:** भारतीय रक्षा बलों द्वारा सीमा सुरक्षा को मजबूत करने वाली अत्याधुनिक स्वदेशी निगरानी प्रणाली का सफल परीक्षण।\n` +
-        `५. ☀️ **हरित ऊर्जा व पर्यावरण:** सौर ऊर्जा और नवीकरणीय ऊर्जा उत्पादन में भारत ने वैश्विक स्तर पर नया मील का पत्थर हासिल किया।\n\n` +
-        `*📻 TARA ऑल-इंडिया राष्ट्रीय समाचार बुलेटिन बिना रुके नॉन-स्टॉप लगातार बोला जा रहा है।*`;
-
-      setChatMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMsgId
-            ? {
-                ...msg,
-                text: newsDisplayMarkdown,
-                suggestedPrompts: ['और समाचार बताओ', 'समाचार रोकें', 'मौसम बताओ', 'समय बताओ'],
-              }
-            : msg
-        )
-      );
-
-      setIsLoadingChat(false);
-      isLoadingChatRef.current = false;
-      audioSynth.playSuccess();
-      if (speechEngine.getIsTtsEnabled()) {
-        speechEngine.speak(spokenNews, true);
-      }
-      addLog('success', 'NATIONAL_NEWS', '📻 "इंडिया समाचार बताओ" कमांड: बिना कोई सवाल पूछे ताज़ा राष्ट्रीय हिंदी समाचार बुलेटिन नॉन-स्टॉप शुरू किया गया।');
-      return;
     }
 
     // Stop News Command: "समाचार रोको", "stop news"
@@ -2148,25 +2112,29 @@ export default function App() {
       console.warn('Chat interaction error:', err?.message || err);
 
       let recoveredText: string | null = null;
-      try {
-        const retryRes = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: effectiveText,
-            history: [],
-            model: 'gemini-3.8-flash',
-            deviceTimeInfo: getClientDeviceTimeInfo(),
-            systemInstruction: TARA_SYSTEM_INSTRUCTION,
-          }),
-        });
-        if (retryRes.ok) {
-          const retryJson = await retryRes.json();
-          if (retryJson?.text && typeof retryJson.text === 'string' && retryJson.text.trim()) {
-            recoveredText = sanitizeChatBubbleText(retryJson.text);
+      const retryModels = ['gemini-4-hydrogen', 'gemini-3.1-flash-lite'];
+      for (const retryModel of retryModels) {
+        if (recoveredText) break;
+        try {
+          const retryRes = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: effectiveText,
+              history: [],
+              model: retryModel,
+              deviceTimeInfo: getClientDeviceTimeInfo(),
+              systemInstruction: TARA_SYSTEM_INSTRUCTION,
+            }),
+          });
+          if (retryRes.ok) {
+            const retryJson = await retryRes.json();
+            if (retryJson?.text && typeof retryJson.text === 'string' && retryJson.text.trim()) {
+              recoveredText = sanitizeChatBubbleText(retryJson.text);
+            }
           }
-        }
-      } catch {}
+        } catch {}
+      }
 
       if (recoveredText) {
         setChatMessages((prev) =>
@@ -2181,14 +2149,17 @@ export default function App() {
         }
         addLog('success', 'GEMINI_RETRY', 'Recovered direct AI answer on fallback engine.');
       } else {
-        let exactError = err?.message || String(err) || 'अज्ञात त्रुटि';
+        let exactError = err?.message || String(err) || 'सेवा अस्थायी रूप से व्यस्त है';
         try {
           const parsed = JSON.parse(exactError);
           if (parsed?.error?.message) exactError = parsed.error.message;
           else if (parsed?.message) exactError = parsed.message;
         } catch {}
+        if (/not_found|page could not be found|<html|<!doctype/i.test(exactError)) {
+          exactError = 'AI इंजन से अभी संपर्क नहीं हो पाया, कृपया एक सेकंड में फिर बोलो बृजमोहन।';
+        }
 
-        const errorNotice = `⚠️ जवाब लाने में त्रुटि आई है: ${exactError}`;
+        const errorNotice = `⚠️ जवाब लाने में समस्या आई: ${exactError}`;
         setChatMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMsgId

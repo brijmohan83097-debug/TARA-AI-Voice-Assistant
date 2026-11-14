@@ -1,5 +1,5 @@
 // TARA AI Voice Assistant - Service Worker
-const CACHE_NAME = 'tara-pwa-v1';
+const CACHE_NAME = 'tara-pwa-v2';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -38,12 +38,13 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch Event: Network-first for dynamic requests, falling back to cache
+// Fetch Event: Network-first for dynamic requests, never intercept /api/* calls
 self.addEventListener('fetch', (event) => {
   // Only handle GET requests and http/https schemes
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   if (!url.protocol.startsWith('http')) return;
+  if (url.pathname.startsWith('/api/')) return;
 
   event.respondWith(
     fetch(event.request)
