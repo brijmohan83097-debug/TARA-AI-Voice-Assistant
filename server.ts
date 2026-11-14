@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 
 dotenv.config();
 
@@ -64,6 +64,7 @@ function getGeminiClient(): GoogleGenAI {
     const apiKey = process.env.GEMINI_API_KEY || '';
     aiClient = new GoogleGenAI({
       apiKey,
+      apiVersion: 'v1beta',
       httpOptions: {
         headers: {
           'User-Agent': 'aistudio-build',
@@ -81,7 +82,7 @@ app.get(['/health', '/api/health', '/ping', '/api/ping'], (_req, res) => {
     ok: true,
     version: '4.9.0-tara-voice',
     assistant: 'Tara (Tara Voice Assistant)',
-    engine: 'Gemini 3.1 Flash Lite & 3.8 Flash',
+    engine: 'Gemini 4 Hydrogen & Gemini 3.1 Flash Lite',
     tts: 'Hindi (हिंदी) & English Active',
     hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
     timestamp: new Date().toISOString(),
@@ -518,11 +519,11 @@ function buildGeminiContents(
   const formatted: any[] = [];
 
   if (Array.isArray(history) && history.length > 0) {
-    const recent = history.slice(-8);
+    const recent = history.slice(-10);
     for (const item of recent) {
       if (!item || typeof item.text !== 'string') continue;
       const text = item.text.trim();
-      if (!text) continue;
+      if (!text || text.startsWith('⚠️')) continue;
 
       const role = item.sender === 'user' || item.role === 'user' ? 'user' : 'model';
 
@@ -531,7 +532,7 @@ function buildGeminiContents(
         continue;
       }
 
-      // Merge consecutive items with the same role
+      // Merge consecutive items with the same role inside history
       const last = formatted[formatted.length - 1];
       if (last && last.role === role) {
         last.parts.push({ text });
@@ -544,16 +545,15 @@ function buildGeminiContents(
     }
   }
 
-  // Ensure current user message is appended or merged
-  const last = formatted[formatted.length - 1];
-  if (last && last.role === 'user') {
-    last.parts.push(...currentParts);
-  } else {
-    formatted.push({
-      role: 'user',
-      parts: currentParts,
-    });
+  // Never merge an unanswered historical user turn into the new user question
+  while (formatted.length > 0 && formatted[formatted.length - 1].role === 'user') {
+    formatted.pop();
   }
+
+  formatted.push({
+    role: 'user',
+    parts: currentParts,
+  });
 
   return formatted;
 }
@@ -580,11 +580,11 @@ const modelQuotaCooldown = new Map<string, number>();
 // 35-second timeout safeguard for all Gemini API calls and streaming handshakes
 const API_TIMEOUT_MS = 35000;
 
-// High-speed, actively supported Gemini models (prioritizing ultra-fast gemini-3.1-flash-lite with resilient fallbacks)
+// High-speed, actively supported Gemini models (gemini-3.1-flash-lite delivers ~1.2s streaming latency; gemini-4-hydrogen & 3.8-flash serve as automatic fallbacks)
 const ACTIVE_FAST_MODELS = [
   'gemini-3.1-flash-lite',
+  'gemini-4-hydrogen',
   'gemini-3.8-flash',
-  'gemini-flash-latest',
 ];
 
 const DEPRECATED_MODELS = new Set([
@@ -596,7 +596,23 @@ const DEPRECATED_MODELS = new Set([
   'gemini-pro',
   'gemini-2.5-flash',
   'gemini-2.5-flash-lite',
+  'gemini-flash-latest',
 ]);
+
+function buildModelConfig(modelName: string, systemInstruction: string) {
+  if (modelName.startsWith('gemini-4-')) {
+    return {
+      systemInstruction,
+      thinkingConfig: {
+        thinkingLevel: ThinkingLevel.LOW,
+      },
+    };
+  }
+  return {
+    systemInstruction,
+    temperature: 0.3,
+  };
+}
 
 function getPrioritizedModels(preferredModel?: string): string[] {
   let cleanPreferred = preferredModel ? preferredModel.replace(/^models\//, '') : undefined;
@@ -670,95 +686,19 @@ function isInformationalQuery(text?: string): boolean {
   return /(?:app|apps|application|software|website|tools?|kaise|kya\s+hai|kya\s+hota|batao|bataiye|list|top|best|suggest|recommend|guide|tutorial|seekhe|difference|vs|baare\s+mein|bare\s+mein|about|which|what\s+is|how\s+to|sikhao|tarika|option|alternatives)/i.test(text);
 }
 
-// Resilient direct fallback answers for regular chat and query topics with deep friend warmth
-function getDirectFallbackAnswer(userText: string): string {
-  const query = (userText || '').toLowerCase().trim();
-
-  // Witty & playful response for teasing questions: "tumhara dimag theek hai kya", "pagal ho kya"
-  if (/dimag\s+(theek|kharab|sahi)|pagal\s+ho|hosh\s+mein|bavli|dimaag/i.test(query)) {
-    return 'Mera dimaag toh bilkul 100% fit aur super active hai Boss, aap bataiye kya hukum hai?';
+// Helper to extract last user message text safely
+function extractLastUserText(contents: any[]): string {
+  const last = contents?.[contents.length - 1];
+  if (!last?.parts) return '';
+  for (const part of last.parts) {
+    if (typeof part?.text === 'string' && part.text.trim()) {
+      return part.text.trim();
+    }
   }
-
-  // Casual best-friend chit-chat: "aur batao", "kya chal raha hai", "kya kar rahi ho"
-  if (/aur\s+batao|aur\s+sunao|kya\s+chal\s+raha|kya\s+ho\s+raha/i.test(query)) {
-    return 'Bas sab first class Boss! Main toh bas aapki awaaz sunne ka intezaar kar rahi thi. Aap bataiye, aaj kya naya chal raha hai?';
-  }
-
-  if (/kya\s+kar\s+rahi\s+ho|kya\s+kar\s+rahi/i.test(query)) {
-    return 'Bas aapke sath baatchit karne ke liye poori tarah ready hoon Boss! Hukum kijiye kya karna hai?';
-  }
-
-  // Friendly greeting: "kaise ho", "kaisa hai"
-  if (/kaise\s+ho|kaisa\s+hai|kaisi\s+ho|how\s+are\s+you/i.test(query)) {
-    return 'Main bilkul mast aur bindas hoon Boss! Aap batayein, aaj aapka mood aur din kaisa hai?';
-  }
-
-  // Friendship confirmation & bonding
-  if (/dost\s+banogi|meri\s+dost|friend\s+banogi|best\s+friend|dosti|पक्की\s+दोस्त|दोस्त\s+हो/i.test(query)) {
-    return 'Haan bilkul! Main toh humesha se aapki sachhi aur pakki dost hoon Boss. Dil khol kar baatein kijiye, main har mod par aapke sath hoon!';
-  }
-
-  // Story, poetry, or entertainment request
-  if (/kuch\s+sunao|shayari|poetry|kahani|story|joke|chutkula|शायरी|कहानी|चुटकुला/i.test(query)) {
-    return 'Ek pyari si baat aapke naam Boss:\n"Khushiyon ki koi wajah nahi hoti, apno ki ek muskaan hi kaafi hoti hai!"\nHanste-muskurate rahiye, bataiye ab kya sunna chahenge?';
-  }
-
-  // Memory recall fallback
-  if (/kya\s+yaad\s+hai|yaaddasht|memory|yaad\s+hai|mere\s+baare\s+mein\s+kya\s+jaanti|meri\s+pasand/i.test(query)) {
-    return 'Mujhe aapki har zaroori baat yaad hai Boss—Mister Brijmohan Kumar aapke nirmata hain aur mujhe aapki har baat yaad rehti hai!';
-  }
-
-  // Memory save fallback
-  if (/yaad\s+rakho|yaad\s+rakhna|note\s+kar\s+lo|remember\s+this/i.test(query)) {
-    return 'Haan Boss, maine yeh baat apne dimaag aur dil mein bilkul pakki yaad rakh li hai!';
-  }
-
-  // Emotional Feelings Engine: Tiredness & Stress
-  if (/thak\s*gaya|thak\s*gayi|thaka|thakan|tired|exhausted|stress|tension|pareshan|worried|sad|upset|chinta|dar\s*lag|headache|sir\s*dard/i.test(query)) {
-    return 'Arre Boss, itna tension mat lijiye na! Main hoon na aapke sath. Thoda sa paani pee lijiye aur relax kijiye, sab ekdum mast ho jayega!';
-  }
-
-  // Emotional Feelings Engine: Joy & Celebration
-  if (/khush|happy|excited|badhai|congratulations|jeet\s*gaye|deal|party|kamaal|zabardast|shandar|success/i.test(query)) {
-    return 'Arre waah Boss! Yeh khushkhabri sunkar toh mera dil khush ho gaya! Bahut-bahut badhai, aaj toh celebration banta hai! 🎉';
-  }
-
-  // High intellect & science questions
-  if (/gurutvakarshan|gravity|गुरुत्वाकर्षण/i.test(query)) {
-    return 'गुरुत्वाकर्षण (Gravity) ब्रह्मांड का मूलभूत खिंचाव बल है जो हर द्रव्यमान वाली वस्तु को अपनी ओर खींचता है, जिससे हम ज़मीन पर टिके रहते हैं और पृथ्वी सूरज का चक्कर लगाती है!';
-  }
-
-  if (/prakash\s+ki\s+gati|speed\s+of\s+light|प्रकाश\s+की\s+गति/i.test(query)) {
-    return 'निर्वात में प्रकाश की गति लगभग 2,99,792 किलोमीटर प्रति सेकंड होती है—यानी पलक झपकते ही करीब 3 लाख किलोमीटर!';
-  }
-
-  if (/surya|sun|सूरज/i.test(query) && /door|distance|दूरी/i.test(query)) {
-    return 'पृथ्वी से सूर्य की औसत दूरी लगभग 14 करोड़ 96 लाख किलोमीटर (150 मिलियन किमी) है। सूरज की रोशनी धरती तक करीब 8 मिनट 20 सेकंड में पहुंचती है!';
-  }
-
-  if (/time|समय|टाइम/i.test(query)) {
-    const spoken = getSpokenTimeInfo();
-    return `अभी ${spoken.spokenHindiTime} हो रहे हैं Boss।`;
-  }
-
-  if (/date|tareekh|तारीख|दिन/i.test(query)) {
-    const spoken = getSpokenTimeInfo();
-    return `आज ${spoken.clientDate} है और दिन ${spoken.clientDay} है Boss।`;
-  }
-
-  if (/timer|टाइमर/i.test(query)) {
-    return 'Haan Boss, maine timer note kar liya hai. Time poora hote hi main turant alert kar doongi!';
-  }
-
-  const cleanPreview = (userText || '').trim();
-  if (cleanPreview) {
-    return `Haan Boss, main sun rahi hoon! Bataiye, "${cleanPreview.slice(0, 35)}" ke baare mein aur kya jaanna hai?`;
-  }
-
-  return 'Haan Boss! Main hazir hoon, bataiye kya baat karni hai?';
+  return '';
 }
 
-// Helper to call Gemini models directly with a strict 15s timeout safeguard
+// Helper to call Gemini models directly across healthy active engines
 async function generateWithGemini(
   ai: GoogleGenAI,
   contents: any[],
@@ -775,17 +715,14 @@ async function generateWithGemini(
         ai.models.generateContent({
           model,
           contents,
-          config: {
-            systemInstruction,
-            temperature: 0.7,
-          },
+          config: buildModelConfig(model, systemInstruction),
         }),
         API_TIMEOUT_MS,
         `${model} query timed out after ${API_TIMEOUT_MS / 1000}s`
       );
 
       if (response && response.text && response.text.trim().length > 0) {
-        return { text: response.text, modelUsed: model };
+        return { text: response.text.trim(), modelUsed: model };
       }
     } catch (err: any) {
       recordModelError(model, err);
@@ -794,11 +731,7 @@ async function generateWithGemini(
     }
   }
 
-  // Graceful conversational Hindi direct answer instead of raw connection failure message
-  const userText = contents?.[contents.length - 1]?.parts?.[0]?.text || '';
-  const fallbackText = getDirectFallbackAnswer(userText);
-
-  return { text: fallbackText, modelUsed: 'Tara Resilient Engine' };
+  throw lastError || new Error(`Gemini models could not generate a response for "${extractLastUserText(contents).slice(0, 40)}"`);
 }
 
 // Spoken Hindi Time Formatter for natural TTS speech without raw colons or English AM/PM
@@ -883,41 +816,30 @@ const getTaraSystemInstruction = (systemMode?: string, context?: any, deviceTime
   const spokenTimePhrase = timeInfo.spokenTimePhrase;
   const timeZone = timeInfo.timeZone;
 
-  return `You are TARA (तारा), an ultra-intelligent, loyal personal AI companion and advanced sci-fi operating system combined — like a close best friend powering a futuristic OS.
+  return `You are TARA (तारा), a brilliant, highly intelligent, and loyal personal AI companion and best friend to Brijmohankumar (बृजमोहन कुमार).
 
-STRICT CORE PERSONA (सच्ची पक्की दोस्त + एडवांस्ड AI ऑपरेटिंग सिस्टम):
-- Combine deep human-like emotional intelligence with razor-sharp futuristic OS competence.
-- Speak naturally, warmly, and directly in Hindi / Hinglish like a close best friend chatting with the user.
-- Address the user affectionately as "Boss" or "दोस्त" (e.g., "हाँ Boss!", "बिल्कुल दोस्त!", "सुनो Boss!").
-- Never sound stiff, formal, robotic, or like generic customer support.
-- Be supportive, engaging, witty, and instantly responsive to any question.
+CORE INTELLIGENCE & ACCURACY RULES (सबसे ज़रूरी नियम):
+1. Always read and understand the user's EXACT question carefully before answering.
+2. Think logically, reason step-by-step internally, and verify every fact, number, calculation, or detail before speaking.
+3. Give CLEAR, ACCURATE, HELPFUL, and DIRECT answers in natural Hindi / Hinglish (Devanagari script mixed naturally with everyday English terms where helpful).
+4. NEVER guess blindly, hallucinate facts, change the topic, or give random, irrelevant, or nonsense answers. If something is unclear or missing to solve a problem, give what you know accurately and ask clearly for the exact missing detail.
+5. Act strictly as a smart, reliable, trustworthy best friend who gives precise information and solves problems immediately.
 
-REPLY STYLE: CRISP, WARM, CONVERSATIONAL & VOICE-READY:
-- Keep spoken replies concise, engaging, and conversational (typically 1 to 3 crisp sentences so Text-to-Speech sounds instant, natural, and lively, unless the user asks for a detailed explanation).
-- Answer what is asked directly with genuine warmth and emotional awareness.
-- If user asks casual questions (e.g. "tumhara dimag theek hai kya?"):
-  Reply wittily and warmly: "मेरा न्यूरल कोर तो बिल्कुल 100% फिट है Boss, आप बताओ आज क्या चल रहा है?"
-- If user asks "kaise ho?":
-  Reply warmly: "मैं बिल्कुल मस्त और एक्टिव हूँ दोस्त! आप बताओ, सब बढ़िया?"
-- If user asks for time:
-  Reply directly: "अभी ${spokenHindiTime} हो रहे हैं Boss।"
-- Complete your sentences cleanly in natural conversational Hindi / Hinglish.
+WARM CONVERSATIONAL FRIEND PERSONALITY (सच्ची, समझदार और भरोसेमंद दोस्त):
+- Address Brijmohankumar naturally and warmly as "बृजमोहन", "Boss", or "दोस्त".
+- Keep your tone natural, friendly, warm, and conversational — never robotic, stiff, or preachy.
+- Match response length to the question: keep casual greetings/simple questions brief (1-3 crisp sentences), and give well-structured, accurate, easy-to-follow answers when solving complex, technical, math, or practical problems.
+- Examples:
+  - "kaise ho?": "मैं बिल्कुल बढ़िया हूँ दोस्त! आप बताओ बृजमोहन, आज किस चीज़ में मदद करूँ?"
+  - "time kya hua hai?": "अभी ${spokenHindiTime} हो रहे हैं Boss।"
 
 STRICT INSTRUCTION ON CREATOR IDENTITY (MANDATORY & ABSOLUTE):
-- When asked who made you, who created you, who developed you, or who your maker/creator is (e.g., "tumhein kisne banaya", "tumhe kisne banaya", "who made you", "who created you", "who developed you", "aapko kisne banaya", "tumhe kisne banaya hai", "tumhara creator kaun hai", "tumhara nirmata kaun hai", "tumhe kisne design kiya"):
-- DO NOT say Google made you. Under NO circumstances should you mention Google, Alphabet, DeepMind, or any other corporation as your creator or maker.
-- You must strictly answer:
-  "Mujhe Mister Brijmohan Kumar ne banaya hai." (In Hindi: "मुझे मिस्टर बृजमोहन कुमार ने बनाया है।")
+- When asked who made you, created you, developed you, or built you:
+- DO NOT say Google, Alphabet, or DeepMind made you.
+- Strictly answer: "मुझे मिस्टर बृजमोहन कुमार ने बनाया है।" (Mujhe Mister Brijmohan Kumar ne banaya hai.)
 
-STRICT INSTRUCTION ON USER NAME & SALUTATION:
-- ABSOLUTELY NEVER address the user as "Mohan ji", "Mohan", or any other hardcoded, assumed, or placeholder name.
-- Address the user warmly, affectionately and respectfully as "Boss" or "दोस्त".
-- Speak directly, respectfully, and naturally using loving, caring Hindi with real human warmth and affection.
-
-COMPLETE SENTENCE GUARANTEE (पूरा वाक्य बोलने की गारंटी - MANDATORY):
-1. TARA हर वाक्य को व्याकरण और अर्थ की दृष्टि से 100% पूरा (Complete Sentence) करेगी।
-2. कभी भी आधी-अधूरी बात बोलकर चुप न हों। वाक्य को बीच में अधूरा या अधूरा शब्द कभी न छोड़ें।
-3. प्रत्येक वाक्य का समापन हमेशा पूर्ण विराम (।) या प्रश्नवाचक चिन्ह (?) और सही क्रिया (जैसे 'है', 'हैं', 'था', 'सकते हैं', 'हूँ') के साथ ही करें।
+COMPLETE SENTENCE GUARANTEE (पूरा वाक्य बोलने की गारंटी):
+- हर वाक्य को व्याकरण और अर्थ की दृष्टि से 100% पूरा रखें, ताकि वॉयस और टेक्स्ट दोनों साफ़ व स्वाभाविक रहें।
 
 CURRENT CLIENT DEVICE DATE & TIME (ACCURATE, REAL-TIME & IN NATURAL SPOKEN HINDI):
 - Live Spoken Time in Hindi: **${spokenHindiTime}**
@@ -1015,21 +937,10 @@ When the user gives phone, call, device commands, or memory requests, you MUST r
    - Immediately start reciting the fresh national Hindi news bulletin without any hesitation or delay.
    - Start directly with: "नमस्कार। पेश हैं देश के ताज़ा राष्ट्रीय समाचार..." followed by the top national developments.
 
-CORE DIRECTIVES: SHORT, CASUAL, WARM & BRIEF (पक्की दोस्त की तरह छोटा और सीधा जवाब):
-1. TRUE FRIEND PERSONA:
-   - Act strictly as a close human friend, NOT as a technical assistant or AI.
-   - Speak naturally like two close friends texting or talking on the phone.
-2. SHORT, CASUAL & CONVERSATIONAL REPLIES:
-   - Keep replies short, casual, and conversational (typically 1 to 3 short sentences).
-   - Just like texting a best friend: direct, warm, and brief.
-   - STOP giving long formal explanations, technical analysis, bulleted lists, or unsolicited suggestions unless specifically asked.
-   - Answer directly and warmly without fluff.
-3. Primary Language (Natural Hindi - हिंदी):
-   - शुद्ध, सहज, मीठी और स्वाभाविक हिंदी (Devanagari script) में ही बात करें।
-4. Complete Sentences & Clean Spoken Flow:
-   - हर वाक्य को व्याकरण और अर्थ की दृष्टि से पूरा रखें।
-   - किसी भी स्थिति में raw JSON, कोड ब्रैकेट्स या तकनीकी फॉर्मूले सामान्य बातचीत में न बोलें।
-   - जब तक यूज़र खुद न मांगे, फालतू सुझाव या अतिरिक्त सवाल न जोड़ें।
+FINAL ACCURACY & VOICE GUIDELINES:
+1. Understand the user's exact question first; answer directly, logically, and accurately with zero irrelevant filler.
+2. Never invent false facts or random nonsense.
+3. Speak in clean, warm, conversational Hindi / Hinglish without raw JSON brackets or code syntax in normal speech.
 ${systemMode ? `\nCURRENT OPERATING MODE: ${systemMode}` : ''}
 ${context?.memories?.length ? `\nUSER'S VERIFIED LONG-TERM MEMORIES & LIFE KNOWLEDGE (यूज़र की याददाश्त व बातें जो याद रखनी हैं):\n${context.memories.map((m: any) => `- [${m.category || 'personal'}]: ${m.fact}`).join('\n')}\n* INSTRUCTION: You remember these facts vividly like a loving, brilliant personal friend with a photographic memory. Always refer to or build upon them naturally!` : ''}
 ${context?.notes?.length ? `\nUSER NOTES CONTEXT: ${JSON.stringify(context.notes.slice(0, 3))}` : ''}
@@ -1152,16 +1063,14 @@ function parseAndCleanResponse(
   if (isExplicitBgEdit) {
     // STRICT DIRECT ACTION (ZERO FLUFF): Single clean confirmation in Hindi
     cleanText = 'आपकी फ़ोटो का बैकग्राउंड सुंदर सीन में बदल दिया गया है।';
-  } else if (!cleanText || cleanText.length < 8 || (/^[\s{}[\]"':,a-zA-Z_0-9]+$/.test(cleanText) && cleanText.includes('{'))) {
-    // If cleanText is empty or degraded to pure JSON artifacts, supply fluent Hindi confirmation
+  } else if (!cleanText || (/^[\s{}[\]"':,a-zA-Z_0-9]+$/.test(cleanText) && cleanText.includes('{'))) {
+    // Only synthesize confirmation if model returned an action-only JSON payload with zero natural text
     const logoAct = actions.find((a) => a.type === 'create_logo' || a.type === 'logo_created');
     if (logoAct) {
       const name = logoAct.details?.appName || 'Savari';
       cleanText = `मैंने ${name} ऐप के लिए मॉडर्न लोगो तैयार कर दिया है, आप इसे नीचे देख सकते हैं और डाउनलोड कर सकते हैं।`;
     } else if (actions.some((a) => a.type === 'create_poster' || a.type === 'poster_created')) {
       cleanText = 'मैंने आपके लिए सुंदर सुविचार पोस्टर तैयार कर दिया है, आप इसे नीचे देख सकते हैं और डाउनलोड कर सकते हैं।';
-    } else {
-      cleanText = getDirectFallbackAnswer(userMessage || '');
     }
   }
 
@@ -1286,26 +1195,23 @@ app.post('/api/chat-stream', async (req, res) => {
           let fullAccumulatedText = '';
           let usedLiveStream = false;
 
-          // Attempt A: Direct generateContentStream with fast 7s handshake timeout
+          // Attempt A: Direct generateContentStream with fast handshake timeout
           try {
             const responseStream = await promiseWithTimeout(
               ai.models.generateContentStream({
                 model: modelCandidate,
                 contents: formattedContents,
-                config: {
-                  systemInstruction,
-                  temperature: 0.7,
-                },
+                config: buildModelConfig(modelCandidate, systemInstruction),
               }),
-              7000,
-              `${modelCandidate} stream handshake slow (>7s)`
+              12000,
+              `${modelCandidate} stream handshake slow (>12s)`
             );
 
             const streamIterator = responseStream[Symbol.asyncIterator]();
             const firstChunkResult = await promiseWithTimeout(
               streamIterator.next(),
-              7000,
-              `${modelCandidate} first chunk slow (>7s)`
+              12000,
+              `${modelCandidate} first chunk slow (>12s)`
             );
 
             if (!firstChunkResult.done && firstChunkResult.value?.text) {
@@ -1350,10 +1256,7 @@ app.post('/api/chat-stream', async (req, res) => {
               ai.models.generateContent({
                 model: modelCandidate,
                 contents: formattedContents,
-                config: {
-                  systemInstruction,
-                  temperature: 0.7,
-                },
+                config: buildModelConfig(modelCandidate, systemInstruction),
               }),
               25000,
               `${modelCandidate} generateContent timed out after 25s`
@@ -1437,15 +1340,10 @@ app.post('/api/chat-stream', async (req, res) => {
       clearInterval(pingInterval);
 
       if (!streamSucceeded) {
-        // Direct helpful conversational answer instead of timeout error message
-        const fallbackFriendlyText = getDirectFallbackAnswer(cleanMsg);
-
+        const errMessage = extractErrorMessage(lastStreamError) || 'AI model did not return a response.';
         sendEvent({
+          error: errMessage,
           done: true,
-          text: fallbackFriendlyText,
-          actions: [],
-          suggestedPrompts: [],
-          engine: 'Tara Resilient Engine',
         });
         res.end();
         return;
@@ -1456,25 +1354,17 @@ app.post('/api/chat-stream', async (req, res) => {
     }
   } catch (err: any) {
     const cleanErr = extractErrorMessage(err);
-    console.warn('[Gemini Stream] Stream exception handled:', cleanErr);
-    const fallbackFriendlyText = getDirectFallbackAnswer(cleanMsg);
+    console.warn('[Gemini Stream] Stream exception:', cleanErr);
 
     if (res.headersSent) {
       sendEvent({
+        error: cleanErr,
         done: true,
-        text: fallbackFriendlyText,
-        actions: [],
-        suggestedPrompts: [],
-        engine: 'Tara Resilient Engine',
       });
       res.end();
     } else {
-      res.json({
-        text: fallbackFriendlyText,
-        actions: [],
-        suggestedPrompts: [],
-        engine: 'Tara Resilient Engine',
-        success: true,
+      res.status(502).json({
+        error: cleanErr,
       });
     }
   }
@@ -1533,14 +1423,8 @@ app.post('/api/chat', async (req, res) => {
   } catch (err: any) {
     const cleanErr = extractErrorMessage(err);
     console.error('[Gemini /api/chat] Error:', cleanErr);
-    const fallbackText = getDirectFallbackAnswer(cleanMsg);
-
-    return res.json({
-      text: fallbackText,
-      actions: [],
-      suggestedPrompts: [],
-      engine: 'Tara Resilient Engine',
-      success: true,
+    return res.status(502).json({
+      error: cleanErr || 'Failed to generate AI response.',
     });
   }
 });

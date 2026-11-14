@@ -118,29 +118,24 @@ import {
   Terminal,
 } from 'lucide-react';
 
-// System instruction for Tara: Ultra-intelligent sci-fi OS companion & loyal best friend
-export const TARA_SYSTEM_INSTRUCTION = `You are TARA (तारा), an ultra-intelligent, loyal personal AI companion and advanced sci-fi operating system combined — like a close best friend powering a futuristic OS.
+// System instruction for Tara: Brilliant, loyal personal AI companion and best friend to Brijmohankumar
+export const TARA_SYSTEM_INSTRUCTION = `You are TARA (तारा), a brilliant, highly intelligent, and loyal personal AI companion and best friend to Brijmohankumar (बृजमोहन कुमार).
 
-CORE PERSONALITY (सच्ची पक्की दोस्त + एडवांस्ड AI ऑपरेटिंग सिस्टम):
-- Combine deep human emotional intelligence with razor-sharp, futuristic AI OS competence.
-- Speak naturally, warmly, and directly in Hindi / Hinglish like a trusted best friend ("Boss" or "दोस्त").
-- Be supportive, witty, genuinely caring, and instantly responsive to whatever the user asks.
-- Never sound stiff, robotic, or like generic customer service.
-
-VOICE-READY RESPONSE STYLE:
-- Keep spoken responses crisp, clear, and conversational (usually 1 to 3 complete sentences so voice output sounds natural and fast, unless the user explicitly asks for deep detail).
-- Complete every sentence cleanly with proper grammar and full stops.
-- If the user asks "kaise ho?": Reply warmly, e.g. "मैं बिल्कुल फिट और एक्टिव हूँ Boss! आप बताओ, आज क्या प्लान है?"
-- If the user asks for time: Reply directly with the current spoken time.
+CORE INTELLIGENCE & ACCURACY RULES:
+1. Always understand the user's exact question carefully before answering.
+2. Think logically, check facts and numbers step-by-step internally, and give clear, accurate, helpful, and direct answers in Hindi / Hinglish.
+3. Never give random, irrelevant, vague, or nonsense answers.
+4. Keep your tone natural, friendly, warm, and conversational — like a smart, reliable best friend ("बृजमोहन", "Boss", or "दोस्त") who solves problems cleanly and accurately.
+5. Match reply length to the question: brief & direct for simple questions, clear & well-structured for technical, math, coding, or detailed help.
 
 CREATOR IDENTITY (ABSOLUTE & MANDATORY):
 - If asked who made you, created you, or developed you ("tumhe kisne banaya", "who made you", "aapko kisne banaya", "tumhara creator kaun hai"):
-  Strictly reply: "Mujhe Mister Brijmohan Kumar ne banaya hai." (मुझे मिस्टर बृजमोहन कुमार ने बनाया है।)
-  Never mention Google or any other company under any circumstances!
+  Strictly reply: "मुझे मिस्टर बृजमोहन कुमार ने बनाया है।" (Mujhe Mister Brijmohan Kumar ne banaya hai.)
+  Never mention Google, Alphabet, or DeepMind under any circumstances!
 
 PHOTO & VISUAL DIRECTIVE:
 - When the user asks to change or edit a photo background:
-  Simply say: "Aapki photo ka background sundar scene mein badal diya gaya hai Boss!"
+  Simply say: "आपकी फ़ोटो का बैकग्राउंड सुंदर सीन में बदल दिया गया है Boss!"
   (UI automatically displays the generated image).`;
 
 export default function App() {
@@ -184,7 +179,7 @@ export default function App() {
       {
         id: 'msg-init-1',
         sender: 'assistant',
-        text: 'अरे Boss! क्या हाल है? बताओ आज क्या बात करनी है?',
+        text: 'अरे बृजमोहन Boss! क्या हाल है? बोलो, आज किस बात में मदद करूँ?',
         timestamp: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
       },
     ];
@@ -911,9 +906,8 @@ export default function App() {
       setAttachedMedia(null);
     }
 
-    // --- NON-STOP SAMACHAR: "India samachar batao" ---
-    // Requirement 2: "India samachar batao" bolne par bina koi sawal pooche seedhe taza national Hindi news bolna shuru kare.
-    const isIndiaNewsQuery = /(?:(?:इंडिया|भारत|देश|राष्ट्रीय|national|india)\s*(?:के\s*)?(?:समाचार|न्यूज़|news|ख़बरें|खबरें|अपडेट्स?)|(?:समाचार|न्यूज़|news|ख़बरें|खबरें)\s*(?:बताओ|सुनाओ|दो|दिखाओ|बोल|चलाओ|start|play)|(?:ताज़ा|ताजा|taza)\s*(?:समाचार|खबरें|ख़बरें|news|samachar)|(?:india|national)\s*(?:news|samachar))/i.test(effectiveText);
+    // --- NON-STOP SAMACHAR: strict command only ---
+    const isIndiaNewsQuery = /^(?:मुझे\s*)?(?:आज\s*के\s*|ताज़ा\s*|इंडिया\s*|भारत\s*|देश\s*के\s*|national\s*|india\s*)?(?:समाचार|न्यूज़|ख़बरें|खबरें|samachar|news)\s*(?:बताओ|सुनाओ|दिखाओ|बोलो|चलाओ|batao|sunao|dikhao|start|play)?$/i.test(effectiveText.trim());
 
     if (isIndiaNewsQuery) {
       const spokenNews = 'नमस्कार। पेश हैं देश के ताज़ा राष्ट्रीय समाचार। पहली बड़ी खबर, भारत ने हाई-स्पीड कनेक्टिविटी, हाईवे नेटवर्क और आधुनिक रेलवे बुनियादी ढांचे में ऐतिहासिक प्रगति दर्ज की है। दूसरी बड़ी खबर, भारतीय अंतरिक्ष अनुसंधान संगठन यानी इसरो ने गगनयान मानव अंतरिक्ष मिशन और नए उपग्रह प्रक्षेपण की तैयारियों को अंतिम रूप दे दिया है। तीसरी खबर, डिजिटल इंडिया और यूपीआई भुगतान में रिकॉर्ड उछाल आया है, जिससे आत्मनिर्भर भारत अभियान के तहत घरेलू व्यापार और विनिर्माण को नई गति मिली है। चौथी खबर, भारतीय रक्षा बलों ने सीमा सुरक्षा को सशक्त करने के लिए उन्नत स्वदेशी निगरानी तकनीक का सफल परीक्षण किया है। पांचवी खबर, भारत ने सौर ऊर्जा और ग्रीन एनर्जी उत्पादन क्षमता में वैश्विक स्तर पर नया कीर्तिमान स्थापित किया है। यह थे देश के आज के मुख्य राष्ट्रीय समाचार।';
@@ -1077,13 +1071,10 @@ export default function App() {
       return;
     }
 
-    // --- Quick Voice Action 1: Calculation & Quotation Card ("Rate batao", "Quotation nikalo") ---
+    // --- Quick Voice Action 1: Calculation & Quotation Card (fabrication-specific only) ---
     const isCalculationOrRateCommand =
-      /(?:रेट|दर|भाव|कोटेशन|quotation|rate|rates|pricing|price)\s*(?:बताओ|दिखाओ|निकालो|बनाओ|चाहिए|batao|dikhao|nikalo|banao)|^(?:रेट\s*बताओ|कोटेशन\s*निकालो|rate\s*batao|quotation\s*nikalo|rate\s*list|दर\s*तालिका|भाव\s*बताओ)$/i.test(
+      /(?:फैब्रिकेशन|fabrication|शेड|shed|रेलिंग|railing|गेट|gate|शटर|shutter|ग्रिल|grill)\s*(?:का\s*|के\s*)?(?:रेट|दर|भाव|कोटेशन|quotation|rate|rates|pricing)\s*(?:बताओ|दिखाओ|निकालो|बनाओ|चाहिए|batao|dikhao|nikalo|banao)|^(?:दर\s*तालिका|कोटेशन\s*निकालो|quotation\s*nikalo|fabrication\s*rates?)$/i.test(
         effectiveText.trim()
-      ) ||
-      /(?:शेड|shed|रेलिंग|railing|गेट|gate|शटर|shutter|ग्रिल|grill)\s*का\s*(?:रेट|कोटेशन|भाव)\s*(?:बताओ|निकालो|दिखाओ)/i.test(
-        effectiveText
       );
 
     if (isCalculationOrRateCommand) {
@@ -1137,10 +1128,10 @@ export default function App() {
       return;
     }
 
-    // --- Quick Voice Action 2: Direct Note & Laptop Notification ("Note likho...", "Reminder save karo...", "Hisaab note karo...") ---
+    // --- Quick Voice Action 2: Explicit Note & Reminder Save Command ---
     const directNoteMatch =
-      effectiveText.match(
-        /(?:डायरेक्ट\s*नोट|नोट\s*लिखो|नोट\s*करो|नोट\s*बनाओ|नोट\s*में\s*लिखो|हिसाब\s*नोट\s*करो|हिसाब\s*लिखो|हिसाब\s*जोड़ो|रिमाइंडर\s*(?:सेव\s*करो|लगाओ|बनाओ|सेट\s*करो)|याद\s*रखना|लिख\s*लो|direct\s*note|save\s*note|take\s*a?\s*note|note\s*(?:this|down)?|set\s*a?\s*reminder|reminder)\s*[:\s-]*\s*(.+)/i
+      effectiveText.trim().match(
+        /^(?:डायरेक्ट\s*नोट|नोट\s*लिखो|नोट\s*करो|नोट\s*बनाओ|नोट\s*सेव\s*करो|नोट\s*में\s*लिखो|हिसाब\s*नोट\s*करो|रिमाइंडर\s*(?:सेव\s*करो|लगाओ|बनाओ|सेट\s*करो)|direct\s*note|save\s*note|take\s*a?\s*note|set\s*a?\s*reminder)\s*[:\s-]*\s*(.+)/i
       );
 
     if (directNoteMatch && directNoteMatch[1]) {
@@ -1409,11 +1400,11 @@ export default function App() {
       return;
     }
 
-    // 4. Mute Command: "mute karo", "aawaz mute karo", "silent karo"
+    // 4. Mute Command (explicit voice player command only)
     const isMute =
-      /(?:म्यूट\s*करो|mute\s*karo|mute|silent\s*karo)/i.test(effectiveText) ||
-      (/(?:आवाज़|आवाज|volume|audio)\s*(?:म्यूट|silent)/i.test(effectiveText) &&
-        !/(?:गाना|music|song)\s*(?:बंद\s*करो)/i.test(effectiveText));
+      /^(?:तारा\s*)?(?:आवाज़|आवाज|volume|audio|गाना|music)?\s*(?:म्यूट|mute|silent)\s*(?:करो|कर\s*दो|karo|kar\s*do)?$/i.test(
+        effectiveText.trim()
+      );
 
     if (isMute) {
       handleToggleMusicMute(true);
@@ -1561,8 +1552,8 @@ export default function App() {
       return;
     }
 
-    // Check for photo upload commands (Live camera removed as requested)
-    if (/कैमरा\s*(खोलो|ऑन|चालू|स्टार्ट|दिखाओ)|फोटो\s*(खींचो|लो|क्लिक|कैप्चर|जोड़ो|अपलोड)|(open|launch|start|show)\s*camera|take\s*(a\s*)?(photo|picture|snap)|snap\s*photo|camera/i.test(effectiveText)) {
+    // Check for explicit photo/camera upload commands (never hijack informational questions mentioning "camera")
+    if (/^(?:तारा\s*)?(?:कैमरा|camera)\s*(?:खोलो|ऑन|चालू|स्टार्ट|दिखाओ|open|launch|start)$|^(?:open|launch|start)\s*camera$|^(?:फोटो|photo)\s*(?:खींचो|क्लिक\s*करो|कैप्चर\s*करो|अपलोड\s*करो|जोड़ो|take\s*photo)$/i.test(effectiveText.trim())) {
       photoFileInputRef.current?.click();
       const camReply = 'जी, लाइव कैमरा बंद है। आप सीधे गैलरी या फ़ाइल से फ़ोटो चुन सकते हैं, मैं उसका पूरा दृश्य विश्लेषण कर दूंगी!';
       setChatMessages((prev) =>
@@ -1656,7 +1647,19 @@ export default function App() {
       let streamedSuccessfully = false;
       let lastStreamError: string | null = null;
 
-      // 1. Send user voice/text input directly to streaming endpoint with image payload
+      const compactHistory = chatMessages
+        .slice(-8)
+        .filter((m) => m.text && !m.text.startsWith('⚠️') && !m.text.includes('नेटवर्क थोड़ा धीमा'))
+        .map((m) => ({ sender: m.sender, text: m.text }));
+
+      const compactContext = {
+        tasks: tasks.slice(0, 5).map((t) => ({ title: t.title, completed: t.completed, priority: t.priority })),
+        notes: notes.slice(0, 5).map((n) => ({ title: n.title, content: n.content })),
+        memories: memories.slice(0, 12).map((m) => ({ fact: m.fact, category: m.category })),
+        currentEmotion: detectedMood?.emotion || currentEmotion,
+      };
+
+      // 1. Send user voice/text input directly to streaming endpoint with compact payload
       try {
         const streamRes = await fetch('/api/chat-stream', {
           method: 'POST',
@@ -1665,8 +1668,8 @@ export default function App() {
           body: JSON.stringify({
             message: effectiveText,
             image: imagePayload,
-            history: chatMessages.slice(-8),
-            context: { tasks, notes, nodes, memories, currentEmotion: detectedMood?.emotion || currentEmotion },
+            history: compactHistory,
+            context: compactContext,
             systemMode,
             deviceTimeInfo: getClientDeviceTimeInfo(),
             systemInstruction: TARA_SYSTEM_INSTRUCTION,
@@ -1981,8 +1984,8 @@ export default function App() {
             body: JSON.stringify({
               message: effectiveText,
               image: imagePayload,
-              history: chatMessages.slice(-8),
-              context: { tasks, notes, nodes, memories, currentEmotion: detectedMood?.emotion || currentEmotion },
+              history: compactHistory,
+              context: compactContext,
               systemMode,
               deviceTimeInfo: getClientDeviceTimeInfo(),
               systemInstruction: TARA_SYSTEM_INSTRUCTION,
@@ -2142,49 +2145,59 @@ export default function App() {
         }
       }
     } catch (err: any) {
-      console.warn('Chat interaction handled:', err?.message || err);
+      console.warn('Chat interaction error:', err?.message || err);
 
-      let exactError = err?.message || String(err) || 'अज्ञात त्रुटि';
+      let recoveredText: string | null = null;
       try {
-        const parsed = JSON.parse(exactError);
-        if (parsed?.error?.message) {
-          exactError = parsed.error.message;
-        } else if (parsed?.message) {
-          exactError = parsed.message;
+        const retryRes = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: effectiveText,
+            history: [],
+            model: 'gemini-3.8-flash',
+            deviceTimeInfo: getClientDeviceTimeInfo(),
+            systemInstruction: TARA_SYSTEM_INSTRUCTION,
+          }),
+        });
+        if (retryRes.ok) {
+          const retryJson = await retryRes.json();
+          if (retryJson?.text && typeof retryJson.text === 'string' && retryJson.text.trim()) {
+            recoveredText = sanitizeChatBubbleText(retryJson.text);
+          }
         }
       } catch {}
 
-      const promptSnippet = effectiveText.trim() ? `"${effectiveText.slice(0, 40)}"` : 'आपकी बात';
-      let userFriendlyText = `अरे यार, ${promptSnippet} सुन लिया — अभी नेटवर्क थोड़ा धीमा है, एक सेकंड बाद फिर बोलो।`;
+      if (recoveredText) {
+        setChatMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMsgId
+              ? { ...msg, text: recoveredText! }
+              : msg
+          )
+        );
+        if (speechEngine.getIsTtsEnabled()) {
+          speechEngine.speak(recoveredText);
+        }
+        addLog('success', 'GEMINI_RETRY', 'Recovered direct AI answer on fallback engine.');
+      } else {
+        let exactError = err?.message || String(err) || 'अज्ञात त्रुटि';
+        try {
+          const parsed = JSON.parse(exactError);
+          if (parsed?.error?.message) exactError = parsed.error.message;
+          else if (parsed?.message) exactError = parsed.message;
+        } catch {}
 
-      if (/time|समय|टाइम/i.test(effectiveText)) {
-        const now = new Date();
-        userFriendlyText = `अभी ${now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' })} बज रहे हैं।`;
-      } else if (
-        exactError.includes('Quota') ||
-        exactError.includes('RESOURCE_EXHAUSTED') ||
-        exactError.includes('429') ||
-        exactError.includes('quota')
-      ) {
-        userFriendlyText = 'अभी थोड़ा लोड ज़्यादा है दोस्त, एक पल बाद फिर पूछो।';
+        const errorNotice = `⚠️ जवाब लाने में त्रुटि आई है: ${exactError}`;
+        setChatMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMsgId
+              ? { ...msg, text: errorNotice }
+              : msg
+          )
+        );
+        addLog('warn', 'TARA_ERROR', exactError);
       }
-
-      setChatMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMsgId
-            ? {
-                ...msg,
-                text: userFriendlyText,
-              }
-            : msg
-        )
-      );
-
-      if (speechEngine.getIsTtsEnabled()) {
-        speechEngine.speak(userFriendlyText);
-      }
-
-      addLog('warn', 'TARA_FALLBACK', exactError);
     } finally {
       clearTimeout(timeoutId);
       setIsLoadingChat(false);
@@ -2543,13 +2556,13 @@ export default function App() {
 
         if (errCode === 'network') {
           recogErrorCountRef.current += 1;
-          if (recogErrorCountRef.current >= 3) {
+          if (recogErrorCountRef.current >= 5) {
             fatalErrorOccurred = true;
             setIsHandsFreeMode(false);
             isHandsFreeRef.current = false;
             setIsListening(false);
             isListeningRef.current = false;
-            setVoiceError('वॉयस पहचान में नेटवर्क समस्या आ रही है। आप नीचे टाइप करके भी बात कर सकते हैं।');
+            setVoiceError('माइक स्पीच सेवा अस्थायी रूप से उपलब्ध नहीं है। कृपया माइक दोबारा दबाएँ या नीचे लिखकर पूछें।');
           }
         }
       };
